@@ -1,7 +1,7 @@
 # dsh-whale-sensei（鲸师）
 
 把 **课程包**变成可教、可判、可留痕的东西 —— 一个装进 DeepSeek Harness 工具面的插件：
-**14 个能力模块 / 14 个工具**，覆盖教师端做课与学生端学·问两条线。
+**15 个能力模块 / 14 个工具 / 4 条 HTTP 路由**，覆盖教师端做课与学生端学·问两条线。
 
 > 由 `dsh-plugin-kit` 脚手架起手。本插件**零运行时依赖**（只用 Node 内建）。
 > 仓库：<https://gitee.com/bouyer/dsh-whale-sensei>
@@ -79,7 +79,7 @@ npx @deepseek-ai/dsh --profile web --dump-config
 #   期望： # == dsh-whale-sensei, patched by …/cordis.patch.yml
 #          - id: whale-sensei  …  config: { packRoot: ... }
 
-# ② 插件自带判据（20 套：3091 没跑时 523 条断言；跑起来更多 —— visual/practice 的浏览器断言那时才执行）
+# ② 插件自带判据（20 套：3091 没跑时 543 条断言；跑起来更多 —— visual/practice 的浏览器断言那时才执行）
 npm test
 
 # ③ 课程包闸门（16 条）
