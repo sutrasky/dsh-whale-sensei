@@ -83,7 +83,7 @@ ok(!P?.facts.files.some((f) => /\.LCK|~$/.test(f)), '编辑器锁文件没被算
 // ⚠️ 这两条是实际输出暴露的漏判：主源/测试数被数成 0，pack 计数打成了 [object Object]
 ok(P?.facts.java.main.length === 2 && P?.facts.java.test.length === 1, `主源 2 / 测试 1（实得 ${P?.facts.java.main.length}/${P?.facts.java.test.length}）`)
 ok(typeof state.pack.learned === 'number' && typeof state.pack.lessons === 'number', `pack 计数是数字（learned=${typeof state.pack.learned}、lessons=${typeof state.pack.lessons}）`)
-ok(state.pack.lessons === 2 && state.pack.learned === 1, `pack 计数正确：2 门课 / 点亮 1（实得 ${state.pack.lessons}/${state.pack.learned}）`)
+ok(state.pack.lessons === 3 && state.pack.learned === 1, `pack 计数正确：3 门课 / 点亮 1（实得 ${state.pack.lessons}/${state.pack.learned}）`)
 ok(!JSON.stringify(summarizeState(state)).includes('[object Object]'), '摘要里没有 [object Object]（渲染出来的每一行都是给人看的）')
 
 // ── ② 与人工记录对齐（外部锚）──
