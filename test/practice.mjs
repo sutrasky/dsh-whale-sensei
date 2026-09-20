@@ -31,7 +31,7 @@ function ok(cond, msg) {
 }
 const sha = (b) => crypto.createHash('sha256').update(b).digest('hex').slice(0, 12)
 const DATA_REL = 'assets/practice-data.js'
-const realBefore = sha(fs.readFileSync(path.join(ROOT, DATA_REL))) + '|' + sha(fs.readFileSync(path.join(ROOT, 'lessons', '0001-spring-boot-hello-world.html')))
+const realBefore = sha(fs.readFileSync(path.join(ROOT, DATA_REL))) + '|' + sha(fs.readFileSync(path.join(ROOT, 'lessons', 'programming', 'spring-boot', '0001-spring-boot-hello-world.html')))
 const LIVE_BASE = process.env.WHALE_VISUAL_BASE || 'http://127.0.0.1:3091'
 
 console.log(`\n[practice] 课程包：${ROOT}`)
@@ -90,13 +90,13 @@ try {
 
 // ── B. 真浏览器：实践区真的显示出来了吗 ──
 const exe = findBrowser()
-const probe = exe ? await probeBase(LIVE_BASE, '/lessons/0001-spring-boot-hello-world.html') : { ok: false, why: '找不到浏览器' }
+const probe = exe ? await probeBase(LIVE_BASE, '/lessons/programming/spring-boot/0001-spring-boot-hello-world.html') : { ok: false, why: '找不到浏览器' }
 if (!exe || !probe.ok) {
   console.log(`⚠️  跳过真浏览器那一层：${exe ? `${LIVE_BASE} 连不上（${probe.why}）` : '本机找不到 Edge/Chrome'} —— 起了服务再跑就是绿的：node tools/app-server.js`)
 } else {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-practice-prof-'))
   try {
-    const dom = dumpDom({ exe, url: `${LIVE_BASE}/lessons/0001-spring-boot-hello-world.html`, profileDir: profile, budgetMs: 5000 })
+    const dom = dumpDom({ exe, url: `${LIVE_BASE}/lessons/programming/spring-boot/0001-spring-boot-hello-world.html`, profileDir: profile, budgetMs: 5000 })
     const html = dom.html || ''
     ok(/id="practice-zone"/.test(html), '页面上有实践区的挂载点')
     ok(/实践区/.test(html) && /达成 3 \/ 共 3/.test(html), '真浏览器里实践区**渲染出来了**，且显示「达成 3 / 共 3」')
@@ -110,7 +110,7 @@ if (!exe || !probe.ok) {
 }
 
 ok(
-  sha(fs.readFileSync(path.join(ROOT, DATA_REL))) + '|' + sha(fs.readFileSync(path.join(ROOT, 'lessons', '0001-spring-boot-hello-world.html'))) === realBefore,
+  sha(fs.readFileSync(path.join(ROOT, DATA_REL))) + '|' + sha(fs.readFileSync(path.join(ROOT, 'lessons', 'programming', 'spring-boot', '0001-spring-boot-hello-world.html'))) === realBefore,
   '真包未被改动（practice-data.js + 课程页哈希相同）'
 )
 

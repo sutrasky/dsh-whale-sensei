@@ -24,10 +24,21 @@ const fails = []
 function ok(cond, msg) {
   if (cond) { pass++; console.log('ok   ' + msg) } else { fails.push(msg); console.log('FAIL ' + msg) }
 }
+function lessonRelPaths(lessons) {
+  const out = []
+  ;(function walk(d, prefix = '') {
+    for (const e of fs.readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const rel = prefix ? `${prefix}/${e.name}` : e.name
+      if (e.isDirectory()) { if (e.name !== 'src') walk(path.join(d, e.name), rel); continue }   // src = 作者态镜像
+      if (e.name.endsWith('.html')) out.push(rel)
+    }
+  })(lessons)
+  return out.sort()
+}
 function hashTree(root) {
   const out = []
   const lessons = path.join(root, 'lessons')
-  for (const f of fs.readdirSync(lessons).filter((x) => x.endsWith('.html')).sort()) {
+  for (const f of lessonRelPaths(lessons)) {
     out.push(f + ':' + fs.readFileSync(path.join(lessons, f), 'utf8').length + ':' + sha(fs.readFileSync(path.join(lessons, f))))
   }
   for (const rel of ['assets/theme.css', 'starmap/content.js']) {
@@ -48,7 +59,7 @@ const tool = tools.find((t) => t.name === 'whale_build')
 ok(!!tool, 'whale_build 装得上')
 
 console.log(`\n[write] 课程包：${ROOT}`)
-const realPages = fs.readdirSync(path.join(ROOT, 'lessons')).filter((f) => f.endsWith('.html')).sort()
+const realPages = lessonRelPaths(path.join(ROOT, 'lessons'))
 ok(realPages.length > 0, `真包里有 ${realPages.length} 个课程页`)
 const realBefore = hashTree(ROOT)
 

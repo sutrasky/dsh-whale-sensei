@@ -26,7 +26,7 @@ function ok(cond, msg) {
 }
 const LIVE_BASE = process.env.WHALE_VISUAL_BASE || 'http://127.0.0.1:3091'
 const sha = (b) => crypto.createHash('sha256').update(b).digest('hex').slice(0, 12)
-const realBefore = sha(fs.readFileSync(path.join(ROOT, 'lessons', '0001-spring-boot-hello-world.html')))
+const realBefore = sha(fs.readFileSync(path.join(ROOT, 'lessons', 'programming', 'spring-boot', '0001-spring-boot-hello-world.html')))
 
 console.log(`\n[visual] 课程包：${ROOT}`)
 
@@ -135,7 +135,7 @@ if (!exe) {
   ok(bad.ok === false && /app-server\.js/.test(bad.error), `服务没在跑 → 明确报错并指路（${String(bad.error).slice(0, 46)}…）`)
 }
 
-ok(sha(fs.readFileSync(path.join(ROOT, 'lessons', '0001-spring-boot-hello-world.html'))) === realBefore, '真包未被改动（课程页哈希相同）')
+ok(sha(fs.readFileSync(path.join(ROOT, 'lessons', 'programming', 'spring-boot', '0001-spring-boot-hello-world.html'))) === realBefore, '真包未被改动（课程页哈希相同）')
 
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }

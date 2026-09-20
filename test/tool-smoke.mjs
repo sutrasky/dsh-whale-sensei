@@ -85,7 +85,7 @@ for (const t of tools) {
 }
 
 // ── 只读调用：跑一遍，且不许碰磁盘 ──
-const WATCH = ['lessons/0001-spring-boot-hello-world.html', 'assets/theme.css', 'starmap/content.js', 'learning-records/state.json', 'questions/pending.jsonl', 'questions/seq.txt', 'GLOSSARY.md', 'learning-records/brief.md']
+const WATCH = ['lessons/programming/spring-boot/0001-spring-boot-hello-world.html', 'assets/theme.css', 'starmap/content.js', 'learning-records/state.json', 'questions/pending.jsonl', 'questions/seq.txt', 'GLOSSARY.md', 'learning-records/brief.md']
 function snap() {
   return WATCH.map((rel) => {
     const p = path.join(ROOT, rel)
@@ -100,7 +100,7 @@ const CALLS = [
   ['whale_audit', {}],
   ['whale_style', {}], // 默认不 commit → 不许写盘
   ['whale_mode', { stored: 'dark', systemDark: false }],
-  ['whale_probe', { path: 'lessons/src/0001-spring-boot-hello-world.html' }],
+  ['whale_probe', { path: 'lessons/src/programming/spring-boot/0001-spring-boot-hello-world.html' }],
   ['whale_state', {}], // 默认只读 → 不许产生 learning-records/state.json
   ['whale_ask', { action: 'list' }], // 只读 → 不许动 pending.jsonl / seq.txt
   ['whale_glossary', {}], // 默认只检查 → 不许动 GLOSSARY.md
@@ -136,7 +136,7 @@ ok(
   /未写盘/.test(byName('whale_author').output.render({}, authorValue).map((x) => x.text).join(' ')),
   'whale_author 的 render 文案也说明了"未写盘"（不然调用方会以为已经生成）'
 )
-ok(!fs.existsSync(path.join(ROOT, 'lessons', 'src', '0009-smoke-skeleton.html')), 'whale_author 确实没有落盘')
+ok(!fs.existsSync(path.join(ROOT, 'lessons', 'src', 'programming', 'spring-boot', '0009-smoke-skeleton.html')), 'whale_author 确实没有落盘')
 
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }

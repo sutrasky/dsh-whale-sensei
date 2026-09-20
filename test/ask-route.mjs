@@ -51,7 +51,7 @@ function hashTree(dir) {
 }
 const realBefore = hashTree(path.join(ROOT, 'questions')) + '||' + sha(fs.readFileSync(path.join(ROOT, 'assets', 'ask.js')))
 
-const BODY = { question: '为什么 @RestController 能直接返回 JSON？', lesson: 'spring-boot/0001', page: 'lessons/0001-spring-boot-hello-world.html', title: '第1课' }
+const BODY = { question: '为什么 @RestController 能直接返回 JSON？', lesson: 'spring-boot/0001', page: 'lessons/programming/spring-boot/0001-spring-boot-hello-world.html', title: '第1课' }
 const CLOCK = () => '2026-01-01T00:00:00.000Z' // 时钟注入 → 产物可对拍
 
 console.log(`\n[ask] 课程包：${ROOT}`)

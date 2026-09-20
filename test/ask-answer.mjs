@@ -59,7 +59,7 @@ try {
   // 造一条待答疑问（学号 0004）
   const MARK = 'ASK-ANSWER-MARK-0004'
   fs.appendFileSync(PENDING, JSON.stringify({
-    id: '0004', at: '2026-01-01T00:00:00.000Z', lesson: '第2课', page: 'lessons/0002-rest-api-crud.html',
+    id: '0004', at: '2026-01-01T00:00:00.000Z', lesson: '第2课', page: 'lessons/programming/spring-boot/0002-rest-api-crud.html',
     title: '第二课', question: '为什么 @RequestBody 要配合 @Valid 才生效？', status: 'pending',
   }) + '\n', 'utf8')
   const pendingLines = () => fs.readFileSync(PENDING, 'utf8').split('\n').filter((l) => l.trim()).length

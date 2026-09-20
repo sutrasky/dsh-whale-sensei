@@ -81,7 +81,16 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-m2-'))
 try {
   fs.cpSync(ROOT, tmp, { recursive: true })
   const srcDir = path.join(tmp, 'lessons', 'src')
-  const srcs = fs.readdirSync(srcDir).filter((f) => /^\d{4}-.*\.html$/.test(f)).sort()
+  // 递归（分层布局后源文件在 lessons/src/<圆圈>/<知识点>/ 下；平铺时代这里是直接 readdir）
+  const srcs = (function walk(d, prefix = '') {
+    const out = []
+    for (const e of fs.readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const rel = prefix ? `${prefix}/${e.name}` : e.name
+      if (e.isDirectory()) { out.push(...walk(path.join(d, e.name), rel)); continue }
+      if (/^\d{4}-.*\.html$/.test(e.name)) out.push(rel)
+    }
+    return out
+  })(srcDir)
   ok(srcs.length > 0, `影子副本里有 ${srcs.length} 个源文件`)
   const target = srcs[srcs.length - 1]
   const MARK = '<!--M2-PARITY-MARK-->'

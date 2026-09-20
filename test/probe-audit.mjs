@@ -29,14 +29,14 @@ console.log(`\n[t5a] 课程包：${ROOT}`)
 const pack = readPack(ROOT)
 
 // ① 纯函数
-const a = JSON.stringify(probePath(ROOT, 'lessons/0001-spring-boot-hello-world.html', pack))
-const b = JSON.stringify(probePath(ROOT, 'lessons/0001-spring-boot-hello-world.html', pack))
+const a = JSON.stringify(probePath(ROOT, 'lessons/programming/spring-boot/0001-spring-boot-hello-world.html', pack))
+const b = JSON.stringify(probePath(ROOT, 'lessons/programming/spring-boot/0001-spring-boot-hello-world.html', pack))
 ok(a === b, 'probe 是纯函数：同一输入两次结果逐字相同')
 
 // ② 已知分类 + 依据
 const CASES = [
-  ['lessons/0001-spring-boot-hello-world.html', 'lesson-page'],
-  ['lessons/src/0001-spring-boot-hello-world.html', 'lesson-src'],
+  ['lessons/programming/spring-boot/0001-spring-boot-hello-world.html', 'lesson-page'],
+  ['lessons/src/programming/spring-boot/0001-spring-boot-hello-world.html', 'lesson-src'],
   ['reference/NOTES.html', 'reference'],
   ['starmap/content.js', 'artifact'],
   ['starmap/index.html', 'artifact'],
@@ -107,8 +107,22 @@ try {
   const abs = path.join(tmp, page)
   fs.writeFileSync(abs, fs.readFileSync(abs, 'utf8').replace('</body>', '<a href="./nope-不存在.html">x</a></body>'), 'utf8')
   // ② 造一个课程 id 重复：把同一份源拷成第二个文件名（课号相同 → id 相同）
-  const srcs = fs.readdirSync(path.join(tmp, 'lessons', 'src')).filter((f) => /^\d{4}-.*\.html$/.test(f))
-  if (srcs[0]) fs.copyFileSync(path.join(tmp, 'lessons', 'src', srcs[0]), path.join(tmp, 'lessons', 'src', '0001-dup.html'))
+  const SRC_ROOT = path.join(tmp, 'lessons', 'src')
+  // 递归（分层布局后源文件在 lessons/src/<圆圈>/<知识点>/ 下）
+  const srcs = (function walk(d, prefix = '') {
+    const out = []
+    for (const e of fs.readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const rel = prefix ? `${prefix}/${e.name}` : e.name
+      if (e.isDirectory()) { out.push(...walk(path.join(d, e.name), rel)); continue }
+      if (/^\d{4}-.*\.html$/.test(e.name)) out.push(rel)
+    }
+    return out
+  })(SRC_ROOT)
+  if (srcs[0]) {
+    const from = path.join(SRC_ROOT, srcs[0])
+    // 同目录内造重复课号：层级必须一致，否则 build-lessons 会拒「源文件层级混用」
+    fs.copyFileSync(from, path.join(path.dirname(from), '0001-dup.html'))
+  }
 
   const badPack = readPack(tmp)
   const r = auditPack(tmp, badPack)
