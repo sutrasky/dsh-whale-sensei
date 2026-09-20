@@ -23,6 +23,38 @@ function ok(cond, msg) {
 }
 
 const MODS = ['lessonpack', 'build', 'probe', 'audit', 'style', 'mode', 'author', 'state', 'ask', 'glossary', 'brief', 'visual', 'practice']
+// 这里是**注册工具的**模块。`note` / `status` 只挂 HTTP 路由、不注册工具，所以不在本表里
+// （它们的路由由下面「路由面」那一段按模块表的 enabled 逐个数，不靠这张手写表）。
+
+// ── 路由面：每条注册的路由都必须**显式声明 requestBody** ──────────────────
+// 2026-09-24 现场踩到：漏写它时基座（`dsh-client-connection/lib/index.js:47,74-80`）按 `undefined`
+// 分流，掉进 streaming 分支，给 GET 装了个 body ⇒ `Request with GET/HEAD method cannot have body`
+// ⇒ 回 **400 空体**，而浏览器那侧 `.json()` 报的是 `Unexpected end of JSON input`
+// ——**报错指向 JSON，真因在路由声明**。宿主的 `assertFetchRoute` 不校验这个字段，只能我们自己钉。
+{
+  const { manifest } = await import('../lib/mods/index.js')
+  const routes = []
+  const routeCtx = {
+    paths: { packRoot: ROOT, dataDir: ROOT },
+    log: () => {},
+    registerTool: () => {},
+    inject: (names, cb) => cb({ get: () => ({ fetch: { register: (r) => routes.push(r) } }) }),
+  }
+  for (const id of manifest.mods.enabled) {
+    const mod = await import(`../lib/mods/${id}.js`)
+    mod.plugin.install(routeCtx)
+  }
+  ok(routes.length > 0, `按模块表的 enabled 数出 ${routes.length} 条路由（${routes.map((r) => r.path).join(' · ')}）`)
+  const undeclared = routes.filter((r) => r.requestBody !== 'buffered' && r.requestBody !== 'streaming')
+  ok(
+    undeclared.length === 0,
+    `每条路由都显式声明了 requestBody${undeclared.length
+      ? '（缺：' + undeclared.map((r) => r.path).join('、') + ' ⇒ 基座会当 streaming，GET 会 400 空体）'
+      : `（${routes.map((r) => r.path.split('/').pop() + '=' + r.requestBody).join(' · ')}）`}`,
+  )
+  ok(routes.every((r) => typeof r.path === 'string' && r.path.startsWith('/api/')), '每条路由都在 /api 前缀下（栅栏与认证由基座继承）')
+  ok(routes.every((r) => Array.isArray(r.methods) && r.methods.length > 0 && new Set(r.methods).size === r.methods.length), '每条路由的 methods 非空且不重复')
+}
 const tools = []
 const hctx = {
   paths: { packRoot: ROOT, dataDir: ROOT },
@@ -41,8 +73,9 @@ for (const m of MODS) {
 }
 
 console.log(`\n[smoke] 注册到 ${tools.length} 个工具：${tools.map((t) => t.name).join(' · ')}`)
-// whale_ping 是 lib/index.js 里的存活探针，不在 mods/ 表里 —— 所以这里是 7 个（工具面共 8 个）
-ok(tools.length === MODS.length, `mods 表里的 ${MODS.length} 个模块各注册一个工具（实得 ${tools.length}）`)
+// 上表 13 个模块各注册一个工具；另有 `note` / `status` 只挂路由不注册工具，以及
+// `lib/index.js` 里的存活探针 `whale_ping`（不在 mods/ 表里）—— 所以工具面总数比上表多 1。
+ok(tools.length === MODS.length, `上表 ${MODS.length} 个模块各注册一个工具（实得 ${tools.length}）`)
 
 const FIELDS = ['name', 'description', 'parameters', 'output', 'execute']
 for (const t of tools) {

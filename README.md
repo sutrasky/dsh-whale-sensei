@@ -26,14 +26,25 @@
 
 ### 1) 把插件装进 profile
 
+**普通使用者（从 npm 装）**：
+
+```bash
+dsh plugin --profile web add dsh-whale-sensei
+```
+
+**改源码的人（从本仓装）**：
+
 ```bash
 dsh plugin --profile web add link:E:/workplace/dsh-whale-sensei
 ```
 
-⚠️ **用 `link:`，不要用 `file:`** —— `link:` 建的是 Junction，改源码重启即生效；
+⚠️ 这条**用 `link:`，不要用 `file:`** —— `link:` 建的是 Junction，改源码重启即生效；
 `file:` 在某些情况下会装成真实目录（拷贝），于是"改了源码、也重启了宿主，跑的还是旧代码"。
 
 或者直接跑仓库里的脚本：`install-whale-sensei.ps1`。
+
+> 诚实标注：本机一直在用 `link:` 那条；**npm 那条未在本机实测**（装了它会把这个 link 顶掉）。
+> 两条除"代码从哪来"以外没有别的差别。
 
 ### 2) **必须配 `packRoot`**（不配等于装了不能用）
 

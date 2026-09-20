@@ -1,6 +1,6 @@
 {
   "name": "dsh-whale-sensei",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "鲸师：把课程包变成可教的课程页 + 知识星图（DSH 插件）",
   "type": "module",
   "main": "lib/index.js",
