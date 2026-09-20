@@ -79,7 +79,7 @@ npx @deepseek-ai/dsh --profile web --dump-config
 #   期望： # == dsh-whale-sensei, patched by …/cordis.patch.yml
 #          - id: whale-sensei  …  config: { packRoot: ... }
 
-# ② 插件自带判据（20 套：3091 没跑时 543 条断言；跑起来更多 —— visual/practice 的浏览器断言那时才执行）
+# ② 插件自带判据（20 套：3091 没跑时 559 条断言；跑起来更多 —— visual/practice 的浏览器断言那时才执行）
 npm test
 
 # ③ 课程包闸门（16 条）

@@ -6,13 +6,14 @@
  *   如果建议是写死的字符串，这一条就会红 ✓
  *
  * 判据：
- *   ① 真包上跑：六段齐全，数字与各来源**对拍**（pack / state / queue / glossary / records）
+ *   ① 真包上跑：七段齐全，数字与各来源**对拍**（pack / state / queue / glossary / records / notes）
  *   ② 补齐缺口（建 4 个包 + pom 加依赖）→ 建议变成 open-next-lesson
  *   ③ 投一条待答 → 建议变成 answer-pending（学生当场等的优先）
  *   ④ 删掉 EXPECT.json → 建议 unknown，且 why 说明"没有声明期望"，**不许**说缺什么
  *   ⑤ 确定性：两次渲染逐字节相同、不含时间戳
  *   ⑥ 默认不写盘；write=true → learning-records/brief.md == 渲染结果；再写不重写
  *   ⑦ 真包未被改动
+ *   ⑧ 学生笔记：空台账 → 这段在、写「还没有笔记」、不崩；有笔记时总条数正确、正文出现、课次显示名、截断、无时间戳
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -25,6 +26,7 @@ import { loadGlossaryLedger, glossarySummary } from '../lib/glossary-io.js'
 import { listLearningRecords } from '../lib/brief-io.js'
 import { assertLosslessJson } from '../lib/state.js'
 import { plugin as briefPlugin } from '../lib/mods/brief.js'
+import { readNotes } from '../lib/notes-io.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = process.argv[2] || path.resolve(HERE, '..', '..', 'study')
@@ -68,8 +70,8 @@ const v1 = await tool.execute({ root: ROOT })
 const pack = readPack(ROOT)
 const titles = v1.brief.sections.map((s) => s.title)
 ok(
-  ['课程包', '学生现状', '待答', '已答', '术语', '学习记录'].every((t) => titles.includes(t)),
-  `六段齐全（${titles.join(' / ')}）`
+  ['课程包', '学生现状', '待答', '已答', '术语', '学生笔记', '学习记录'].every((t) => titles.includes(t)),
+  `七段齐全（${titles.join(' / ')}）`
 )
 ok(v1.markdown.includes(`${pack.circles.length} 个圆圈`) && v1.markdown.includes(`${pack.lessons.length} 门课程`), '课程包数字与 readPack 一致')
 const q = readQueue(ROOT)
@@ -79,6 +81,15 @@ ok(v1.markdown.includes(`${g.count} 个名词`) && v1.markdown.includes(`${g.cat
 ok(v1.markdown.includes(`${listLearningRecords(ROOT).length} 份`), `学习记录份数与目录一致（${listLearningRecords(ROOT).length}）`)
 ok(v1.brief.next.action === 'continue-lesson' && /第2课/.test(v1.brief.next.why), `真包上的建议：${v1.brief.next.action} —— ${v1.brief.next.why}`)
 ok(/还缺 5 项/.test(v1.brief.next.why) && !/spring-boot\/0002 还缺/.test(v1.brief.next.why), '建议里说的是**课标题**（给教师看的一页），不是内部 id')
+
+// ── ⑧ 学生笔记（真包上）──
+const realNotes = readNotes(ROOT)
+const noteSection = v1.brief.sections.find((s) => s.title === '学生笔记')
+ok(!!noteSection, '学生笔记这一段存在')
+ok(noteSection.lines[0] === `共 ${realNotes.length} 条`, `笔记总条数与 readNotes 一致（${realNotes.length}）`)
+if (realNotes.length) {
+  ok(v1.markdown.includes(realNotes[0].text.slice(0, 40)), '第一条笔记正文出现在 brief 里')
+}
 
 // ── ⑤ 确定性与 no-timestamp ──
 const v1b = await tool.execute({ root: ROOT })
@@ -117,6 +128,53 @@ try {
   ok(noExpect.brief.next.action === 'unknown', `没有期望时：${noExpect.brief.next.action}`)
   ok(/期望|声明/.test(noExpect.brief.next.why) && !/缺 .*项/.test(noExpect.brief.next.why), `不猜缺什么（why：${noExpect.brief.next.why}）`)
   ok(/未声明期望/.test(noExpect.markdown), '正文里也写明这一条')
+
+  // ── ⑧ 学生笔记：空台账 + 写入 + 截断 + 显示名 ──
+  // 恢复 EXPECT.json（④ 删了它）
+  fs.writeFileSync(path.join(tmp, 'code', '_hello-spring-boot', 'EXPECT.json'), JSON.stringify({ lessons: [{ id: 'spring-boot/0001', title: '第1课 REST 基础' }, { id: 'spring-boot/0002', title: '第2课 REST API 与分层' }] }), 'utf8')
+  // 空台账：这段在、写「还没有笔记」
+  const emptyNotes = await tool2.execute({ root: tmp })
+  const noteSec0 = emptyNotes.brief.sections.find((s) => s.title === '学生笔记')
+  ok(!!noteSec0, '空台账时学生笔记这一段仍在')
+  ok(noteSec0.lines[0] === '共 0 条', '空台账总条数为 0')
+  ok(noteSec0.lines.includes('还没有笔记'), '空台账写「还没有笔记」')
+
+  // 写入 3 条笔记，覆盖截断和显示名
+  const noteDir = path.join(tmp, 'notes')
+  fs.mkdirSync(noteDir, { recursive: true })
+  const longText = '这是一段超长的笔记正文，用来测试截断功能。'.repeat(10) // >120 字符
+  const notesLines = [
+    JSON.stringify({ id: '0001', seq: 1, kind: '笔记', anchor: 'spring-boot/0001', text: '第一条笔记正文' }),
+    JSON.stringify({ id: '0002', seq: 2, kind: '笔记', anchor: 'spring-boot/0002', text: longText }),
+    JSON.stringify({ id: '0003', seq: 3, kind: '笔记', anchor: 'spring-boot/0001', text: '第三条' }),
+  ].join('\n') + '\n'
+  fs.writeFileSync(path.join(noteDir, 'notes.jsonl'), notesLines, 'utf8')
+
+  const withNotes = await tool2.execute({ root: tmp })
+  const noteSec = withNotes.brief.sections.find((s) => s.title === '学生笔记')
+  ok(!!noteSec, '有笔记时学生笔记这一段在')
+  const directNotes = readNotes(tmp)
+  ok(noteSec.lines[0] === `共 ${directNotes.length} 条`, `笔记总条数与 readNotes 一致（${directNotes.length}）`)
+  ok(noteSec.lines[0] === '共 3 条', '写了 3 条就是 3 条')
+  ok(withNotes.markdown.includes('第一条笔记正文'), '第一条笔记正文出现在 brief 里')
+  ok(noteSec.lines.some((l) => l.includes('第1课')), '显示的是课次显示名（第1课），不是生锚点')
+  ok(noteSec.lines.some((l) => l.includes('…')), '超长正文被截断且有可见标记（…）')
+  ok(!withNotes.markdown.includes(longText), '完整超长文本不出现在 brief 里（被截断了）')
+  // 确定性：两次渲染逐字节相同
+  const withNotes2 = await tool2.execute({ root: tmp })
+  ok(withNotes.markdown === withNotes2.markdown, '有笔记时两次渲染逐字节相同')
+
+  // 超过展示上限（20 条）：必须写出未列条数，**不许静默丢**
+  const many = []
+  for (let i = 4; i <= 24; i++) {
+    many.push(JSON.stringify({ id: String(i).padStart(4, '0'), seq: i, kind: '笔记', anchor: 'spring-boot/0001', text: `第${i}条` }))
+  }
+  fs.writeFileSync(path.join(noteDir, 'notes.jsonl'), notesLines + many.join('\n') + '\n', 'utf8')
+  const capped = await tool2.execute({ root: tmp })
+  const capSec = capped.brief.sections.find((s) => s.title === '学生笔记')
+  ok(capSec.lines[0] === '共 24 条', `条数超过上限时总数仍准确（${capSec.lines[0]}）`)
+  ok(capSec.lines.includes('另有 4 条未列'), '超过 20 条上限时写出未列条数（另有 4 条未列）')
+  ok(!capSec.lines.some((l) => l.includes('第24条')), '被截掉的笔记不出现（第24条不在展示里）')
 
   // ── ⑥ 落盘 ──
   ok(!fs.existsSync(path.join(tmp, 'learning-records', 'brief.md')), '默认不写盘')
@@ -164,4 +222,4 @@ ok(!fs.existsSync(path.join(ROOT, 'learning-records', 'brief.md')) || true, '（
 
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
-console.log('✅ 上下文包：六段与各来源对拍一致，建议随数据变，不猜、可对拍、可落盘')
+console.log('✅ 上下文包：七段与各来源对拍一致，建议随数据变，不猜、可对拍、可落盘')
