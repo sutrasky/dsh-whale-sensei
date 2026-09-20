@@ -141,11 +141,19 @@ try {
     'load 抛错时也回滚（require 失败那条分支）'
   )
 
-  // ── ⑥ rebuild：真跑 drain + build-notes ──
+  // ── ⑥ rebuild：真跑 drain + build-notes + build-lessons ──
   const notesBefore = hashOf(NOTES)
   const r4 = await handleAnswer(tmp, { raw: JSON.stringify({ id: '0005', answer: '第二条解答正文', answerHtml: `<p>${MARK}-5</p>`, question: '占位（队列里找不到时应拒，这里补上 question）' }), now: CLOCK, rebuild: true })
   ok(r4.status === 200, `rebuild 路径 → ${r4.status}`)
-  ok((r4.body.steps || []).every((s) => s.code === 0), `两步脚本都退出码 0（${(r4.body.steps || []).map((s) => s.script + '=' + s.code).join(' · ')}）`)
+  ok((r4.body.steps || []).every((s) => s.code === 0), `三步脚本都退出码 0（${(r4.body.steps || []).map((s) => s.script + '=' + s.code).join(' · ')}）`)
+  // 回归钉（2026-09-21 实测的真缺陷）：重建链原来只跑 drain + build-notes，
+  // 而课程页里嵌了「DSH 笔记」卡片的答疑计数 → 写完答案课程页就陈旧、
+  // 课程包闸门 `build-lessons --check` 当场红。这一步少了 build-lessons 就是旧病复发。
+  ok(
+    (r4.body.steps || []).map((s) => s.script).join('、') ===
+      'tools/drain-questions.js、tools/build-notes.js、tools/build-lessons.js',
+    `重建链三步齐全、顺序固定（${(r4.body.steps || []).map((s) => s.script).join(' · ')}）`
+  )
   // drain 的语义是"**台账里登记过的**一律归档" —— 所以先前那条 0004（已登记）这时也会被归档，
   // pending 1→0、processed 3→4。这不是副作用，正是它该做的 ✓（第一次我按"只归档新的那条"写，写错了）
   ok(
