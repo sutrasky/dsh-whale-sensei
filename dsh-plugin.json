@@ -1,0 +1,19 @@
+{
+  "$schema": "https://dsh-std.dev/schemas/manifest-v0.15.schema.json",
+  "manifestVersion": "0.15",
+  "id": "dev.example.whale-sensei",
+  "name": "dsh-whale-sensei",
+  "version": "0.1.0",
+  "facets": {
+    "host": {
+      "entry": "./lib/index.js",
+      "apiVersion": "dsh-std/v1alpha1"
+    }
+  },
+  "requires": {
+    "contracts": [
+      { "apiVersion": "dsh-std/v1alpha1", "kind": "Tool" }
+    ]
+  },
+  "license": "MIT"
+}

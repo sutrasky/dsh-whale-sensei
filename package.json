@@ -1,0 +1,58 @@
+{
+  "name": "dsh-whale-sensei",
+  "version": "0.1.0",
+  "description": "鲸师：把课程包变成可教的课程页 + 知识星图（DSH 插件）",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "dsh-plugin.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://gitee.com/bouyer/dsh-whale-sensei.git"
+  },
+  "homepage": "https://gitee.com/bouyer/dsh-whale-sensei",
+  "bugs": {
+    "url": "https://gitee.com/bouyer/dsh-whale-sensei/issues"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "lesson",
+    "course",
+    "teaching"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "external": [
+        "react"
+      ]
+    }
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "test": "node test/run-all.mjs",
+    "test:all": "node test/all.mjs"
+  },
+  "license": "MIT"
+}

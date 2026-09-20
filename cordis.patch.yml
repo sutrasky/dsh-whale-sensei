@@ -1,0 +1,27 @@
+# dsh-whale-sensei bundle patch
+#
+# 三条红线（照做即可避开装配期故障）：
+#
+# 1. 顶层是**数组**，本文件语法错 = 整个叠加层失败（别的插件也跟着不见）。
+# 2. **必须保持 plain-insert**（只有 `- insert:` / `- id:` / `- name:`）。
+#    市场热挂只接受纯 insert；含 `!!js` 会被 parseSimplePatch 拒绝，
+#    插件被关掉且从 UI 再也开不回来（本机实测过的红线）。
+# 3. `id` 必须逐字等于 `lib/index.js` 的 `export const name`（本包是 `whale-sensei`）。
+#    对不上 ⇒ **静默不生效**，dump-config 里查不到。
+#
+# 机器本地配置**不要写在这份文件里**：它随包分发，重装会被 <profile>/node_modules 的副本盖过。
+# 本机专属值写到 profile 那一层：
+#
+#   $DSH_HOME/profiles/web/cordis.patch.yml
+#     - id: whale-sensei
+#       config:
+#         yourOption: 'your value'
+#
+# 装 / 验 / 退（先快照）：
+#   dsh plugin --profile web add file:E:/workplace/dsh-whale-sensei
+#   dsh --profile web --dump-config      # 唯一可靠判据：抓 `- id: whale-sensei`
+#   dsh plugin --profile web remove dsh-whale-sensei
+
+- insert:
+    - id: whale-sensei
+      name: dsh-whale-sensei
