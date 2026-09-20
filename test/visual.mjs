@@ -74,6 +74,7 @@ ok(!checkFullShot({ buf: null, w: 1, viewportH: 600 }).ok, '整页：没截到 �
   ok(!!props.fullPage, '工具面露出 fullPage（整页截图）')
   ok(!!props.clip, '工具面露出 clip（局部截图）')
   ok(props.fullPage?.type === 'boolean' && props.clip?.type === 'string', `两者类型正确（fullPage=${props.fullPage?.type} / clip=${props.clip?.type}）`)
+  ok(Array.isArray(props.kind?.enum) && props.kind.enum.includes('notes'), `kind 的枚举里有 notes（${(props.kind?.enum || []).join('/')}）`)
   ok(/整页/.test(t?.description || ''), '工具描述里写明了整页/局部（不靠猜）')
   // 坏参数必须在**探服务之前**就被拒（否则要先起服务才能验参数校验，等于没验）
   const both = await t.execute({ base: 'http://127.0.0.1:9', kind: 'starmap', root: ROOT, fullPage: true, clip: '0,0,10,10' })
@@ -91,6 +92,13 @@ ok(lessonOk.ok, `课程页：标题 + 答疑挂载点都在 → 通过（${lesso
 const lessonBad = checkDom('<html><head><title>第1课</title></head><body></body></html>', 'lesson')
 ok(!lessonBad.ok && /ask-page/.test(lessonBad.why), `课程页：缺答疑挂载点 → 点名缺哪个（${lessonBad.why}）`)
 ok(!checkDom('<html></html>', '魔法').ok, '不认识的 kind 明确报错')
+
+// ── A. 纯层：笔记文档页（kind='notes'，2026-09-24 补的尾巴） ──
+const notesGood = checkDom('<html><head><title>DSH 笔记</title></head><body data-notes-page="all"><form data-note-form data-note-lesson="第1课"></form></body></html>', 'notes')
+ok(notesGood.ok, `笔记页：自报身份 + 标题 + 表单都在 → 通过（${notesGood.why}）`)
+const notesNoForm = checkDom('<html><head><title>DSH 笔记</title></head><body data-notes-page="all"></body></html>', 'notes')
+ok(!notesNoForm.ok && /note-form/.test(notesNoForm.why), `笔记页：缺笔记表单 → 点名缺哪个（${notesNoForm.why}）—— 那页就只剩只读文档了`)
+ok(!checkDom('<html><body>空</body></html>', 'notes').ok, '笔记页：什么都没有 → 判失败')
 
 // ── A. 纯层：浏览器探测 ──
 const exe = findBrowser()
@@ -117,6 +125,11 @@ if (!exe) {
   ok(full.ok === true, `真跑一遍整页（课程页）：${full.summary}`)
   const fr = (full.results || []).find((r) => r.size === '1000x600')
   ok(!!fr && fr.ok && /整页/.test(fr.why), `整页真的比首屏长：${fr?.why}`)
+  // kind='notes'：笔记文档页也走一遍（判据含"笔记表单在不在"）
+  const nb = await tool.execute({ base: LIVE_BASE, kind: 'notes', sizes: '1280x820', root: ROOT })
+  ok(nb.ok === true, `真跑一遍笔记页：${nb.summary}`)
+  const nd = (nb.results || []).find((r) => r.size === 'dom')
+  ok(!!nd && nd.ok && /notes-page/.test(nd.why), `笔记页 DOM 判据命中（${nd?.why}）`)
   // 服务没在跑时的报错要能指路（对着一个必然连不上的端口试）
   const bad = await tool.execute({ base: 'http://127.0.0.1:9', kind: 'starmap', root: ROOT })
   ok(bad.ok === false && /app-server\.js/.test(bad.error), `服务没在跑 → 明确报错并指路（${String(bad.error).slice(0, 46)}…）`)

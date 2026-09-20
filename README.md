@@ -68,7 +68,7 @@ npx @deepseek-ai/dsh --profile web --dump-config
 #   期望： # == dsh-whale-sensei, patched by …/cordis.patch.yml
 #          - id: whale-sensei  …  config: { packRoot: ... }
 
-# ② 插件自带判据（18 套 / 480 条断言）
+# ② 插件自带判据（19 套：3091 没跑时 499 条断言；跑起来 512 条）
 npm test
 
 # ③ 课程包闸门（16 条）
@@ -95,7 +95,7 @@ node <你的课程包>/tools/gate.mjs
 | `whale_glossary` | 名词台账 → `GLOSSARY.md` 的合成与漂移检查 |
 | `whale_audit` | 五条审计：死链 / id 重复 / 幽灵进度 / 缺产物 / 静默降级 |
 | `whale_probe` | 路径分类器：一个路径属于课程包哪一类 |
-| `whale_visual` | 真浏览器截图 + DOM 断言（4 种桌面尺寸；支持 `fullPage` 整页 / `clip` 局部） |
+| `whale_visual` | 真浏览器截图 + DOM 断言（4 种桌面尺寸；`fullPage` 整页 / `clip` 局部 / `kind=notes` 查笔记文档页） |
 | `whale_state` | 学生状态探针：扫 `code/` → 与 `EXPECT.json` 对账 → **报"缺什么"** |
 | `whale_practice` | 实践区：把静态事实对上课里的挑战判据，给出"达成 k / 共 n" |
 | `whale_ask` | 答疑：提交 / 拉取 / **写回解答** / **原生监听唤醒**（有新提问才叫醒 agent） |
@@ -123,6 +123,10 @@ node <你的课程包>/tools/gate.mjs
   `assets/lesson-blocks.css`（只有反向抽取才产出）。
 - **`ask` 的归档与重建走 shell-out**：调用课程包自带的 `tools/drain-questions.js` 与 `tools/build-notes.js`，
   插件**不复制它们的语义**。这是有意为之（避免同一件事两份实现）。
+- **包侧 `tools/` 仍是"能脱离插件独立跑"的引擎** —— 这是架构选择，代价是有几处**两侧各一份实现**。
+  弥补方式不是删掉一份，而是**每对都有对拍**：`render-parity`（课程页逐字节）、
+  `mirror-parity`（文本助手 + 两个笔记写入口共用一本台账）、`pack-model --selftest`
+  （课次映射表 / 术语扫描器 / 课程包事实）。**加一份实现，就要加一条对拍。**
 - **课程包自洽**：课程包本身能独立打开、能被别的工具消费；插件不在也不影响阅读。
 - **判据落盘**：每个动作要么进闸门、要么留台账 —— "做了但没留痕"不算做完。
 
