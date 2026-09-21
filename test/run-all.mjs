@@ -60,6 +60,13 @@ for (const [name, what] of SUITES) {
   const secs = ((Date.now() - t0) / 1000).toFixed(1)
   console.log(`${code === 0 && f === 0 ? '✓' : '✗'} ${name.padEnd(18)} ${String(p).padStart(3)} 通过${f ? ` / ${f} 失败` : ''}  (${secs}s)  ${what}`)
   if (code !== 0 && !m) console.log(out.split('\n').slice(0, 8).map((l) => '    ' + l).join('\n'))
+  // 有摘要但失败了 → 把该套件自己的 FAIL/✗ 行打出来。
+  // 为什么必须有这一条：2026-09-22 实测过"账报了红，但不告诉你红在哪" ——
+  // 结果在整轮/单独跑之间来回猜了三轮（alien-env 整轮红、单跑绿）。摘要只给条数，定位得看原文。
+  if (f !== 0) {
+    const detail = out.split('\n').filter((l) => /FAIL|✗/.test(l)).slice(0, 8)
+    if (detail.length) console.log(detail.map((l) => '    ' + l.trim()).join('\n'))
+  }
 }
 
 console.log(`\n=== ${SUITES.length} 套 · 共 ${total} 条断言 · ${failed ? failed + ' 套失败 ✗' : '全部通过 ✓'} ===`)
