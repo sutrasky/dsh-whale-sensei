@@ -24,6 +24,7 @@ const SUITES = [
   ['glossary-edit', '术语增改：切片插入/拒绝覆盖/替换；code 含花括号也不崩，写出的源码能 require 回来'],
   ['pack-model', '数据层唯一入口：课次映射表、data-term 扫描器与 check-terms 逐页对拍、三类 box 不变量'],
   ['ask-watch-job', '原生监听：owner/高水位/复用/撤销'],
+  ['intake', '学情摸底：问题生成/落盘回读/author 闸门/decideNext/buildBrief 集成'],
   ['brief', '上下文包：六段对拍一致，建议随数据变'],
   ['visual', '视觉检查：PNG/DOM 断言（有服务就真跑浏览器）'],
   ['practice', '实践区：数据与探针一致、可判漂移、真浏览器里显示'],

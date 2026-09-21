@@ -113,8 +113,17 @@ try {
   const pom = path.join(proj, 'pom.xml')
   fs.writeFileSync(pom, fs.readFileSync(pom, 'utf8').replace('</dependencies>', '  <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-validation</artifactId></dependency>\n  </dependencies>'), 'utf8')
   const after = await tool2.execute({ root: tmp })
-  ok(after.brief.next.action === 'open-next-lesson', `补齐后：${after.brief.next.action}（${after.brief.next.why}）—— 建议是**推出来的**，不是写死的`)
+  // 新优先级（2026-09-21）：学生现状没缺口了，但还有知识点**没做学情摸底** → 先摸底，再谈开新课
+  ok(after.brief.next.action === 'intake-course' && /摸底/.test(after.brief.next.why), `补齐后先要摸底：${after.brief.next.action}（${after.brief.next.why}）`)
   ok(/✓ spring-boot\/0002/.test(after.markdown), '学生现状里第2课已变成达成 ✓')
+
+  // 把摸底补上 → 才轮到"开下一课"
+  const intakeFile = path.join(tmp, 'learning-records', 'intake.jsonl')
+  fs.mkdirSync(path.dirname(intakeFile), { recursive: true })
+  fs.writeFileSync(intakeFile, ['spring-boot', 'vue'].map((p) => JSON.stringify({ point: p, level: '有基础', goal: '能独立写一个' })).join('\n') + '\n', 'utf8')
+  const afterIntake = await tool2.execute({ root: tmp })
+  ok(afterIntake.brief.next.action === 'open-next-lesson', `摸底补齐后：${afterIntake.brief.next.action}（${afterIntake.brief.next.why}）—— 建议是**推出来的**，不是写死的`)
+  ok(/学情摸底/.test(afterIntake.markdown), 'brief 里有「学情摸底」一节')
 
   // ── ③ 有待答 → 先答 ──
   fs.appendFileSync(askPaths(tmp).pending, JSON.stringify({ id: '0009', lesson: '第2课', question: '插队问一句' }) + '\n', 'utf8')

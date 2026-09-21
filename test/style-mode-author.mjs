@@ -77,7 +77,7 @@ const INPUT = {
 }
 {
   const a = authorLesson(INPUT)
-  ok(a.file === 'lessons/src/0009-whale-t5b-fixture.html', `建议路径正确（${a.file}）`)
+  ok(a.file === 'lessons/src/programming/spring-boot/0009-whale-t5b-fixture.html', `建议路径正确（${a.file}）—— M3 分层：lessons/src/<圆圈>/<知识点>/`)
   const v = validateSkeleton(a.text)
   ok(v.ok, `骨架自查通过${v.ok ? '' : '：' + v.problems.join('；')}`)
 

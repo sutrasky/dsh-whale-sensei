@@ -1,30 +1,36 @@
 # dsh-whale-sensei（鲸师）
 
 把 **课程包**变成可教、可判、可留痕的东西 —— 一个装进 DeepSeek Harness 工具面的插件：
-**15 个能力模块 / 14 个工具 / 4 条 HTTP 路由**，覆盖教师端做课与学生端学·问两条线。
+**16 个能力模块 / 15 个工具（`whale_` 前缀）/ 4 条 HTTP 路由 / 2 个客户端坐位**，
+覆盖教师端做课与学生端学·问两条线。
 
 > 由 `dsh-plugin-kit` 脚手架起手。本插件**零运行时依赖**（只用 Node 内建）。
 > 仓库：<https://gitee.com/bouyer/dsh-whale-sensei>
 
 ---
 
-## 一句话
+## 这是什么
 
 **课程内容住在课程包里，插件只做"教具"**：把课程包渲染成页、核验成一致、探测成状态、答疑并写回。
-插件自己**不认识 Spring / Java** —— 在插件源码里 grep 到这些词就是串味了。
+插件自己**不认识 Spring / Vue / Java** —— 在插件源码里 grep 到这些词就是串味了。
 
-## 依赖
+两条线，各司其职：
 
-| 需要什么 | 说明 |
-|---|---|
-| DSH 宿主 | 插件跑在宿主里；提供 `connection`（HTTP 路由）与 `jobs`（原生唤醒）等能力 |
-| Node | `>= 22.19`（见 `engines`） |
-| 一个**课程包目录** | 含 `lessons/`、`code/`、`assets/`、`notes/`、`reference/` 等；插件不生成它，只读写它 |
-| 运行时依赖 | **无** |
+| 线 | 做什么 | 谁干 |
+|---|---|---|
+| **教师端·做课** | 摸底 → 查资料 → 生课 → 渲染 → 过闸门 → 截图自检 | agent 调工具，插件读写课程包 |
+| **学生端·学·问** | 课程页阅读 / 星图导航 / 提问 / 笔记 / 写回 | 浏览器走静态 HTML + 本地服务 |
 
-## 装
+边界清楚：插件不生成课程包本身（那是技能/agent 的事），不执行学生代码，不跑 Maven/构建器。
+课程包能独立打开、能被别的工具消费 —— 插件不在也不影响阅读。
 
-### 1) 把插件装进 profile
+为什么值得用：把"开一门课"从**凭自觉**变成**机械可判** —— 每一步要么进闸门、要么留台账，"做了但没留痕"不算做完。
+
+---
+
+## 5 分钟上手
+
+### ① 装插件
 
 **普通使用者（从 npm 装）**：
 
@@ -46,7 +52,7 @@ dsh plugin --profile web add link:E:/workplace/dsh-whale-sensei
 > 诚实标注：本机一直在用 `link:` 那条；**npm 那条未在本机实测**（装了它会把这个 link 顶掉）。
 > 两条除"代码从哪来"以外没有别的差别。
 
-### 2) **必须配 `packRoot`**（不配等于装了不能用）
+### ② 配 `packRoot`（不配等于装了不能用）
 
 `packRoot` 指向你的课程包根目录。它**故意不给默认值** —— 插件不猜路径、也不猜 cwd。
 机器本地配置写在 **profile 那层**（`$DSH_HOME/profiles/web/cordis.patch.yml`），**不要**写进包内的
@@ -60,60 +66,139 @@ dsh plugin --profile web add link:E:/workplace/dsh-whale-sensei
 
 > 行 id 必须逐字是 `whale-sensei`（等于 `lib/index.js` 的 `export const name`）。写错 = **静默不生效**。
 
-**不配的症状**：所有 HTTP 路由一律返回
+### ③ 重启宿主
+
+`packRoot` 在启动时解析一次，不按请求读。改了配置必须重启宿主才能生效。
+
+### ④ 验
+
+```bash
+# 装配判据：能抓到这一行才算真的挂上了
+npx @deepseek-ai/dsh --profile web --dump-config
+#   期望： # == dsh-whale-sensei, patched by …/cordis.patch.yml
+#          - id: whale-sensei  …  config: { packRoot: ... }
+```
+
+重启后在浏览器里打开设置页（齿轮图标），左侧导航栏应出现「鲸师」一节。
+若没出现：**刷新页面**（客户端改了要刷新才生效）。
+
+**不配 `packRoot` 的症状**：所有 HTTP 路由（除 `/api/whale/status`）一律返回
 
 ```
 503 {"ok":false,"error":"插件没有配置 packRoot，定位不到课程包（不猜 cwd）"}
 ```
 
-工具则报"没有课程包根目录：配置里写 packRoot，或给本工具传 root"。多数工具都接受
-逐次调用覆盖的 `root` 入参，所以临时指到别的课程包不必改配置。
+设置页的「鲸师」卡片会显示修法提示（那条路由**在没配 `packRoot` 时也回 200**，刻意的）。
 
-改完配置**必须重启宿主**（`packRoot` 在启动时解析一次，不按请求读）。
+---
 
-## 验
+## 怎么用
 
-```bash
-# ① 唯一可靠的装配判据：能抓到这一行才算真的挂上了
-npx @deepseek-ai/dsh --profile web --dump-config
-#   期望： # == dsh-whale-sensei, patched by …/cordis.patch.yml
-#          - id: whale-sensei  …  config: { packRoot: ... }
+### A. 开一门新课（走左侧边栏「新课程」按钮）
 
-# ② 插件自带判据（20 套：3091 没跑时 559 条断言；跑起来更多 —— visual/practice 的浏览器断言那时才执行）
-npm test
+左侧边栏紧贴「新建会话」下方有一个**「新课程」**按钮。点一下 → 拉 `GET /api/whale/status` →
+把宿主侧算好的**四步开课协议**通过 composer 侧坐位的 `inputActions.setDraft()` 填进输入框。
+**不自动发送**，人确认后自己回车。
 
-# ③ 课程包闸门（16 条）
-node <你的课程包>/tools/gate.mjs
+四步协议（协议全文由宿主侧 `lib/starter.js` 计算，客户端里没有第二份）：
+
+```
+开一门新课。严格按下面四步走，别跳步：
+
+① 先问我学什么：要学哪个知识点/主题、想拿它解决什么问题。
+   （我这条消息里已经说清了就直接用，不要再问一遍。）
+
+② 先查资料，再动笔：查官方文档 / 规范 / 源码，把出处逐条落到课程包的 RESOURCES.md。
+   禁止凭记忆写课。
+
+③ 问我掌握程度 —— 这一步必须有，而且要在写课之前完成：
+   用 whale_intake op=plan 拿问题清单，逐条问我（以前用过什么 / 现在能独立写出什么 /
+   卡在哪一步最痛 / 学完想达到什么水平 / 每周能投入多少），拿到回答后
+   whale_intake op=record 落盘。没落盘之前 whale_author 会被闸门拦下 ——
+   那是刻意的，别用 force 绕过去。
+
+④ 回答拿到之后，先把这一课的大纲给我过一眼（教什么、前置是什么、分几节），
+   我说行再写正文：whale_author 生成五槽位源文件 → 写内容 → whale_build 渲染 →
+   课程包 tools/gate.mjs 过闸门 → 重建星图与笔记 → whale_visual 截图自检。
 ```
 
-只读的两条**不能**当判据：`node_modules/` 里有目录、`profiles/web/package.json` 里有名字 ——
-"装了但没启用"时这两处都可能看起来正常。
+为什么第③步要机械拦：2026-09-21 实测"新建 Vue 课"时漏掉了问掌握程度这一步 ——
+契约只写在文档里、没有落盘格式与闸门，就会漏。
 
-若 3091（课程包的本地服务）没在跑，`npm test` 的判词会写成"绿（含 2 套部分跳过）"**并点出是哪两套** ——
-跳过 ≠ 通过。想跑满：先 `node <课程包>/tools/app-server.js`。
+### B. 学生提问 → 答疑写回
+
+1. agent 调 `whale_ask action=watch` 启动监听（宿主侧原生 job，不需要子进程）。
+2. 学生在课程页的疑问箱里提交问题 → 本地服务 `POST /ask` → 追加到 `questions/pending.jsonl`。
+3. 监听 job 发现新提问 → 宿主唤醒 agent。
+4. agent 读 pending → 把解答 graft 进 `lessons/src/` 对应章节（`.qa-box`）→
+   登记 `assets/questions-data.js` → 重建课程页 + 笔记文档 → 归档（`drain-questions.js`）→ 重启监听。
+5. 回复精确位置：课次、区块、box id。
+
+### C. 看学生进度与课程包状态
+
+| 场景 | 用什么 | 产物/效果 |
+|---|---|---|
+| 学生代码写了什么、缺什么 | `whale_state` | 扫 `code/` 对照 `EXPECT.json`，报"实现了几项 / 缺几项" |
+| 挑战做完了没 | `whale_practice` | 静态事实对挑战判据，"达成 k / 共 n（另有 m 项需人工确认）" |
+| 备课/答疑的完整上下文 | `whale_brief` | 七段合一（包状态 + 学生状态 + 待答队列 + 台账 + 笔记 + 记录 + 学情摸底），含推出来的建议 |
+| 设置页快速查看 | 设置页「鲸师」卡片 | 只读，显示课程包概况 + 一致性 + 审计 + 台账 + 学生工作区 + 插件版本 |
+
+---
 
 ## 工具面
 
-前缀统一 `whale_`。**每个工具都有判据**（对拍、坏样本或"别收得太紧"的回归）。
+前缀统一 `whale_`。**每个工具都有判据**（对拍、坏样本或回归）。
 
-| 工具 | 干什么 |
-|---|---|
-| `whale_lessonpack` | 课程包数据层：圆圈 / 知识点 / 课程三层 |
-| `whale_author` | 生成一节课骨架（五个槽位）；默认只返回文本，不落盘 |
-| `whale_build` | 渲染课程页并落盘（默认只校验，`write:true` 才写）；与 CLI **逐字节相同** |
-| `whale_style` | 合成 `assets/theme.css`（模板契约 + 预设） |
-| `whale_mode` | 主题三态状态机（偏好 → 系统 → 深色块） |
-| `whale_glossary` | 名词台账 → `GLOSSARY.md` 的合成与漂移检查 |
-| `whale_audit` | 五条审计：死链 / id 重复 / 幽灵进度 / 缺产物 / 静默降级 |
-| `whale_probe` | 路径分类器：一个路径属于课程包哪一类 |
-| `whale_visual` | 真浏览器截图 + DOM 断言（4 种桌面尺寸；`fullPage` 整页 / `clip` 局部 / `kind=notes` 查笔记文档页） |
-| `whale_state` | 学生状态探针：扫 `code/` → 与 `EXPECT.json` 对账 → **报"缺什么"** |
-| `whale_practice` | 实践区：把静态事实对上课里的挑战判据，给出"达成 k / 共 n" |
-| `whale_ask` | 答疑：提交 / 拉取 / **写回解答** / **原生监听唤醒**（有新提问才叫醒 agent） |
-| `whale_brief` | 备课·答疑上下文包（七段 + **推出来的**下一步建议；`includeSession` 才读会话） |
-| `whale_ping` | 存活探针 |
+| 工具 | 干什么 | 什么时候用它 |
+|---|---|---|
+| `whale_lessonpack` | 课程包数据层：圆圈 / 知识点 / 课程三层 | 需要读课程包结构时（星图、统计、选课次） |
+| `whale_author` | 生成一节课骨架（五个槽位）；默认只返回文本，`commit:true` 才落盘 | 开一门新课的第④步 |
+| `whale_build` | 渲染课程页并落盘（默认只校验，`write:true` 才写）；与 CLI **逐字节相同** | 写完内容后构建 |
+| `whale_style` | 合成 `assets/theme.css`（模板契约 + 预设） | 初始化或更新课程包主题时 |
+| `whale_mode` | 主题三态状态机（偏好 → 系统 → 深色块） | 调试主题切换问题时 |
+| `whale_glossary` | 名词台账 → `GLOSSARY.md` 的合成与漂移检查 | 加/改术语后重建笔记 |
+| `whale_audit` | 五条审计：死链 / id 重复 / 幽灵进度 / 缺产物 / 静默降级 | 自检或排查课程包健康时 |
+| `whale_probe` | 路径分类器：一个路径属于课程包哪一类 | 不确定某个文件归谁管时 |
+| `whale_visual` | 真浏览器截图 + DOM 断言（4 种桌面尺寸；`fullPage` 整页 / `clip` 局部 / `kind=notes` 查笔记文档页） | 交付前视觉自检 |
+| `whale_state` | 学生状态探针：扫 `code/` → 与 `EXPECT.json` 对账 → **报"缺什么"** | 备课前 / 答疑前了解学生现状 |
+| `whale_practice` | 实践区：把静态事实对上课里的挑战判据，给出"达成 k / 共 n" | 检查学生挑战完成度 |
+| `whale_ask` | 答疑：提交 / 拉取 / **写回解答** / **原生监听唤醒**（有新提问才叫醒 agent） | 管理学生提问 |
+| `whale_brief` | 备课·答疑上下文包（七段 + **推出来的**下一步建议；`includeSession` 才读会话） | 每次开课或答疑前先读一页全貌 |
+| `whale_intake` | 学情摸底：`op=plan`（出 5 条问题）/ `op=record`（落盘 + 回读校验）/ `op=read`（读回 + 报缺口） | 开课前第③步 |
+| `whale_ping` | 存活探针 | 确认插件活没活着 |
 
 `lib/mods/note.js`（笔记路由）**刻意不注册工具** —— 它只是一层 HTTP 薄壳，见下。
+
+---
+
+## 摸底（intake）契约
+
+`whale_intake` 是开课流程第③步的机械保障。
+
+**台账**：`<packRoot>/learning-records/intake.jsonl`（append-only，一行一次摸底，`point` 必填；`latest` 按 point 取最后一条）。
+
+**三个操作**：
+
+| op | 必填参数 | 干什么 |
+|---|---|---|
+| `plan` | `point` 或 `topic` | 出 5 条具体问题（prior / can / stuck / goal / time）+ 查资料要求 |
+| `record` | `point` + `level` | 落盘 + 回读校验，不一致回滚 |
+| `read` | （无） | 读回所有知识点的摸底状态 + 报缺口 |
+
+**5 条问题**（固定 id，对所有知识点通用）：
+
+1. `prior` — 以前用过或看过相关的东西吗？（摸清起点）
+2. `can` — 现在能独立写出一个小功能吗？写到哪一步会卡住？（判断能力上限）
+3. `stuck` — 学习或使用中卡在哪一步最痛？（痛点 = 教学重点）
+4. `goal` — 学完想达到什么水平？（决定深度）
+5. `time` — 每周能花多少时间？（决定节奏）
+
+**闸门**：`whale_author({commit:true})` 当该知识点没有 intake 记录 → **拒绝落盘**并返回要问的问题；
+`force:true` 可覆盖（会留痕，不该用）。
+
+`whale_brief` 在摸底未完成时会多出「学情摸底」一节，并在建议动作里给 `intake-course`。
+
+---
 
 ## HTTP 路由
 
@@ -128,7 +213,121 @@ node <你的课程包>/tools/gate.mjs
 
 `anchor` 可给课次显示名（`第1课`）或星图课次键（`point/0001`）—— **归一化在写入口做**，台账里只存键。
 
-## 覆盖面与边界（重要，别误解）
+⚠️ 所有路由必须显式声明 `requestBody: 'buffered'` —— 省略它会被基座当 streaming，给 GET 装 body 导致 400 空体。
+客户端那侧报的是"JSON 解析失败"，真因在这里。
+
+---
+
+## 客户端半边：两个坐位
+
+### ① 设置页里的「鲸师」一节（`settings.section`）
+
+`lib/client.js` 在设置页里注册一节，与「通用设置 / 模型 / 插件 / Agent 预设 / 表情包 / 插件市场」**并列**（同一层）。
+
+它显示：课程包根目录配没配（没配就当场给出修法）、课程包概况（圆圈/知识点/课程/已点亮）、
+产物一致性、审计结果、台账状态、学生工作区扫描、插件版本。
+数据来自 `GET /api/whale/status` —— 浏览器半边拿不到 Agent 工具，只能走 HTTP。
+
+**这是只读的**：配置真相只有一处（profile 的 `cordis.patch.yml`），卡片不改配置。
+
+### ② 侧栏「新课程」按钮（通过 composer 侧坐位注入 `inputActions`）
+
+DSH 侧栏没有对外可注册的 slot，所以与「技能中心」（skill-explorer）同做法 ——
+往侧栏 DOM 里（`[data-pane="sidebar"]`）插入一个纯 DOM 按钮，紧跟原生「新建会话」下方。
+用 `MutationObserver` 自愈（React 重渲染把它冲掉时立刻插回）。
+
+样式照抄原生「新建会话」的几何：38px 高、圆角 12、`.5px` 边框、`--dsw-alias-button-elevated-fill` 底、
+14px/500、图标+文字；侧栏收起时变成 36×36 的图标按钮。
+
+实际的 `inputActions` 从 `conversation.input.left` 坐位取得 —— 该坐位**不渲染任何可见元素**，
+只把注入的 `inputActions` 接出来给侧栏按钮用。
+
+**生效条件**（2026-09-21 实测，两半不一样）：
+- **客户端半边（本节的按钮）**：改完 `lib/client.js` **只需刷新页面** —— 宿主每次页面加载都从磁盘取模块，不必重启。
+- **宿主半边（工具 / 路由 / 协议文本）**：必须**重启宿主进程**（`lib/*.js` 在启动时装配，改完不重启就是跑旧代码）。
+
+> ⚠️ **诚实边界**：客户端**长什么样**没有自动化判据。`test/panel.mjs` 判到的是：
+> 路由形状对、没配也回 200 并指路、注册格式与官方缝对齐、组件没在渲染回调里现造，
+> 以及**用一个最小假 DOM 真跑一遍侧栏注入**（插在「新建会话」正下方 / 被别的插件行挤下去要挪回来 /
+> 侧栏晚出现要补插）。**像素级对齐**（和「新会话」一样宽）只能人眼 —— 2026-09-21 现场量到过
+> "差 4px"（`width:100%` 加上左右外边距），修完是 x=14 / w=252 / h=38，与原生逐值相同。
+
+---
+
+## 课程包那半边怎么起
+
+课程包自带静态服务 + 工具脚本，不依赖插件也能独立跑：
+
+```bash
+# 启动本地服务（默认 http://127.0.0.1:3091）
+node E:\workplace\study\tools\app-server.js
+
+# 课程页 / 星图 / 笔记文档页都从这儿看
+# 星图：http://127.0.0.1:3091/starmap/
+# 笔记：http://127.0.0.1:3091/reference/NOTES.html
+```
+
+星图独立窗口脚本（会先关掉浏览器手势）：
+
+```powershell
+E:\workplace\study\tools\starmap-app.ps1
+```
+
+### ⚠️ 常见坑
+
+1. **`lessons/src/**.html` 是作者态源文件**（没有外壳，直接打开会"完全没样式"）。
+   要看课程页请开 `lessons/<halo>/<point>/NNNN-*.html`。
+2. **插件改了 `packRoot` 必须重启宿主**，客户端改了要**再刷新页面**。
+
+---
+
+## 验
+
+### 课程包闸门（16 条）
+
+```bash
+node E:\workplace\study\tools\gate.mjs
+```
+
+### 插件套件（20+ 套，600+ 条断言）
+
+```bash
+cd E:\workplace\dsh-whale-sensei
+node test/all.mjs
+```
+
+课程包服务 3091 没跑时 visual/practice 会跳过，判词会写"含 N 套部分跳过"。
+**跳过 ≠ 通过**。想跑满：先 `node E:\workplace\study\tools\app-server.js`。
+
+### 装配判据（唯一靠得住的）
+
+```bash
+npx @deepseek-ai/dsh --profile web --dump-config
+#   期望： # == dsh-whale-sensei, patched by …/cordis.patch.yml
+#          - id: whale-sensei  …  config: { packRoot: ... }
+```
+
+只读的两条**不能**当判据：`node_modules/` 里有目录、`profiles/web/package.json` 里有名字 ——
+"装了但没启用"时这两处都可能看起来正常。
+
+---
+
+## 常见故障
+
+| 症状 | 原因 | 修法 |
+|---|---|---|
+| 所有路由返回 `503 "插件没有配置 packRoot"` | `cordis.patch.yml` 里没写 `config.packRoot` | 在 profile 那层加 `- id: whale-sensei` + `config: { packRoot: … }`，重启宿主 |
+| 改了配置/代码没生效 | 宿主没重启，或客户端没刷新 | **重启宿主 + 刷新页面** |
+| 打开课程页"完全没样式" | 开的是 `lessons/src/` 里的源文件 | 开 `lessons/<halo>/<point>/NNNN-*.html` |
+| `whale_visual` / `whale_practice` 测试跳过 | 课程包本地服务 3091 没起 | 先 `node E:\workplace\study\tools\app-server.js` |
+| `dump-config` 里查不到 `whale-sensei` | 行 id 写错了（如 `dsh-whale-sensei`） | 行 id 必须逐字是 `whale-sensei` |
+| 设置页「鲸师」卡片没出现 | 客户端没刷新 / 插件没加载 | 刷新页面；若仍无，检查 `dump-config` |
+| 侧栏「新课程」按钮没出现 | 同上 + 可能是 DOM 选择器变了 | 检查浏览器控制台有没有 `[dsh-whale-sensei]` 开头的报错 |
+| `whale_author commit` 被拒 | 该知识点没有 intake 记录 | 先 `whale_intake op=plan` → 问学生 → `op=record` 落盘 |
+
+---
+
+## 覆盖面与边界
 
 - **`whale_build` 只产出 `lessons/**.html`**。以下**不由本插件产出**，仍归课程包自带脚本：
   `assets/theme.css`（→ `whale_style`）、`starmap/**`（星图构建）、`reference/NOTES.html`（`build-notes`）、
@@ -141,23 +340,9 @@ node <你的课程包>/tools/gate.mjs
   （课次映射表 / 术语扫描器 / 课程包事实）。**加一份实现，就要加一条对拍。**
 - **课程包自洽**：课程包本身能独立打开、能被别的工具消费；插件不在也不影响阅读。
 - **判据落盘**：每个动作要么进闸门、要么留台账 —— "做了但没留痕"不算做完。
+- **插件里没有课程领域知识**：grep 不到 Spring / Vue / Bean 就对了，串味了就要查。
 
-## 客户端半边：设置页里的「鲸师」一节
-
-`package.json` 声明了 `dsh.client` 与 `exports["./client"]`；`lib/client.js` 在**设置页**里注册一节，
-与「通用设置 / 模型 / 插件 / Agent 预设 / 表情包 / 插件市场」**并列**（同一层：`settings.section`）。
-
-它显示三件事：**课程包根目录配没配**（没配就当场给出修法，见下）、课程包概况（圆圈/知识点/课程/已点亮）、
-以及课程包自身报的告警。数据来自只读路由 `GET /api/whale/status` ——
-浏览器半边拿不到 Agent 工具，只能走 HTTP（同源已认证，栅栏由基座继承）。
-
-**这是只读的**：配置真相只有一处（profile 的 `cordis.patch.yml`），卡片不改配置，避免出现第二套真相。
-
-生效条件：**重启宿主进程 + 刷新页面**，两件都要做。
-
-> ⚠️ **诚实边界**：客户端的**渲染**没有自动化判据 —— `test/panel.mjs` 能判到"路由形状对、
-> 没配也回 200 并指路、注册格式与官方缝对齐、组件没在渲染回调里现造"，但"卡片真的画出来了"
-> 只能重启宿主后由人眼确认。本仓库不为这一步谎报"验过了"。
+---
 
 ## 卸载
 
@@ -166,6 +351,8 @@ dsh plugin --profile web remove dsh-whale-sensei
 ```
 
 别忘了顺手删掉 profile 里那段 `- id: whale-sensei` 的 `config`（第 2 步加的那个）。
+
+---
 
 ## 开发
 
@@ -195,6 +382,8 @@ node ../dsh-plugin-kit/kit/run-check.mjs . --live   # 加装配检查（会写 p
 5. patch 保持 plain-insert，不写 `!!js`，不把机器本地配置写进包里；
 6. **改完插件必须重启宿主，再现场点一遍** —— 宿主侧的契约（返回值形状、文本拼接、注册要求）
    单测看不见。
+
+---
 
 ## License
 

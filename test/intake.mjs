@@ -1,0 +1,229 @@
+/**
+ * intake.mjs — 学情摸底（intake）全部判据
+ *
+ * 判据：
+ *   ① buildQuestions 五条 id 唯一 + research 里含 RESOURCES.md
+ *   ② recordIntake 落盘 → 文件多一行、回读一致；再记一次 → readIntake().latest[point] 是后一条
+ *   ③ point 缺失 → 不写盘（文件行数不变）
+ *   ④ 台账里混一行坏 JSON → readIntake().problems 有它且不抛
+ *   ⑤ whale_author 闸门：commit:true（无摸底）→ ok:false、needsIntake:true、目标文件不存在；
+ *      whale_intake op=record 之后再 commit:true → 文件存在；
+ *      另建一例 force:true → 文件存在
+ *   ⑥ decideNext：有 intake 缺口 → intake-course；缺口补上 → open-next-lesson
+ *   ⑦ buildBrief 含「学情摸底」一节
+ */
+import fs from 'node:fs'
+import path from 'node:path'
+import os from 'node:os'
+import { fileURLToPath } from 'node:url'
+import { buildQuestions, recordIntake, readIntake, intakeStatus } from '../lib/intake.js'
+import { decideNext, buildBrief, NEXT_ACTIONS } from '../lib/brief.js'
+import { plugin as authorPlugin } from '../lib/mods/author.js'
+import { plugin as intakePlugin } from '../lib/mods/intake.js'
+
+const HERE = path.dirname(fileURLToPath(import.meta.url))
+let pass = 0
+const fails = []
+function ok(cond, msg) {
+	if (cond) { pass++; console.log('ok   ' + msg) } else { fails.push(msg); console.log('FAIL ' + msg) }
+}
+
+console.log('[intake] 学情摸底测试')
+
+// ── ① buildQuestions ──
+const q1 = buildQuestions({ point: 'vue', topic: 'Vue 3 组合式 API' })
+ok(q1.questions.length === 5, 'buildQuestions 返回 5 条问题')
+const ids = q1.questions.map((q) => q.id)
+ok(new Set(ids).size === 5, '五条 id 唯一')
+ok(ids.join(',') === 'prior,can,stuck,goal,time', 'id 顺序正确：prior,can,stuck,goal,time')
+ok(q1.questions.every((q) => q.q && q.why), '每条都有 q 和 why')
+ok(q1.questions[0].q.includes('Vue 3 组合式 API'), 'topic 嵌进了问题文本')
+ok(q1.research.length >= 2, 'research 至少 2 条')
+ok(q1.research.some((r) => r.includes('RESOURCES.md')), 'research 里含 RESOURCES.md（逐字）')
+
+// 没有 topic 时用 point
+const q2 = buildQuestions({ point: 'spring-boot' })
+ok(q2.questions[0].q.includes('spring-boot'), '没有 topic 时用 point 作为问题文本')
+
+// ── ② recordIntake 落盘 + 回读一致 ──
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-intake-'))
+const file = path.join(tmp, 'learning-records', 'intake.jsonl')
+
+const e1 = { point: 'vue', level: '零基础', goal: '能独立写前端', at: '2026-09-21' }
+const r1 = recordIntake(tmp, e1)
+ok(r1.ok === true, 'recordIntake 写成功')
+ok(fs.readFileSync(file, 'utf8').trim().split('\n').length === 1, '文件多了一行')
+
+const read1 = readIntake(tmp)
+ok(read1.entries.length === 1, 'readIntake 读到 1 条')
+ok(read1.latest.vue?.level === '零基础', 'latest[point] 字段一致')
+
+// 再记一次同 point → latest 应是后一条
+const e2 = { point: 'vue', level: '有基础', goal: '精通', at: '2026-09-22' }
+const r2 = recordIntake(tmp, e2)
+ok(r2.ok === true, '第二次记录也成功')
+const read2 = readIntake(tmp)
+ok(read2.entries.length === 2, '文件现在有 2 条')
+ok(read2.latest.vue?.level === '有基础', 'latest[point] 是后一条')
+ok(read2.latest.vue?.at === '2026-09-22', 'latest 日期是后一条')
+
+// intakeStatus
+const st1 = intakeStatus(tmp, 'vue')
+ok(st1.done === true, 'vue 的 intakeStatus.done = true')
+ok(st1.level === '有基础', 'intakeStatus 返回最新 level')
+
+const st2 = intakeStatus(tmp, 'react')
+ok(st2.done === false, '不存在的 point → done=false')
+ok(st2.missing.length > 0, '不存在的 point → missing 非空')
+
+// ── ③ point 缺失 → 不写盘 ──
+const linesBefore = fs.readFileSync(file, 'utf8').trim().split('\n').length
+const r3 = recordIntake(tmp, { level: 'x', goal: 'y' })
+ok(r3.ok === false && /point/.test(r3.error), 'point 缺失 → 返回错误')
+ok(fs.readFileSync(file, 'utf8').trim().split('\n').length === linesBefore, 'point 缺失 → 文件行数不变')
+
+const r3b = recordIntake(tmp, { point: '', level: 'x' })
+ok(r3b.ok === false, 'point 空字符串 → 也拒绝')
+
+// ── ④ 坏 JSON → problems 有它且不抛 ──
+fs.appendFileSync(file, '这不是合法的JSON{{{]\n', 'utf8')
+const read4 = readIntake(tmp)
+ok(read4.problems.length === 1, '坏 JSON 行进了 problems')
+ok(read4.problems[0].includes('第'), 'problems 里有行号信息')
+ok(read4.entries.length === 2, '好行仍正常读出（不因坏行抛错）')
+
+// ── ⑤ whale_author 闸门 ──
+const authorTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-author-gate-'))
+const fakeLog = { info: () => {}, warn: () => {}, error: () => {} }
+
+function installAuthor(root) {
+	let tool = null
+	authorPlugin.install({ paths: { packRoot: root }, log: fakeLog, registerTool: (d) => { tool = d } })
+	return tool
+}
+function installIntake(root) {
+	let tool = null
+	intakePlugin.install({ paths: { packRoot: root }, log: fakeLog, registerTool: (d) => { tool = d } })
+	return tool
+}
+
+const authorTool = installAuthor(authorTmp)
+const authorArgs = {
+	point: 'spring-boot', halo: 'programming', number: 9, title: '冒烟骨架', slug: 'smoke-skeleton',
+	hintTerm: '自动配置', source: { label: 'x', url: 'https://example.com/' },
+}
+
+// commit:true 无摸底 → 闸门拦住
+const g1 = await authorTool.execute({ ...authorArgs, commit: true })
+ok(g1.ok === false, 'commit:true 无摸底 → ok=false')
+ok(g1.needsIntake === true, 'needsIntake=true')
+ok(g1.error.includes('spring-boot'), 'error 包含 point 名')
+ok(Array.isArray(g1.questions) && g1.questions.length === 5, '返回了 5 条问题')
+ok(g1.hint.includes('force:true'), 'hint 提示 force:true')
+// 目标文件不存在
+const targetFile = path.join(authorTmp, 'lessons', 'src', 'programming', 'spring-boot', '0009-smoke-skeleton.html')
+ok(!fs.existsSync(targetFile), '闸门拦住后目标文件不存在')
+
+// whale_intake op=record 之后再 commit → 文件存在
+const intakeTool = installIntake(authorTmp)
+await intakeTool.execute({ op: 'record', point: 'spring-boot', level: '零基础', goal: '能写 REST API' })
+const g2 = await authorTool.execute({ ...authorArgs, commit: true })
+ok(g2.ok === true && g2.wrote === true, '做完摸底后 commit:true → 写成功')
+ok(fs.existsSync(targetFile), '目标文件存在了')
+
+// 另建一例 force:true → 即使没摸底也能写
+const forceTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-author-force-'))
+const authorTool2 = installAuthor(forceTmp)
+const forceArgs = {
+	point: 'vue', number: 1, title: 'Vue 入门', slug: 'vue-intro',
+	hintTerm: '响应式', source: { label: 'x', url: 'https://example.com/' },
+}
+const g3 = await authorTool2.execute({ ...forceArgs, commit: true, force: true })
+ok(g3.ok === true && g3.wrote === true, 'force:true 无摸底也能写')
+
+// 非 commit 模式带出摸底状态
+const g4 = await authorTool.execute({ ...authorArgs })
+ok(g4.intake?.done === true, '非 commit 模式：intake.done=true（刚才已摸底）')
+const authorTool3 = installAuthor(forceTmp)
+const g5 = await authorTool3.execute({ ...forceArgs })
+ok(g5.intake?.done === false, '非 commit 模式：未摸底时 intake.done=false')
+ok(Array.isArray(g5.intake?.missing) && g5.intake.missing.length > 0, '非 commit 模式：missing 非空')
+
+// ── ⑥ decideNext：intake 缺口 ──
+const baseProjects = [{
+	lessons: [
+		{ id: 'spring-boot/0001', title: '第1课', done: true, satisfied: [], missing: [] },
+		{ id: 'spring-boot/0002', title: '第2课', done: true, satisfied: [], missing: [] },
+	],
+}]
+
+// 有缺口 → intake-course
+const dn1 = decideNext({
+	pending: 0,
+	projects: baseProjects,
+	lessonTotal: 2,
+	intake: { have: 0, missing: ['vue', 'spring-boot'] },
+})
+ok(dn1.action === 'intake-course', '有 intake 缺口 → intake-course')
+ok(NEXT_ACTIONS.includes('intake-course'), 'intake-course 在 NEXT_ACTIONS 封闭集里')
+ok(dn1.missing.includes('vue'), 'missing 里列出了具体 point')
+ok(/还没做学情摸底/.test(dn1.why), 'why 说清原因')
+
+// 缺口补上 → open-next-lesson
+const dn2 = decideNext({
+	pending: 0,
+	projects: baseProjects,
+	lessonTotal: 2,
+	intake: { have: 2, missing: [] },
+})
+ok(dn2.action === 'open-next-lesson', '缺口补上 → open-next-lesson')
+
+// 没有 intake 数据（旧 brief 不带它）→ 不卡
+const dn3 = decideNext({
+	pending: 0,
+	projects: baseProjects,
+	lessonTotal: 2,
+})
+ok(dn3.action === 'open-next-lesson', '没有 intake 数据时不卡（向后兼容）')
+
+// ── ⑦ buildBrief 含学情摸底一节 ──
+const brief1 = buildBrief({
+	pack: { circles: 1, points: 2, lessons: 3, learned: 1 },
+	projects: [],
+	pending: [],
+	processed: 0,
+	ledger: { count: 0, latest: null },
+	glossary: { count: 0, categories: 0 },
+	records: [],
+	notes: [],
+	intake: { have: 1, missing: ['vue'], details: { 'spring-boot': '零基础' } },
+})
+const intakeSec = brief1.sections.find((s) => s.title === '学情摸底')
+ok(!!intakeSec, 'buildBrief 有「学情摸底」一节')
+ok(intakeSec.lines[0] === '已摸底 1 个知识点 · 缺 1', '摘要行格式正确')
+ok(intakeSec.lines.some((l) => l.includes('vue') && l.includes('未摸底')), '未摸底的 point 出现')
+ok(intakeSec.lines.some((l) => l.includes('spring-boot') && l.includes('零基础')), '已摸底的 point 出现且带 level')
+
+// 无 intake 数据时仍然有这一节
+const brief2 = buildBrief({
+	pack: { circles: 1, points: 2, lessons: 3, learned: 1 },
+	projects: [],
+	pending: [],
+	processed: 0,
+	ledger: { count: 0, latest: null },
+	glossary: { count: 0, categories: 0 },
+	records: [],
+	notes: [],
+})
+const intakeSec2 = brief2.sections.find((s) => s.title === '学情摸底')
+ok(!!intakeSec2, '无 intake 数据时仍有这一节')
+ok(intakeSec2.lines[0] === '已摸底 0 个知识点 · 缺 0', '无数据时摘要行为 0 / 0')
+
+// 清理
+fs.rmSync(tmp, { recursive: true, force: true })
+fs.rmSync(authorTmp, { recursive: true, force: true })
+fs.rmSync(forceTmp, { recursive: true, force: true })
+
+console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
+if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
+console.log('✅ 学情摸底：闸门、落盘、问题生成、brief 集成全部通过')
