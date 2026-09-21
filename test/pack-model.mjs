@@ -11,10 +11,9 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
+import { packRoot, PLUGIN } from './_pack.mjs'
 
-const HERE = path.dirname(fileURLToPath(import.meta.url))
-const PLUGIN = path.resolve(HERE, '..')
-const PACK = path.resolve(process.argv[2] || path.join(PLUGIN, '..', 'study'))
+const PACK = packRoot()
 
 // 一次跑多个模块的 --selftest（断言仍**只有一份**，都在各模块自己文件里；
 // 这里只是把它们接进同一本账 —— 不许在这层重写断言，否则又成两套口径 ✗）

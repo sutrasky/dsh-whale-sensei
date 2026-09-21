@@ -19,9 +19,9 @@ import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { expectedGlossaryMarkdown, glossaryDrift, writeGlossary, loadGlossaryLedger, glossarySummary } from '../lib/glossary-io.js'
 import { plugin as glPlugin } from '../lib/mods/glossary.js'
+import { packRoot } from './_pack.mjs'
 
-const HERE = path.dirname(fileURLToPath(import.meta.url))
-const ROOT = process.argv[2] || path.resolve(HERE, '..', '..', 'study')
+const ROOT = packRoot()
 let pass = 0
 const fails = []
 function ok(cond, msg) {

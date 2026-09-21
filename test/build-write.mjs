@@ -16,9 +16,9 @@ import os from 'node:os'
 import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { readPack } from '../lib/pack.js'
+import { packRoot } from './_pack.mjs'
 
-const HERE = path.dirname(fileURLToPath(import.meta.url))
-const ROOT = process.argv[2] || path.resolve(HERE, '..', '..', 'study')
+const ROOT = packRoot()
 let pass = 0
 const fails = []
 function ok(cond, msg) {

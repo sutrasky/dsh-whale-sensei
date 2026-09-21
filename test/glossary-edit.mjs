@@ -85,7 +85,9 @@ ok(upsertTermSource(SRC, 'testword', rec) === added, '同样输入产出逐字�
 fs.rmSync(tmp, { recursive: true, force: true })
 
 /* ── 落盘层：在**影副本**上跑，真包只核对哈希 ───────────────────────── */
-const PACK = process.argv[2] || path.resolve(HERE, '..', '..', 'study')
+import { packRoot } from './_pack.mjs'
+
+const PACK = packRoot()
 const realLedger = path.join(PACK, 'assets', 'glossary-data.js')
 const packSha = sha(fs.readFileSync(realLedger))
 ok(!!packSha, '真包台账存在（后面核对它没被动过）')

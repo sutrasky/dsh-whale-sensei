@@ -13,9 +13,9 @@ import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { readPack } from '../lib/pack.js'
 import { verifyPack } from '../lib/verify.js'
+import { packRoot } from './_pack.mjs'
 
-const HERE = path.dirname(fileURLToPath(import.meta.url))
-const ROOT = process.argv[2] || path.resolve(HERE, '..', '..', 'study')
+const ROOT = packRoot()
 
 let pass = 0
 const fails = []

@@ -15,10 +15,13 @@
 #   $DSH_HOME/profiles/web/cordis.patch.yml
 #     - id: whale-sensei
 #       config:
-#         yourOption: 'your value'
+#         packRoot: '<你的课程包根目录>'    # 必须给：不给就明确报错，绝不猜路径
+#         # stylesDir: '<外部风格库目录>'   # 可选：不配就只在课程包内的 styles/ 找（找不到只降级，不报错）
 #
-# 装 / 验 / 退（先快照）：
-#   dsh plugin --profile web add file:E:/workplace/dsh-whale-sensei
+# 换台机器只需要改这两行；也可以改用环境变量 DSH_WHALE_PACK / DSH_RAW_HTML_STYLES。
+#
+# 装 / 验 / 退（先快照）—— 在**插件仓根目录**里执行：
+#   dsh plugin --profile web add link:.
 #   dsh --profile web --dump-config      # 唯一可靠判据：抓 `- id: whale-sensei`
 #   dsh plugin --profile web remove dsh-whale-sensei
 

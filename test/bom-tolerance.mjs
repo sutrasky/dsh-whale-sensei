@@ -22,9 +22,9 @@ import { planBuild } from '../lib/render-inputs.js'
 import { probeState } from '../lib/state-scan.js'
 import { composeTheme } from '../lib/style.js'
 import { stripBom, splitLines, parseJsonLoose } from '../lib/text.js'
+import { packRoot } from './_pack.mjs'
 
-const HERE = path.dirname(fileURLToPath(import.meta.url))
-const ROOT = process.argv[2] || path.resolve(HERE, '..', '..', 'study')
+const ROOT = packRoot()
 let pass = 0
 const fails = []
 function ok(cond, msg) {

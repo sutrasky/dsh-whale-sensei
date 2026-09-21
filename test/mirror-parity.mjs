@@ -27,10 +27,9 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { stripBom, splitLines } from '../lib/text.js'
 import { appendNote } from '../lib/notes-io.js'
+import { packRoot, PLUGIN } from './_pack.mjs'
 
-const HERE = path.dirname(fileURLToPath(import.meta.url))
-const PLUGIN = path.resolve(HERE, '..')
-const ROOT = path.resolve(process.argv[2] || path.join(PLUGIN, '..', 'study'))
+const ROOT = packRoot()
 const require_ = createRequire(import.meta.url)
 
 let pass = 0

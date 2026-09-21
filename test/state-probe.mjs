@@ -23,9 +23,9 @@ import { readPack } from '../lib/pack.js'
 import { probeState, writeState, scanWorkspace } from '../lib/state-scan.js'
 import { validateExpect, computeGaps, assertLosslessJson } from '../lib/state.js'
 import { summarizeState } from '../lib/state.js'
+import { packRoot } from './_pack.mjs'
 
-const HERE = path.dirname(fileURLToPath(import.meta.url))
-const ROOT = process.argv[2] || path.resolve(HERE, '..', '..', 'study')
+const ROOT = packRoot()
 let pass = 0
 const fails = []
 function ok(cond, msg) {

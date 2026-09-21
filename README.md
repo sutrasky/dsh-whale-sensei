@@ -38,10 +38,10 @@
 dsh plugin --profile web add dsh-whale-sensei
 ```
 
-**改源码的人（从本仓装）**：
+**改源码的人（从本仓装）**（在插件仓根目录里执行）：
 
 ```bash
-dsh plugin --profile web add link:E:/workplace/dsh-whale-sensei
+dsh plugin --profile web add link:.
 ```
 
 ⚠️ 这条**用 `link:`，不要用 `file:`** —— `link:` 建的是 Junction，改源码重启即生效；
@@ -61,10 +61,13 @@ dsh plugin --profile web add link:E:/workplace/dsh-whale-sensei
 ```yaml
 - id: whale-sensei
   config:
-    packRoot: 'E:/workplace/study'
+    packRoot: '<你的课程包根目录>'
 ```
 
 > 行 id 必须逐字是 `whale-sensei`（等于 `lib/index.js` 的 `export const name`）。写错 = **静默不生效**。
+
+> **换台机器只需要配 `packRoot`**（或设环境变量 `DSH_WHALE_PACK`）。
+> 风格库是可选的，要接就配 `stylesDir`（或设 `DSH_RAW_HTML_STYLES`），**不配也能用**（只是少一层 slug 校验）。
 
 ### ③ 重启宿主
 
@@ -276,7 +279,7 @@ npx @deepseek-ai/dsh --profile web --dump-config
 
 ```bash
 # 启动本地服务（默认 http://127.0.0.1:3091）
-node E:\workplace\study\tools\app-server.js
+node <你的课程包根>\tools\app-server.js
 
 # 课程页 / 星图 / 笔记文档页都从这儿看
 # 星图：http://127.0.0.1:3091/starmap/
@@ -286,7 +289,7 @@ node E:\workplace\study\tools\app-server.js
 星图独立窗口脚本（会先关掉浏览器手势）：
 
 ```powershell
-E:\workplace\study\tools\starmap-app.ps1
+<你的课程包根>\tools\starmap-app.ps1
 ```
 
 ### ⚠️ 常见坑
@@ -302,18 +305,18 @@ E:\workplace\study\tools\starmap-app.ps1
 ### 课程包闸门（16 条）
 
 ```bash
-node E:\workplace\study\tools\gate.mjs
+node <你的课程包根>\tools\gate.mjs
 ```
 
 ### 插件套件（20+ 套，600+ 条断言）
 
 ```bash
-cd E:\workplace\dsh-whale-sensei
+cd <插件仓>
 node test/all.mjs
 ```
 
 课程包服务 3091 没跑时 visual/practice 会跳过，判词会写"含 N 套部分跳过"。
-**跳过 ≠ 通过**。想跑满：先 `node E:\workplace\study\tools\app-server.js`。
+**跳过 ≠ 通过**。想跑满：先 `node <你的课程包根>\tools\app-server.js`。
 
 ### 装配判据（唯一靠得住的）
 
@@ -335,7 +338,7 @@ npx @deepseek-ai/dsh --profile web --dump-config
 | 所有路由返回 `503 "插件没有配置 packRoot"` | `cordis.patch.yml` 里没写 `config.packRoot` | 在 profile 那层加 `- id: whale-sensei` + `config: { packRoot: … }`，重启宿主 |
 | 改了配置/代码没生效 | 宿主没重启，或客户端没刷新 | **重启宿主 + 刷新页面** |
 | 打开课程页"完全没样式" | 开的是 `lessons/src/` 里的源文件 | 开 `lessons/<halo>/<point>/NNNN-*.html` |
-| `whale_visual` / `whale_practice` 测试跳过 | 课程包本地服务 3091 没起 | 先 `node E:\workplace\study\tools\app-server.js` |
+| `whale_visual` / `whale_practice` 测试跳过 | 课程包本地服务 3091 没起 | 先 `node <你的课程包根>\tools\app-server.js` |
 | `dump-config` 里查不到 `whale-sensei` | 行 id 写错了（如 `dsh-whale-sensei`） | 行 id 必须逐字是 `whale-sensei` |
 | 设置页「鲸师」卡片没出现 | 客户端没刷新 / 插件没加载 | 刷新页面；若仍无，检查 `dump-config` |
 | 侧栏「新课程」按钮没出现 | 同上 + 可能是 DOM 选择器变了 | 检查浏览器控制台有没有 `[dsh-whale-sensei]` 开头的报错 |

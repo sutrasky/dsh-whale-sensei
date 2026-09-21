@@ -27,9 +27,9 @@ import { listLearningRecords } from '../lib/brief-io.js'
 import { assertLosslessJson } from '../lib/state.js'
 import { plugin as briefPlugin } from '../lib/mods/brief.js'
 import { readNotes } from '../lib/notes-io.js'
+import { packRoot } from './_pack.mjs'
 
-const HERE = path.dirname(fileURLToPath(import.meta.url))
-const ROOT = process.argv[2] || path.resolve(HERE, '..', '..', 'study')
+const ROOT = packRoot()
 let pass = 0
 const fails = []
 function ok(cond, msg) {

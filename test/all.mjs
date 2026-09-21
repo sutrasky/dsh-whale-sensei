@@ -19,9 +19,10 @@ import { execFileSync } from 'node:child_process'
 import net from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { packRoot, PLUGIN } from './_pack.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
-const PLUGIN = path.resolve(HERE, '..')
+// const PLUGIN = path.resolve(HERE, '..')  // 已移至 _pack.mjs
 
 /** 依赖 3091 预览服务的套件（它们的浏览器断言会静默变少 —— 必须点名） */
 export const NEEDS_BROWSER = ['visual', 'practice']
@@ -109,7 +110,7 @@ if (isMain && process.argv.includes('--selftest')) {
 }
 
 if (isMain) {
-  const PACK = path.resolve(process.argv[2] || path.join(PLUGIN, '..', 'study'))
+  const PACK = packRoot()
   const browserUp = await probePort(3091)
   const g = runNode(path.join(PACK, 'tools', 'gate.mjs'), PACK)
   const s = runNode(path.join(HERE, 'run-all.mjs'), PLUGIN)

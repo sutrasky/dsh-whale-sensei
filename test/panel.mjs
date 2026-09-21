@@ -27,10 +27,9 @@ import { fileURLToPath } from 'node:url'
 import { plugin as statusPlugin } from '../lib/mods/status.js'
 import { plugin as starterPlugin } from '../lib/mods/starter.js'
 import { STARTER_LABEL } from '../lib/starter.js'
+import { packRoot, PLUGIN } from './_pack.mjs'
 
-const HERE = path.dirname(fileURLToPath(import.meta.url))
-const PLUGIN = path.resolve(HERE, '..')
-const ROOT = process.argv[2] || path.resolve(PLUGIN, '..', 'study')
+const ROOT = packRoot()
 
 let pass = 0
 const fails = []

@@ -28,9 +28,9 @@ import { fileURLToPath } from 'node:url'
 import { handleAnswer, ledgerPath, loadLedger, verifyOrRollback } from '../lib/ask-io.js'
 import { insertLedgerEntry, serializeLedgerEntry } from '../lib/ask.js'
 import { plugin as askPlugin } from '../lib/mods/ask.js'
+import { packRoot } from './_pack.mjs'
 
-const HERE = path.dirname(fileURLToPath(import.meta.url))
-const ROOT = process.argv[2] || path.resolve(HERE, '..', '..', 'study')
+const ROOT = packRoot()
 let pass = 0
 const fails = []
 function ok(cond, msg) {
