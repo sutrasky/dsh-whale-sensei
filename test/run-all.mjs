@@ -37,6 +37,7 @@ const SUITES = [
   ['circle-create', '写入口：新建圆圈/知识点（原子、拒覆盖、坏 id 拒绝、绝不碰真包）'],
   ['circle-delete', '圆圈删除：dryRun 只报清单 / 必须 confirm / 目录+源+进度一并删 / 学生代码只报不删 / 歧义拒绝'],
   ['settings-catalog', '设置页：三级目录 / 圆圈改名（只改 name、其余逐字节保留）/ 模块表可查 / 展开不串台 / 删除弹窗'],
+  ['parity-registry', '同源实现对拍：每对的两个实现都在、落点存在且**真的在跑**（§5）'],
 ]
 
 let failed = 0
