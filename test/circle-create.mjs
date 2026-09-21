@@ -28,6 +28,20 @@ const HERE = path.dirname(fileURLToPath(import.meta.url))
 const SRC = path.resolve(HERE, '..')
 const PACK = packRoot()
 
+/**
+ * 真包基线：本套件一个字节都不许写真包。
+ * **相对基线**比，不是"必须为空" —— 用户从设置页建圆圈（本插件的功能）就会让真包
+ * 多出未提交的改动，那跟"本套件有没有写真包"毫无关系（2026-09-22 实测的假红）。
+ */
+function gitStatus(dir) {
+  try {
+    return execFileSync('git', ['-C', dir, 'status', '--porcelain'], { encoding: 'utf8' }).trim()
+  } catch (e) {
+    return 'ERR:' + ((e.stdout || '') + (e.stderr || '')).trim()
+  }
+}
+const realBefore = gitStatus(PACK)
+
 let pass = 0
 const fails = []
 function ok(cond, msg) {
@@ -47,6 +61,21 @@ fs.cpSync(PACK, tmpPack, {
     return !EXCLUDE.includes(path.relative(PACK, src).split(path.sep)[0])
   },
 })
+
+/**
+ * fixture 卫生：把真包里**用户自己建的圆圈**从副本里剔掉，只留 programming。
+ * 为什么必须剔：本套件会在副本上建 `math`，而用户完全可能已经用设置页建过 `math` ——
+ * 那时副本里已经有它，建同名会被"拒覆盖"打回，套件就报一堆与插件无关的假红（2026-09-22 实测）。
+ * fixture 必须是**已知的**，不能是"用户今天的课程包长什么样"。
+ */
+function pruneCircles(packDir) {
+  const lessons = path.join(packDir, 'lessons')
+  for (const n of fs.readdirSync(lessons)) {
+    if (n === 'programming' || n === 'src') continue
+    fs.rmSync(path.join(lessons, n), { recursive: true, force: true })
+  }
+}
+pruneCircles(tmpPack)
 
 // ── helper：构建假 request ──
 function fakeRequest(method, body) {
@@ -90,7 +119,7 @@ try {
     const { ctx, routes } = makeRouteCtx(tmpPack)
     plugin.install(ctx)
 
-    const expectedPaths = ['/api/whale/circle', '/api/whale/point', '/api/whale/circle/rename']
+    const expectedPaths = ['/api/whale/circle', '/api/whale/point', '/api/whale/circle/rename', '/api/whale/circle/delete']
     const actualPaths = routes.map((r) => r.path).sort()
     ok(actualPaths.length === expectedPaths.length, `[9] create 注册了 ${expectedPaths.length} 条路由（实得 ${actualPaths.length}：${actualPaths.join(', ')})`)
     ok(expectedPaths.every((p) => routes.some((r) => r.path === p)), `[9] 路由集合包含 ${expectedPaths.join(', ')}`)
@@ -299,6 +328,7 @@ try {
         return !EXCLUDE_GATE.includes(path.relative(PACK, src).split(path.sep)[0])
       },
     })
+    pruneCircles(gatePack)
     // 复制 styles 目录（style-adapter.js 退路链末段需要课程包旁边的 dsh-raw-html-v2-master/styles）
     fs.cpSync(path.join(path.dirname(PACK), 'dsh-raw-html-v2-master', 'styles'), STYLES_DIR, { recursive: true })
 
@@ -378,29 +408,19 @@ try {
       ok(fakeNewRed.length === 1 && fakeNewRed[0].includes('fake-red-check'),
         `[8] D. 反空转：故意加一条假红 → 集合差捕获 ${fakeNewRed.length} 条（期望 1 条 fake-red-check）`)
 
-      // ── E. 真包零改动 ──
-      let gitOut = ''
-      try {
-        gitOut = execFileSync('git', ['-C', PACK, 'status', '--porcelain'], { encoding: 'utf8' })
-      } catch (e) {
-        gitOut = (e.stdout || '') + (e.stderr || '')
-      }
-      ok(gitOut.trim() === '', `[8] E. 真包 git status --porcelain 为空（实得：${gitOut.trim() || '空'}）`)
+      // ── E. 真包零改动（**相对基线**，不是"必须为空"）──
+      const afterGate = gitStatus(PACK)
+      ok(afterGate === realBefore, `[8] E. 真包 git status 与跑之前相同（相对基线；基线=${realBefore || '空'}，实得=${afterGate || '空'}）`)
 
     } finally {
       try { fs.rmSync(gateRoot, { recursive: true, force: true }) } catch { /* best effort */ }
     }
   }
 
-  // ── [7] 真包零改动 ──
+  // ── [7] 真包零改动（**相对基线**，不是"必须为空"）──
   {
-    let out = ''
-    try {
-      out = execFileSync('git', ['-C', PACK, 'status', '--porcelain'], { encoding: 'utf8' })
-    } catch (e) {
-      out = (e.stdout || '') + (e.stderr || '')
-    }
-    ok(out.trim() === '', `[7] 真包 git status --porcelain 为空（实得：${out.trim() || '空'}）`)
+    const afterStatus = gitStatus(PACK)
+    ok(afterStatus === realBefore, `[7] 真包 git status 与跑之前相同（相对基线；基线=${realBefore || '空'}，实得=${afterStatus || '空'}）`)
   }
 
 } finally {

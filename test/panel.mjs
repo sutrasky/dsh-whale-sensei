@@ -28,6 +28,7 @@ import { plugin as statusPlugin } from '../lib/mods/status.js'
 import { plugin as starterPlugin } from '../lib/mods/starter.js'
 import { STARTER_LABEL } from '../lib/starter.js'
 import { packRoot, PLUGIN } from './_pack.mjs'
+import { readPack } from '../lib/pack-model.js'
 
 const ROOT = packRoot()
 
@@ -77,7 +78,15 @@ console.log(`\n[panel] 课程包：${ROOT}`)
     ok(rows.every((r) => typeof r.name === 'string' && r.name && typeof r.value === 'string'), '每行都是 { name, value } 非空字符串')
     ok(rows.every((r) => r.state === undefined || ['ok', 'warn', 'error'].includes(r.state)), 'state 只取 ok / warn / error（客户端照它上色）')
     const find = (t, n) => (secs.find((s) => s.title === t) || {}).rows?.find((r) => r.name === n)
-    ok(/1 圆圈 · 2 知识点 · 3 门课程/.test(find('课程包', '概况')?.value || ''), `课程包概况是真数字（${find('课程包', '概况')?.value}）`)
+    const livePack = readPack(ROOT)
+    const cN = livePack.circles.length
+    const pN = livePack.points.length
+    const lN = livePack.lessons.length
+    ok(cN >= 1 && pN >= 2 && lN >= 3, `真包至少有 1 圈 / 2 知识点 / 3 门课（实得 ${cN}/${pN}/${lN}）—— 这条判据不是空转`)
+    // 判据是"卡片上的数字与真包一致"，**不写死 1 圆圈**：
+    // 用户从设置页新建一个圆圈（本插件的功能）就会变 2 个，那不是回归（2026-09-22 实测的假红）。
+    ok(find('课程包', '概况')?.value === `${cN} 圆圈 · ${pN} 知识点 · ${lN} 门课程`,
+      `课程包概况与真包逐数字一致（${find('课程包', '概况')?.value}）`)
     ok(/^\d+ \/ \d+$/.test(find('课程包', '已点亮')?.value || ''), `已点亮 x / y（${find('课程包', '已点亮')?.value}）`)
     ok(find('产物', '一致性')?.value === '产物与课程包一致' && find('产物', '一致性')?.state === 'ok', `产物一致性与 whale_build 同源（${find('产物', '一致性')?.value}）`)
     ok(!!find('审计', '审计')?.value, `审计块有结论（${find('审计', '审计')?.value}）`)

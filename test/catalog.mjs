@@ -28,7 +28,10 @@ function ok(c, m) {
 const pack = readPack(ROOT)
 
 // ── [1] 圆圈/知识点/课程数量与真目录一致 ──
-ok(pack.circles.length === 1, `[1] 圆圈数量：${pack.circles.length}（期望 1）`)
+// 不写死"圆圈数 = 1"：用户从设置页新建圆圈（本插件的功能）就会变 2，
+// 那不是回归（2026-09-22 实测的假红）。判据改成"id 都合法 + 该有的那几条事实都在"。
+ok(pack.circles.length >= 1, `[1] 圆圈数量：${pack.circles.length}（≥1）`)
+ok(pack.circles.every((c) => /^[a-z][a-z0-9-]*$/.test(c.id)), `[1] 每个圆圈 id 都合法（${pack.circles.map((c) => c.id).join(', ')}）`)
 const programming = pack.circles.find((c) => c.id === 'programming')
 ok(programming != null, '[1] 找到 programming 圆圈')
 ok(pack.points.filter((p) => p.circle === 'programming').length === 2, `[1] programming 下知识点：${pack.points.filter((p) => p.circle === 'programming').length}（期望 2）`)
@@ -105,15 +108,22 @@ ok(nnNull === null, `[4] nextNumber(不存在的知识点) = ${nnNull}（期望 
 // ── [6] suggestCircle：命中已有 / 命中未建 / 真没认出（不许猜）──
 {
   const existing = pack.circles.map((c) => ({ id: c.id, name: c.name }))
+  // isNew 的两条分支都拿**显式传进去的 existing 列表**判，不看真包今天建了哪些圆圈：
+  // 真包上有 math 时 '微积分' 的 isNew 自然是 false —— 那是用户用设置页建出来的正常状态，
+  // 不是回归（2026-09-22 实测的假红）。这里把同一个词的两条分支都钉住，覆盖反而更全。
+  const withoutMath = existing.filter((c) => c.id !== 'math')
 
   const r1 = suggestCircle('Vue 3 组合式 API', existing)
   ok(r1.id === 'programming' && r1.isNew === false, `[6] 'Vue 3 组合式 API' → id=${r1.id}, isNew=${r1.isNew}`)
 
-  const r2 = suggestCircle('微积分', existing)
-  ok(r2.id === 'math' && r2.isNew === true, `[6] '微积分' → id=${r2.id}, isNew=${r2.isNew}（该圆圈还没建）`)
+  const r2 = suggestCircle('微积分', withoutMath)
+  ok(r2.id === 'math' && r2.isNew === true, `[6] '微积分' 在"还没有 math"的列表上 → id=${r2.id}, isNew=${r2.isNew}`)
+
+  const r2b = suggestCircle('微积分', [{ id: 'math', name: '数学' }])
+  ok(r2b.id === 'math' && r2b.isNew === false, `[6] '微积分' 在"已有 math"的列表上 → id=${r2b.id}, isNew=${r2b.isNew}（同一个词两条分支都钉住）`)
 
   // '量子' 在 physics 的 keywords 里 → 命中 physics 是**正确语义**，不是"没认出"
-  const r3 = suggestCircle('量子纠缠与猫', existing)
+  const r3 = suggestCircle('量子纠缠与猫', [{ id: 'programming', name: '编程' }])
   ok(r3.id === 'physics' && r3.isNew === true, `[6] '量子纠缠与猫' → id=${r3.id}（'量子'命中 physics）`)
 
   // 真正一个关键词都不命中的 → **必须留空**，不许猜

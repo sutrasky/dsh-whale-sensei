@@ -35,7 +35,8 @@ const SUITES = [
   ['catalog', '数据面：圆圈/知识点/课程的规范 id（唯一、可解析）+ 下一课号 + 圆圈建议'],
   ['new-course-wizard', '新课程向导：三屏顺序 / 字段逐字未变 / 归属行按需出现'],
   ['circle-create', '写入口：新建圆圈/知识点（原子、拒覆盖、坏 id 拒绝、绝不碰真包）'],
-  ['settings-catalog', '设置页：三级目录 / 圆圈改名（只改 name、其余逐字节保留）/ 模块表可查'],
+  ['circle-delete', '圆圈删除：dryRun 只报清单 / 必须 confirm / 目录+源+进度一并删 / 学生代码只报不删 / 歧义拒绝'],
+  ['settings-catalog', '设置页：三级目录 / 圆圈改名（只改 name、其余逐字节保留）/ 模块表可查 / 展开不串台 / 删除弹窗'],
 ]
 
 let failed = 0

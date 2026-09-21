@@ -35,8 +35,11 @@ ok(readPack === readPackFromModel, 'lib/pack.js 与 pack-model.js 的 readPack �
 ok(packSummaryFromModel === (await import('../lib/pack.js')).packSummary, 'packSummary 同样只有一份')
 
 const pack = readPack(ROOT)
-// 只允许"工具链也会报的"那几类告警（历史平铺、幽灵进度）—— 别的告警一律算失败
-const ignorable = /历史平铺|幽灵条目|目录重构/
+// 只允许"工具链也会报的"那几类告警（历史平铺、幽灵进度）—— 别的告警一律算失败。
+// 2026-09-22 补一类：`圆圈 X 下一个知识点都没有` —— 那是设置页「新建圆圈」的**正常中间态**
+// （圆圈建好了、知识点还没建），而且插件是**主动把它报给用户**的（create 响应里那句「待补」），
+// 不是被吞掉。真包上出现它只说明"用户正在用这个功能"，不是插件把包读错了。
+const ignorable = /历史平铺|幽灵条目|目录重构|下一个知识点都没有/
 const realWarn = pack.warnings.filter((w) => !ignorable.test(w))
 ok(realWarn.length === 0, `readPack 没有"工具链不会报"的告警${realWarn.length ? '：' + realWarn.join('；') : ''}`)
 if (pack.warnings.length) {

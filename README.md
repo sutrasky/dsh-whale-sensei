@@ -223,6 +223,11 @@ npx @deepseek-ai/dsh --profile web --dump-config
 | `/api/whale/note` | `POST` | 追加一条笔记（`{ text, anchor, date? }`） |
 | `/api/whale/status` | `GET` | **只读状态**（给设置页那一节用）。⚠️ 这条**在没配 `packRoot` 时也回 200** 并附带修法 —— 它的职责就是把"没配"显示出来 |
 | `/api/whale/starter` | `GET` / `POST` | 开课入口：`GET` 发**弹窗的字段表与模板 + 四步协议**（没配 `packRoot` 也回 200）；`POST { values }` 把学生填的回答拼成「开课请求」正文（**不写盘**，必填缺了回 400 + 缺哪几项） |
+| `/api/whale/catalog` | `GET` | **只读目录**（设置页三级目录 + 开课向导第一屏用）：圆圈 / 知识点 / 课程的规范 id（`圈/点/NNNN`）+ 下一课号 + 圆圈建议（`?topic=`）。没配 `packRoot` 也回 200 并指路 |
+| `/api/whale/circle` | `POST` | 新建圆圈：`{ name, id }` → `lessons/<id>/halo.json`。原子写 + 拒覆盖 + 坏 id 拒绝；回 `needsRebuild` 那 4 条命令 |
+| `/api/whale/point` | `POST` | 新建知识点：`{ circle, name, id }` → `point.json`，`fileBase` = 该圈现有最大值 + 1000（空圈从 0 起） |
+| `/api/whale/circle/rename` | `POST` | 圆圈改名：`{ id, name }`。**外科式**替换 `halo.json` 里的 `name`，其余逐字节保留；`"name"` 匹配数 ≠ 1 就拒绝 |
+| `/api/whale/circle/delete` | `POST` | 删除圆圈：**必须显式 `confirm: true`**。先用 `{ id, dryRun: true }` 拿清单（目录 / 文件数 / 几门课 / 进度里要清哪几条），确认后删 `lessons/<id>` + `lessons/src/<id>`，并清 `progress.json` 里属于它的课次。**学生代码 `code/` 只报不删**；目标匹配 0 或 ≥2 个一律拒绝 |
 
 `anchor` 可给课次显示名（`第1课`）或星图课次键（`point/0001`）—— **归一化在写入口做**，台账里只存键。
 

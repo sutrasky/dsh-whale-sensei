@@ -9,7 +9,9 @@
  *   [4] 反空转：halo.json 没有 name 行 → rename 必须拒绝
  *   [5] 模块表一份实现两处调用：status.js 与 whale_ping 用的是同一个函数
  *   [6] 设置卡渲染：三级（圆圈名 / 知识点名 / 下一课第K课）在；canCreate:false 时无新建入口
- *   [7] 真包零改动
+ *   [7] 真包零改动（**相对基线**）
+ *   [8] 路径覆盖：客户端调的路径 ⊆ 已注册路由
+ *   [9] 行为级：点「数学」展开的是数学（不串台）+ 删除必须先弹窗、只有确认才发 confirm:true
  */
 
 import fs from 'node:fs'
@@ -24,6 +26,32 @@ import { enabledModules } from '../lib/mods/index.js'
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const SRC = path.resolve(HERE, '..')
 const PACK = packRoot()
+
+/**
+ * 真包基线：本套件一个字节都不许写真包。**相对基线**比，不是"必须为空" ——
+ * 用户从设置页建圆圈（本插件的功能）就会让真包多出未提交的改动（2026-09-22 实测的假红）。
+ */
+function gitStatus(dir) {
+  try {
+    return execFileSync('git', ['-C', dir, 'status', '--porcelain'], { encoding: 'utf8' }).trim()
+  } catch (e) {
+    return 'ERR:' + ((e.stdout || '') + (e.stderr || '')).trim()
+  }
+}
+const realBefore = gitStatus(PACK)
+
+/**
+ * fixture 卫生：把真包里**用户自己建的圆圈**从副本里剔掉，只留 programming。
+ * 本套件会在副本上建 `math`，而用户完全可能已经用设置页建过 `math` ——
+ * 那时副本里已有它，"建 math"会被拒覆盖打回，判据就报一堆与插件无关的假红（2026-09-22 实测）。
+ */
+function pruneCircles(packDir) {
+  const lessons = path.join(packDir, 'lessons')
+  for (const n of fs.readdirSync(lessons)) {
+    if (n === 'programming' || n === 'src') continue
+    fs.rmSync(path.join(lessons, n), { recursive: true, force: true })
+  }
+}
 
 let pass = 0
 const fails = []
@@ -62,6 +90,7 @@ console.log(`\n[settings-catalog] 课程包：${PACK}`)
       return !EXCLUDE.includes(path.relative(PACK, src).split(path.sep)[0])
     },
   })
+  pruneCircles(tmpPack)  // 本块要建 `math`；用户真包里可能已有 math（见 pruneCircles 注释）
 
   try {
     const { plugin: createPlugin } = await import(pathToFileURL(path.join(SRC, 'lib', 'mods', 'create.js')).href)
@@ -448,6 +477,198 @@ console.log(`\n[settings-catalog] 课程包：${PACK}`)
   }
 }
 
+/* ── [9] 行为级：展开按自己的 id 生效 + 删除必须弹窗确认 ──────────────
+ *
+ * 起因（2026-09-22 真机）：用户在设置页点「数学」的展开，展开出来的却是「编程」。
+ * 根因是 `for (var ci…)` 里的 `var c` 是**函数作用域共享**的 —— 所有圆圈行的 onClick
+ * 在点击时读到的都是循环结束时最后那个 `c`（`readdirSync().sort()` 之后 programming 排最后）。
+ *
+ * 所以这个判据不看源码结构、也不读 hook 槽位，而是**把用户那句话原样跑一遍**：
+ *   渲染两个圆圈（数学在前、编程在后）→ 点「数学」→ 数学的知识点必须出现、编程的必须不出现。
+ * 旧代码在这里必红（点数学展编程）。fixture 里数学**故意放第一个**、编程放最后一个 ——
+ * 正好是"最后一个是编程"那个致命顺序。
+ */
+{
+  const src = fs.readFileSync(path.join(PLUGIN, 'lib', 'client.js'), 'utf8')
+  const prim = { Modal: function Modal() {}, Button: function Button() {} }
+
+  const catalogData = { ok: true, configured: true, canCreate: true, circles: [
+    { id: 'math', name: '数学', points: [
+      { id: 'algebra', name: '代数', fileBase: 0, nextNumber: 1, lessons: [] },
+    ] },
+    { id: 'programming', name: '编程', points: [
+      { id: 'spring-boot', name: 'Spring Boot', fileBase: 0, nextNumber: 3, lessons: [
+        { id: 'programming/spring-boot/0001', number: 1, title: '第一课' },
+      ] },
+    ] },
+  ] }
+
+  const DELETE_PLAN = {
+    id: 'math', name: '数学', dir: 'lessons/math',
+    dirs: [{ path: 'lessons/math', files: 1, bytes: 64 }],
+    files: 4, bytes: 120, lessons: 0, lessonIds: [],
+    codeDirs: [], progressIds: [], progressFile: null,
+    rebuild: ['node tools/build-lessons.js', 'node tools/build-starmap.js', 'node assets/build-glossary.js', 'node tools/build-notes.js'],
+  }
+
+  const calls = []
+  let queue = []
+  const realFetch = globalThis.fetch
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url: String(url), method: opts?.method, body: opts?.body ? JSON.parse(opts.body) : null })
+    const payload = queue.length ? queue.shift() : { ok: false, error: '没排队（判据里忘记 push 响应了）' }
+    return { status: 200, text: async () => JSON.stringify(payload), json: async () => payload }
+  }
+
+  /** mini-React：useState 的 setter **真写回 slots**，所以再渲染一次就能看到新状态 */
+  function mount() {
+    const slots = []
+    let cursor = 0
+    const miniR = {
+      createElement: (type, p, ...kids) => {
+        const flat = kids.flat(Infinity)
+        return { type, props: p || {}, children: flat.filter((k) => k != null && k !== false) }
+      },
+      useState(init) {
+        const i = cursor++
+        if (!(i in slots)) slots[i] = typeof init === 'function' ? init() : init
+        const set = (v) => { slots[i] = typeof v === 'function' ? v(slots[i]) : v }
+        return [slots[i], set]
+      },
+      useRef(v) { const i = cursor++; if (!(i in slots)) slots[i] = { current: v }; return slots[i] },
+      useEffect() { cursor++ },
+    }
+    const req = (n) => {
+      if (n === 'react') return miniR
+      if (n === '@deepseek-ai/dsh-client-ui-primitives') return prim
+      throw new Error('意外 require：' + n)
+    }
+    let mod = null
+    const fakeWindow = { __ModuleLoader__: { load: (m) => { mod = m } }, setTimeout: (fn) => setTimeout(fn, 0), prompt: () => {} }
+    new Function('window', 'require', src)(fakeWindow, req)
+    const exp = mod.factory(req)
+    const regs = []
+    exp.apply({ slots: { inject: (n, cb) => cb(), register: (spec, c) => { regs.push({ spec, comp: c }); return () => {} } }, effect: (fn) => fn() })
+    const Comp = regs.find((r) => r.spec.id === 'whale-sensei')?.comp
+
+    // StatusPanel: useState(state)=0, useState(tick)=1, useEffect=2
+    // CatalogPanel: useState(catState)=3, useState(catTick)=4, useState(expanded)=5,
+    //               useState(rename)=6, useState(newCircle)=7, useState(del)=8, useState(notice)=9, useEffect=10
+    slots[0] = { phase: 'ok', data: { ok: true, configured: true, version: '0.1.0', sections: [{ title: '插件', rows: [{ name: '版本', value: '0.1.0' }] }] }, at: '12:00:00' }
+    slots[1] = 0
+    slots[3] = { phase: 'ok', data: catalogData, error: null }
+    slots[4] = 0
+    return { render: () => { cursor = 0; return Comp({}) }, slots }
+  }
+
+  /**
+   * 求值函数组件，**每个节点只求值一次**（结果挂在节点的 `__sub` 上）。
+   * 为什么必须记忆化：mini-React 的 hook 槽位是靠"这次渲染里第几次调用"定位的，
+   * 而遍历时会顺带求值 CatalogPanel —— 同一棵树走第二遍就会把手里的 cursor 带到
+   * 槽位之外去（`!(i in slots)` 成立 → 组件被按**初值**重新初始化，于是看到
+   * 「正在读课程目录…」这种假状态）。走两遍就得复用同一份求值结果。
+   */
+  function evalFn(node) {
+    if (!('__sub' in node)) {
+      try { node.__sub = node.type(node.props || {}) } catch { node.__sub = null }
+    }
+    return node.__sub
+  }
+
+  function walk(node, pred, out = []) {
+    if (node == null || node === false || typeof node === 'string') return out
+    if (Array.isArray(node)) { for (const c of node) walk(c, pred, out); return out }
+    if (typeof node.type === 'function') {
+      const sub = evalFn(node)
+      if (sub) walk(sub, pred, out)
+      return out
+    }
+    if (pred(node)) out.push(node)
+    if (node.children) for (const c of node.children) walk(c, pred, out)
+    if (node.props && node.props.children && !Array.isArray(node.children)) {
+      const ch = node.props.children
+      if (Array.isArray(ch)) for (const c of ch) walk(c, pred, out)
+      else walk(ch, pred, out)
+    }
+    return out
+  }
+
+  const textsOf = (node) => {
+    const out = []
+    const rec = (n) => {
+      if (n == null || n === false) return
+      if (typeof n === 'string') { out.push(n); return }
+      if (Array.isArray(n)) { n.forEach(rec); return }
+      if (typeof n.type === 'function') { const sub = evalFn(n); if (sub) rec(sub); return }
+      if (n.children) n.children.forEach(rec)
+    }
+    rec(node)
+    return out
+  }
+
+  try {
+    const h = mount()
+
+    // ① 初始：两个圆圈都收起（默认收起）
+    const t0 = textsOf(h.render()).join(' ')
+    ok(!t0.includes('代数'), '[9] 初始「数学」是收起的（不显示它的知识点「代数」）')
+    ok(!t0.includes('Spring Boot'), '[9] 初始「编程」也是收起的')
+
+    // ② 点「数学」的展开 —— 用户那句话原样跑一遍
+    const mathRow = walk(h.render(), (n) => n.props && n.props.key === 'circle-math')[0]
+    ok(!!mathRow, '[9] 渲染树里找得到 key=circle-math 的圆圈行')
+    mathRow.props.onClick()
+    const t1 = textsOf(h.render()).join(' ')
+    ok(t1.includes('代数'), '[9] 点「数学」→ 展开出数学自己的知识点「代数」')
+    ok(!t1.includes('Spring Boot'), `[9] 点「数学」不许把「编程」一起展开（${t1.includes('Spring Boot') ? '✗ 串台了：编程被展开' : '没有串台'}）`)
+
+    // ③ 再点「编程」→ 两个各自独立
+    const progRow = walk(h.render(), (n) => n.props && n.props.key === 'circle-programming')[0]
+    progRow.props.onClick()
+    const t2 = textsOf(h.render()).join(' ')
+    ok(t2.includes('代数') && t2.includes('Spring Boot'), '[9] 再点「编程」→ 两个圆圈各自展开（展开状态按 id 分开存）')
+
+    // ④ 删除入口：必须先 dryRun（不真删），而且必须是「数学」那一个按钮
+    const mathBlock = walk(h.render(), (n) => n.props && n.props.key === 'circle-block-math')[0]
+    ok(!!mathBlock, '[9] 找得到「数学」那一整块（key=circle-block-math）')
+    const delBtn = walk(mathBlock, (n) => n.type === 'button' && Array.isArray(n.children) && n.children.join('') === '删除')[0]
+    ok(!!delBtn, '[9] 「数学」那一块里有「删除」按钮')
+
+    queue.push({ ok: true, dryRun: true, plan: DELETE_PLAN })
+    delBtn.props.onClick({ stopPropagation() {} })
+    await new Promise((r) => setTimeout(r, 20))
+    ok(calls.length === 1 && calls[0].url === '/api/whale/circle/delete' && calls[0].body.id === 'math' && calls[0].body.dryRun === true,
+      `[9] 点「删除」先发 dryRun 且 id 是 math（实得 ${JSON.stringify(calls[0]?.body)}）`)
+    ok(calls[0] && calls[0].body.confirm === undefined, '[9] dryRun 那一次**不许**带 confirm（这时还没确认）')
+
+    // ⑤ 弹窗：把真实清单摆出来
+    const modal = walk(h.render(), (n) => n.props && n.props.key === 'delete-modal')[0]
+    ok(!!modal, '[9] dryRun 回来后弹出确认弹窗（不是直接删）')
+    const mt = textsOf(modal).join(' ')
+    ok(mt.includes('删除知识圆圈「数学」'), `[9] 弹窗点名要删的是「数学」（${mt.slice(0, 30)}…）`)
+    ok(mt.includes('不可恢复'), '[9] 弹窗写明不可恢复')
+    ok(mt.includes('lessons/math'), '[9] 弹窗摆出真实目录名（不是空话）')
+
+    // ⑥ 只有点「确认删除」才发 confirm:true
+    const okBtn = walk(modal, (n) => n.type === 'button' && Array.isArray(n.children) && n.children.join('') === '确认删除')[0]
+    ok(!!okBtn, '[9] 弹窗里有「确认删除」按钮')
+    queue.push({ ok: true, files: 1, lessons: 0, progressCleaned: 0, needsRebuild: DELETE_PLAN.rebuild, deleted: ['lessons/math'] })
+    okBtn.props.onClick()
+    await new Promise((r) => setTimeout(r, 20))
+    ok(calls.length === 2 && calls[1].body.confirm === true && calls[1].body.id === 'math',
+      `[9] 点「确认删除」才发 confirm:true（第二次：${JSON.stringify(calls[1]?.body)}）`)
+
+    // ⑦ 删完弹窗关掉 + 结果横幅摆出重建命令
+    const after = h.render()
+    ok(walk(after, (n) => n.props && n.props.key === 'delete-modal').length === 0, '[9] 删成功后弹窗关闭')
+    const at = textsOf(after).join(' ')
+    ok(at.includes('已删除圆圈「数学」'), `[9] 结果横幅说明删了什么（${at.slice(0, 40)}…）`)
+    ok(at.includes('node tools/build-lessons.js'), '[9] 结果横幅摆出重建命令（照抄服务端返回的那批）')
+  } finally {
+    globalThis.fetch = realFetch
+  }
+}
+
 /* ── [8] 路径覆盖：客户端调的路径 ⊆ 已注册路由 ─────────────────────── */
 {
   const src = fs.readFileSync(path.join(PLUGIN, 'lib', 'client.js'), 'utf8')
@@ -526,15 +747,10 @@ console.log(`\n[settings-catalog] 课程包：${PACK}`)
   ok(fakeMissing.length >= 1, `[8d] 反空转：删除 ${firstPath} 后判据捕获 ${fakeMissing.length} 条缺失（期望 ≥1）`)
 }
 
-/* ── [7] 真包零改动 ─────────────────────────────────────────────── */
+/* ── [7] 真包零改动（**相对基线**）───────────────────────────────── */
 {
-  let out = ''
-  try {
-    out = execFileSync('git', ['-C', PACK, 'status', '--porcelain'], { encoding: 'utf8' })
-  } catch (e) {
-    out = (e.stdout || '') + (e.stderr || '')
-  }
-  ok(out.trim() === '', `[7] 真包 git status --porcelain 为空（实得：${out.trim() || '空'}）`)
+  const after = gitStatus(PACK)
+  ok(after === realBefore, `[7] 真包 git status 与跑之前相同（相对基线；基线=${realBefore || '空'}，实得=${after || '空'}）`)
 }
 
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
