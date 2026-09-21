@@ -9,6 +9,12 @@
  *   4. 客户端源码里三屏的顺序正确
  *   5. 反空转哨兵：故意错序会红
  *   6. 不许出现死按钮：canCreate === false 时渲染函数不产出新建按钮
+ *  10. 新建圆圈表单：点开后有显示名输入框、目录 id 输入框、创建/取消按钮
+ *  11. 新建圆圈提交：POST /api/whale/circle body 带用户填的 name/id
+ *  12. 新建圆圈成功：重拉 catalog、step 推进到 1、selectedCircle 是新建的
+ *  13. 新建圆圈失败：错误人话出现在树里、状态不推进
+ *  14. 新建知识点同款：POST /api/whale/point → step 推进到 2、归属行带新知识点名
+ *  15. 反空转：doCreateCircle 换成空函数 → [11] 的判据必须红
  */
 
 import fs from 'node:fs'
@@ -179,6 +185,46 @@ function hasText(texts, needle) {
 	return texts.some((t) => t.includes(needle))
 }
 
+/** 递归收集树里所有 input 元素的 props（placeholder / value / disabled） */
+function collectInputs(node, out) {
+	if (node == null || node === false) return
+	if (typeof node === 'string') return
+	if (Array.isArray(node)) { node.forEach((c) => collectInputs(c, out)); return }
+	if (node.type === 'input') {
+		out.push({ placeholder: node.props.placeholder, value: node.props.value, disabled: node.props.disabled })
+	}
+	if (node.children) node.children.forEach((c) => collectInputs(c, out))
+	if (node.props) {
+		if (node.props.children) {
+			const ch = node.props.children
+			if (Array.isArray(ch)) ch.forEach((c) => collectInputs(c, out))
+			else collectInputs(ch, out)
+		}
+		if (node.props.footer) collectInputs(node.props.footer, out)
+	}
+}
+
+/** 递归收集树里所有 button 元素的文本、onClick、disabled */
+function findButtons(node, out) {
+	if (node == null || node === false) return
+	if (typeof node === 'string') return
+	if (Array.isArray(node)) { node.forEach((c) => findButtons(c, out)); return }
+	if (node.type === 'button') {
+		const texts = []
+		collectTexts(node, texts)
+		out.push({ text: texts.join(' '), onClick: node.props.onClick, disabled: node.props.disabled })
+	}
+	if (node.children) node.children.forEach((c) => findButtons(c, out))
+	if (node.props) {
+		if (node.props.children) {
+			const ch = node.props.children
+			if (Array.isArray(ch)) ch.forEach((c) => findButtons(c, out))
+			else findButtons(ch, out)
+		}
+		if (node.props.footer) findButtons(node.props.footer, out)
+	}
+}
+
 /**
  * 用预置 hook 槽位渲染一次 CourseDialog，返回收集到的文本数组。
  * useDialogOpen() 内部调 useState(dialogOpen) → 槽位 0
@@ -232,6 +278,92 @@ function renderWithState(initialState) {
 	const texts = []
 	collectTexts(tree, texts)
 	return texts
+}
+
+/**
+ * renderAndAct — 带 mock fetch 和 setState 跟踪的渲染。
+ * 与 renderWithState 同构，但：
+ *   - fetch 被替换为 window.fetch（通过改源码），可通过 fetchResponseQueue 控制返回值
+ *   - setState 实际更新 slots[2]，并记录每次调用
+ *   - 返回 { render(), fetchCalls, setStateCalls, slots }
+ * 用法：先 render() 拿树，找到 onClick 调用，await 微任务，再 render() 看更新后的树。
+ */
+function renderAndAct(initialState, fetchResponseQueue, srcOverride) {
+	let cursor = 0
+	const slots = []
+	const setStateCalls = []
+	const mr = {
+		createElement: (type, p, ...kids) => {
+			const flat = kids.flat(Infinity)
+			return { type, props: p || {}, children: flat.filter((k) => k != null && k !== false) }
+		},
+		useState(init) {
+			const i = cursor++
+			if (!(i in slots)) slots[i] = typeof init === 'function' ? init() : init
+			return [slots[i], function (updater) {
+				if (typeof updater === 'function') {
+					slots[i] = updater(slots[i])
+				} else {
+					slots[i] = updater
+				}
+				setStateCalls.push({ slot: i, value: slots[i] })
+			}]
+		},
+		useRef(v) { const i = cursor++; if (!(i in slots)) slots[i] = { current: v }; return slots[i] },
+		useEffect() { cursor++ },
+	}
+	const prim = { Modal: function Modal() {}, Button: function Button() {} }
+	const req = (n) => {
+		if (n === 'react') return mr
+		if (n === '@deepseek-ai/dsh-client-ui-primitives') return prim
+		throw new Error('意外 require：' + n)
+	}
+
+	const fetchCalls = []
+	const responseQueue = [...(fetchResponseQueue || [])]
+	const fakeW = {
+		__ModuleLoader__: { load: () => {} },
+		setTimeout: (fn) => setTimeout(fn, 0),
+		prompt: () => {},
+		fetch: function (url, opts) {
+			fetchCalls.push({ url, opts })
+			const responseBody = responseQueue.length > 0 ? responseQueue.shift() : { ok: true }
+			const bodyStr = JSON.stringify(responseBody)
+			return Promise.resolve({
+				json: () => Promise.resolve(responseBody),
+				text: () => Promise.resolve(bodyStr),
+				ok: true,
+				status: 200,
+			})
+		},
+	}
+
+	// 替换 bare fetch() → window.fetch()，使 mock 生效
+	const srcToUse = srcOverride || _src
+	const modifiedSrc = srcToUse.replace(/\bfetch\(/g, 'window.fetch(')
+
+	let mod = null
+	fakeW.__ModuleLoader__.load = (m) => { mod = m }
+	new Function('window', 'require', modifiedSrc)(fakeW, req)
+	const exp = mod.factory(req)
+	const regs = []
+	exp.apply({ slots: { inject: (n, cb) => cb(), register: (spec, c) => { regs.push({ spec, comp: c }); return () => {} } }, effect: (fn) => fn() })
+
+	const CourseDialog = regs.find((r) => r.spec.name === 'shell.overlay').comp
+
+	slots[0] = true   // useDialogOpen() → true
+	slots[1] = { deps: [] }  // useEffect 占位
+	slots[2] = initialState
+
+	function render() {
+		cursor = 0
+		const tree = CourseDialog({})
+		const texts = []
+		collectTexts(tree, texts)
+		return { tree, texts }
+	}
+
+	return { render, fetchCalls, setStateCalls, slots }
 }
 
 /* ── [6] 不许出现死按钮：canCreate false/true 各验一遍 ──────────────────── */
@@ -356,6 +488,200 @@ function renderWithState(initialState) {
 	ok(textsEmptyCirclesCheck.join('').includes('直接填表开课'), '[9] 反空转：0 圆圈时出口必须存在（没有就是死路）')
 }
 
+/* ── [10] 点「+ 新建圆圈」→ 出现显示名输入框、目录 id 输入框、提交按钮 ──── */
+{
+	const { render } = renderAndAct({
+		phase: 'ready', entry: { form: { fields: [], title: '新课程', intro: '', submitLabel: '发送', cancelLabel: '取消' } },
+		values: {}, why: null, step: 0,
+		catalog: { ok: true, canCreate: true, circles: [] },
+		selectedCircle: null, selectedPoint: null, catalogWhy: null,
+		newCircle: { open: true, name: '', id: '', saving: false, error: null },
+		newPoint: { open: false, name: '', id: '', saving: false, error: null },
+	})
+	const { tree, texts } = render()
+
+	// 检查 input 元素（placeholder 不在文本节点里，需要走树结构）
+	const inputs = []
+	collectInputs(tree, inputs)
+	ok(inputs.some((i) => i.placeholder === '显示名（如「数学」）'), '[10] 新建圆圈表单：有显示名输入框')
+	ok(inputs.some((i) => i.placeholder === '目录 id（如 math）'), '[10] 新建圆圈表单：有目录 id 输入框')
+
+	// 检查按钮
+	const buttons = []
+	findButtons(tree, buttons)
+	ok(buttons.some((b) => b.text === '创建'), '[10] 新建圆圈表单：有「创建」按钮')
+	ok(buttons.some((b) => b.text === '取消'), '[10] 新建圆圈表单：有「取消」按钮')
+}
+
+/* ── [11] 提交 → POST /api/whale/circle body 带用户填的 name/id ───────── */
+/* ── [12] 成功后 → 重拉 catalog、step=1、selectedCircle 是新建的 ─────── */
+{
+	const { render, fetchCalls, slots } = renderAndAct({
+		phase: 'ready', entry: { form: { fields: [], title: '新课程', intro: '', submitLabel: '发送', cancelLabel: '取消' } },
+		values: {}, why: null, step: 0,
+		catalog: { ok: true, canCreate: true, circles: [] },
+		selectedCircle: null, selectedPoint: null, catalogWhy: null,
+		newCircle: { open: true, name: '数学', id: 'math', saving: false, error: null },
+		newPoint: { open: false, name: '', id: '', saving: false, error: null },
+	}, [
+		// POST /api/whale/circle 的响应
+		{ ok: true, id: 'math' },
+		// GET /api/whale/catalog 的响应（reloadCatalog 用）
+		{ ok: true, configured: true, canCreate: true, circles: [{ id: 'math', name: '数学', points: [] }] },
+	])
+
+	const { tree } = render()
+
+	// 找到「创建」按钮并调用
+	const buttons = []
+	findButtons(tree, buttons)
+	const createBtn = buttons.find((b) => b.text === '创建')
+	ok(!!createBtn, '[11] 找到「创建」按钮')
+	createBtn.onClick()
+
+	await new Promise((r) => setTimeout(r, 10))
+
+	// [11] 检查 POST 请求
+	const postCall = fetchCalls.find((c) => c.url === '/api/whale/circle')
+	ok(!!postCall, '[11] 发出了 POST /api/whale/circle')
+	if (postCall) {
+		ok(postCall.opts.method === 'POST', '[11] 请求方法是 POST')
+		const body = JSON.parse(postCall.opts.body)
+		ok(body.name === '数学', `[11] body.name === '数学'（实际 "${body.name}"）`)
+		ok(body.id === 'math', `[11] body.id === 'math'（实际 "${body.id}"）`)
+	}
+
+	// [12] 检查 catalog 重拉和状态推进
+	const catalogCall = fetchCalls.find((c) => c.url === '/api/whale/catalog')
+	ok(!!catalogCall, '[12] 成功后发出了 GET /api/whale/catalog（重拉）')
+
+	const finalState = slots[2]
+	ok(finalState.step === 1, `[12] 状态推进到 step === 1（实际 ${finalState.step}）`)
+	ok(finalState.selectedCircle && finalState.selectedCircle.id === 'math', `[12] selectedCircle.id === 'math'（实际 ${(finalState.selectedCircle || {}).id}）`)
+}
+
+/* ── [13] 失败 → 错误人话出现在树里、状态不推进 ─────────────────────── */
+{
+	const { render, fetchCalls, slots } = renderAndAct({
+		phase: 'ready', entry: { form: { fields: [], title: '新课程', intro: '', submitLabel: '发送', cancelLabel: '取消' } },
+		values: {}, why: null, step: 0,
+		catalog: { ok: true, canCreate: true, circles: [] },
+		selectedCircle: null, selectedPoint: null, catalogWhy: null,
+		newCircle: { open: true, name: '数学', id: 'math', saving: false, error: null },
+		newPoint: { open: false, name: '', id: '', saving: false, error: null },
+	}, [
+		// POST /api/whale/circle 的失败响应
+		{ ok: false, error: '目录 id 不合法：math 包含非法字符' },
+	])
+
+	const { tree } = render()
+
+	// 找到「创建」按钮并调用
+	const buttons = []
+	findButtons(tree, buttons)
+	const createBtn = buttons.find((b) => b.text === '创建')
+	createBtn.onClick()
+
+	await new Promise((r) => setTimeout(r, 10))
+
+	// 重新渲染看更新后的树
+	const { texts: updatedTexts } = render()
+	ok(hasText(updatedTexts, '目录 id 不合法：math 包含非法字符'), '[13] 失败后错误人话出现在树里')
+
+	// 状态不推进
+	const finalState = slots[2]
+	ok(finalState.step === 0, `[13] 失败后 step 仍为 0（实际 ${finalState.step}）`)
+
+	// 没有 catalog 重拉
+	const catalogCall = fetchCalls.find((c) => c.url === '/api/whale/catalog')
+	ok(!catalogCall, '[13] 失败后没有重拉 catalog')
+}
+
+/* ── [14] 新建知识点同款：POST /api/whale/point → step=2、归属行带新知识点名 ── */
+{
+	const { render, fetchCalls, slots } = renderAndAct({
+		phase: 'ready',
+		entry: { form: { fields: [{ id: 'topic', label: '要学什么', required: true, multiline: false }], title: '新课程', intro: '', submitLabel: '发送', cancelLabel: '取消' } },
+		values: {}, why: null, step: 1,
+		catalog: { ok: true, canCreate: true, circles: [] },
+		selectedCircle: { id: 'programming', name: '编程', points: [] },
+		selectedPoint: null, catalogWhy: null,
+		newCircle: { open: false, name: '', id: '', saving: false, error: null },
+		newPoint: { open: true, name: '代数', id: 'algebra', saving: false, error: null },
+	}, [
+		// POST /api/whale/point 的响应
+		{ ok: true, id: 'programming/algebra' },
+		// GET /api/whale/catalog 的响应（reloadCatalog 用，含新建的知识点）
+		{ ok: true, configured: true, canCreate: true, circles: [{ id: 'programming', name: '编程', points: [{ id: 'algebra', name: '代数', fileBase: 0, nextNumber: 1, lessons: [] }] }] },
+	])
+
+	const { tree } = render()
+
+	// 找到「创建」按钮并调用
+	const buttons = []
+	findButtons(tree, buttons)
+	const createBtn = buttons.find((b) => b.text === '创建')
+	ok(!!createBtn, '[14] 找到知识点「创建」按钮')
+	createBtn.onClick()
+
+	await new Promise((r) => setTimeout(r, 10))
+
+	// 检查 POST 请求
+	const postCall = fetchCalls.find((c) => c.url === '/api/whale/point')
+	ok(!!postCall, '[14] 发出了 POST /api/whale/point')
+	if (postCall) {
+		ok(postCall.opts.method === 'POST', '[14] 请求方法是 POST')
+		const body = JSON.parse(postCall.opts.body)
+		ok(body.circle === 'programming', `[14] body.circle === 'programming'（实际 "${body.circle}"）`)
+		ok(body.name === '代数', `[14] body.name === '代数'（实际 "${body.name}"）`)
+		ok(body.id === 'algebra', `[14] body.id === 'algebra'（实际 "${body.id}"）`)
+	}
+
+	// 检查状态推进
+	const finalState = slots[2]
+	ok(finalState.step === 2, `[14] 成功后 step === 2（实际 ${finalState.step}）`)
+	ok(finalState.selectedPoint && finalState.selectedPoint.name === '代数', `[14] selectedPoint.name === '代数'（实际 ${(finalState.selectedPoint || {}).name}）`)
+
+	// 重新渲染看归属行
+	const { texts: updatedTexts } = render()
+	ok(hasText(updatedTexts, '归属：编程 / 代数'), '[14] 归属行带上了新建的知识点名「编程 / 代数」')
+}
+
+/* ── [15] 反空转：doCreateCircle 换成空函数 → [11] 的判据必须红 ───────── */
+{
+	// 修改源码：onClick: doCreateCircle → onClick: function() {}
+	const brokenSrc = _src.replace(/onClick: doCreateCircle,/g, 'onClick: function() {},')
+
+	const { render, fetchCalls } = renderAndAct({
+		phase: 'ready', entry: { form: { fields: [], title: '新课程', intro: '', submitLabel: '发送', cancelLabel: '取消' } },
+		values: {}, why: null, step: 0,
+		catalog: { ok: true, canCreate: true, circles: [] },
+		selectedCircle: null, selectedPoint: null, catalogWhy: null,
+		newCircle: { open: true, name: '数学', id: 'math', saving: false, error: null },
+		newPoint: { open: false, name: '', id: '', saving: false, error: null },
+	}, [
+		{ ok: true, id: 'math' },
+		{ ok: true, configured: true, canCreate: true, circles: [{ id: 'math', name: '数学', points: [] }] },
+	], brokenSrc)
+
+	const { tree } = render()
+
+	// 找到「创建」按钮并调用 onClick（现在是空函数）
+	const buttons = []
+	findButtons(tree, buttons)
+	const createBtn = buttons.find((b) => b.text === '创建')
+	ok(!!createBtn, '[15] 找到「创建」按钮（broken 版）')
+
+	if (createBtn) {
+		createBtn.onClick()
+		await new Promise((r) => setTimeout(r, 10))
+	}
+
+	// 反空转断言：fetch 不应该被调用（因为 onClick 是空函数）
+	const postCall = fetchCalls.find((c) => c.url === '/api/whale/circle')
+	ok(!postCall, '[15] 反空转：doCreateCircle 换成空函数 → POST 未发出（证明 [11] 不是摆设）')
+}
+
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
-console.log('✅ 新课程向导：三屏顺序 / 字段逐字未变 / 归属行按需出现')
+console.log('✅ 新课程向导：三屏顺序 / 字段逐字未变 / 归属行按需出现 / 新建流程判据')
