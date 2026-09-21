@@ -534,6 +534,7 @@ console.log(`\n[panel] 课程包：${ROOT}`)
   ok(/try\s*\{[\s\S]{0,220}slots\.inject/.test(code), '挂载整段在 try/catch 里 —— 浏览器半边绝不许把宿主界面搞崩')
   ok(/\/api\/whale\/status/.test(code), '设置页卡片拉 /api/whale/status（浏览器半边拿不到 Agent 工具）')
   ok(/\/api\/whale\/starter/.test(code) && /postStarter/.test(code), '开课入口拉 /api/whale/starter 并 POST 拼装（话术与拼装都在宿主侧）')
+  ok(/status === 404/.test(code) && /重启宿主/.test(code), '404 有专门话术：说清"宿主还没装载这条路由，要重启宿主"（别让人以为路径写错了）')
 
   // 开课入口（侧栏那一行）：纯 DOM 注入，位置紧贴「新建会话」正下方
   ok(/data-dsh-whale-entry/.test(code), '入口那一行是纯 DOM 行（属性 data-dsh-whale-entry）')
