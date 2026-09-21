@@ -25,6 +25,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { plugin as statusPlugin } from '../lib/mods/status.js'
+import { plugin as starterPlugin } from '../lib/mods/starter.js'
 import { STARTER_LABEL } from '../lib/starter.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -86,27 +87,68 @@ console.log(`\n[panel] 课程包：${ROOT}`)
     ok(/\d+ 个/.test(find('学生工作区', '项目')?.value || ''), `学生工作区是真数（${find('学生工作区', '项目')?.value}）`)
     ok(!!find('插件', '版本')?.value, `插件块有版本（${find('插件', '版本')?.value}）`)
 
-    // —— 开课入口载荷（`lib/starter.js`）：协议全文由宿主算好，这里判"要素齐不齐" ——
-    const e1 = b1.entry || {}
-    ok(e1.id === 'new-course' && !!e1.label, `entry 有稳定 id 与按钮文案（${e1.id} / ${e1.label}）`)
-    ok(Array.isArray(e1.steps) && e1.steps.length === 4, `entry.steps 四步（${(e1.steps || []).length} 步）`)
-    const prompt = e1.prompt || ''
-    ok(/问我学什么|先问我学什么/.test(prompt), '协议第①步：先问学什么')
-    ok(/RESOURCES\.md/.test(prompt), '协议第②步：查资料落 RESOURCES.md（出处不许凭记忆）')
-    ok(/whale_intake/.test(prompt) && /掌握程度/.test(prompt), '协议第③步：问掌握程度并 whale_intake 落盘（2026-09-21 漏掉的那一步）')
-    ok(/闸门|拦下/.test(prompt), '协议写明：没落盘会被闸门拦下')
-    ok(/whale_author/.test(prompt) && /whale_build/.test(prompt), '协议第④步：点名真实存在的工具（whale_author / whale_build）')
-    ok(Array.isArray(e1.tracks), `entry.tracks 是数组（课程包现有知识点：${(e1.tracks || []).join('、') || '（无）'}）`)
-
     const r2 = await get(undefined)
     const b2 = await r2.json()
     ok(r2.status === 200 && b2.configured === false, `**没配 packRoot 也回 200**（${r2.status} configured=${b2.configured}）—— 这一节的意义就是把这个错显示出来`)
     ok(/503/.test(b2.hint || '') && /cordis\.patch\.yml/.test(b2.hint || ''), `没配时 hint 说清症状与修法（${String(b2.hint).slice(0, 42)}…）`)
-    ok(!!b2.entry?.prompt, '**没配 packRoot 也发 entry** —— 入口不该因为没配课程包就静默消失')
 
     const put = await mount(ROOT)[0].fetch(new Request('http://127.0.0.1:3090/api/whale/status', { method: 'PUT' }))
     ok(put.status === 405, `PUT → ${put.status}（只读）`)
   }
+}
+
+/* ── A2. 宿主半边：开课入口的两条路由（`lib/mods/starter.js`）─────────────
+ * 弹窗要的两个东西都在这里：**字段与模板**（GET）、**把答案拼成正文**（POST）。
+ * 判据放在这一层而不是浏览器半边 —— 话术只有宿主一份，所以"问了什么、拼成什么"可以离线判。
+ */
+{
+  const mount = (root) => {
+    const cap = []
+    starterPlugin.install({
+      paths: { packRoot: root, root: path.join(PLUGIN, '..', '.dsh-whale-sensei') },
+      log: { info: () => {}, warn: () => {}, error: () => {} },
+      registerTool: () => {},
+      inject: (names, cb) => cb({ get: () => ({ fetch: { register: (r) => cap.push(r) } }) }),
+    })
+    return cap
+  }
+  const route = mount(ROOT).find((r) => r.path === '/api/whale/starter')
+  ok(!!route, '挂了 /api/whale/starter')
+  ok(route?.methods?.join(',') === 'GET,POST', `一条路由两种方法（${route?.methods?.join(',')}）—— 同路径拆两条会撞`)
+  ok(route?.requestBody === 'buffered', '显式声明 requestBody（不写的话 GET 会被装 body 而抛）')
+  ok(starterPlugin.tools.length === 0, '这一节不进工具面（tools 为空）')
+
+  const get = (root) => mount(root)[0].fetch(new Request('http://127.0.0.1:3090/api/whale/starter', { method: 'GET' }))
+  const post = (values) => route.fetch(new Request('http://127.0.0.1:3090/api/whale/starter', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ values }),
+  }))
+
+  const g = await get(ROOT)
+  const gb = await g.json()
+  const form = gb.entry?.form || {}
+  ok(g.status === 200 && gb.configured === true, `GET → ${g.status} configured=${gb.configured}`)
+  ok(gb.entry?.label === STARTER_LABEL, `按钮/弹窗标题与宿主常量一致（${gb.entry?.label}）`)
+  ok(Array.isArray(form.fields) && form.fields.length === 5, `弹窗 ${(form.fields || []).length} 个字段`)
+  ok((form.fields || []).filter((f) => f.required).map((f) => f.id).join(',') === 'topic,goal', '必填只有「要学什么 / 学完要能做出什么」')
+  ok(/掌握程度/.test(form.intro || ''), '弹窗说明里写明后面会问掌握程度（摸底在发出去之后）')
+  ok(!/掌握程度|学过什么|基础如何/.test(JSON.stringify(form.fields)), '**弹窗字段里不问摸底**')
+  ok(/whale_intake/.test(gb.entry.prompt || '') && /RESOURCES\.md/.test(gb.entry.prompt || ''), '协议全文齐（查资料 + 摸底的机械闸门都在）')
+  ok((form.template || '').includes('{{protocol}}'), '模板带 {{protocol}} 占位')
+
+  const p = await post({ topic: 'Vue 3 组合式 API', goal: '能独立写一个小型前端应用' })
+  const pb = await p.json()
+  ok(p.status === 200 && pb.ok === true && pb.text.startsWith('【开课请求】'), `POST 合法 → ${p.status}，正文以「【开课请求】」开头`)
+  ok(pb.text.includes('Vue 3 组合式 API') && pb.text.includes('（未填，你来定）'), '答案进正文，没填的字段写成「（未填，你来定）」')
+  ok(!/\{\{[a-z]+\}\}/.test(pb.text), '正文里没有没替换的占位符')
+  const missing = await post({ goal: 'x' })
+  const mb = await missing.json()
+  ok(missing.status === 400 && mb.missing?.join(',') === '要学什么', `缺必填 → ${missing.status} ${mb.error}`)
+
+  const g2 = await get(undefined)
+  const gb2 = await g2.json()
+  ok(g2.status === 200 && gb2.configured === false && !!gb2.entry?.form, '没配 packRoot 也发 entry（弹窗不该静默消失）')
 }
 
 /* ── B0. 浏览器半边：**真加载一遍**（不是 grep） ─────────────────────────
@@ -124,7 +166,13 @@ console.log(`\n[panel] 课程包：${ROOT}`)
   const src = fs.readFileSync(path.join(PLUGIN, 'lib', 'client.js'), 'utf8')
   const pkg = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'package.json'), 'utf8'))
   let mod = null
-  const fakeWindow = { __ModuleLoader__: { load: (m) => { mod = m } } }
+  // ⚠️ `window` 是 `new Function('window', …)` 的**形参** —— 模块里的 `window.setTimeout` 指的是这里，
+  //    不是 `globalThis.window`（第一版就是漏了它，发送路径静默不生效）。
+  const fakeWindow = {
+    __ModuleLoader__: { load: (m) => { mod = m } },
+    setTimeout: (fn) => setTimeout(fn, 0),
+    prompt: () => {},
+  }
   const react = {
     createElement: (type, props, ...children) => ({ type, props: props || {}, children }),
     useState: (v) => [v, () => {}],
@@ -132,7 +180,14 @@ console.log(`\n[panel] 课程包：${ROOT}`)
     useEffect: () => {},
   }
   const asked = []
-  const req = (n) => { asked.push(n); if (n === 'react') return react; throw new Error('客户端 require 了没声明的包：' + n) }
+  // 官方原语：弹窗用 Modal、按钮用 Button。宿主侧真的提供这个包（本机多个第三方插件也在 require 它）。
+  const primitives = { Modal: function Modal() {}, Button: function Button() {} }
+  const req = (n) => {
+    asked.push(n)
+    if (n === 'react') return react
+    if (n === '@deepseek-ai/dsh-client-ui-primitives') return primitives
+    throw new Error('客户端 require 了没声明的包：' + n)
+  }
 
   let boom = null
   try {
@@ -140,7 +195,7 @@ console.log(`\n[panel] 课程包：${ROOT}`)
   } catch (e) { boom = e }
   ok(!boom && !!mod, `真加载：lazy-CJS 工厂能跑起来${boom ? '（' + boom.message + '）' : ''}`)
   ok(mod?.id === pkg.name, `__ModuleLoader__.load 的 id 是包名（${mod?.id}）`)
-  ok(asked.every((n) => n === 'react'), `只 require 了冻结基座里的包（${[...new Set(asked)].join(', ') || '无'}）`)
+  ok(asked.every((n) => n === 'react' || n === '@deepseek-ai/dsh-client-ui-primitives'), `只 require 了冻结基座里的包（${[...new Set(asked)].join(', ') || '无'}）`)
 
   const regs = []
   const ctx = {
@@ -157,10 +212,11 @@ console.log(`\n[panel] 课程包：${ROOT}`)
     exportsObj.apply(ctx)
   } catch (e) { applied = e }
   ok(!applied, `apply(ctx) 不抛${applied ? '（' + applied.message + '）' : ''}`)
-  ok(regs.length === 2, `apply 里真的注册了 2 个坐位（实际 ${regs.length}）`)
+  ok(regs.length === 3, `apply 里真的注册了 3 个坐位（实际 ${regs.length}）`)
   ok(regs[0]?.spec?.name === 'settings.section' && regs[0]?.spec?.id === 'whale-sensei', `坐位①：settings.section / whale-sensei（${regs[0]?.spec?.name}/${regs[0]?.spec?.id}）`)
   ok(regs[1]?.spec?.name === 'conversation.input.left' && regs[1]?.spec?.id === 'whale-bridge', `坐位②：conversation.input.left / whale-bridge（${regs[1]?.spec?.name}/${regs[1]?.spec?.id}）`)
-  ok(regs.every((r) => typeof r.comp === 'function'), '两处注册的都是**组件函数**，不是现造的元素')
+  ok(regs[2]?.spec?.name === 'shell.overlay' && regs[2]?.spec?.id === 'whale-new-course-dialog', `坐位③：shell.overlay / whale-new-course-dialog（${regs[2]?.spec?.name}/${regs[2]?.spec?.id}）—— 弹窗挂在官方"整帧浮层"缝上`)
+  ok(regs.every((r) => typeof r.comp === 'function'), '三处注册的都是**组件函数**，不是现造的元素')
   ok(regs[1].comp({ inputActions: {} }) === null, '桥组件渲染 null —— 它只把 inputActions 接出来，不占界面')
 
   // —— 侧栏那一行：用**最小假 DOM** 真跑一遍注入逻辑 ——
@@ -256,7 +312,11 @@ console.log(`\n[panel] 课程包：${ROOT}`)
         constructor(cb) { this.cb = cb; seen.push(this) }
         observe() {} disconnect() {}
       }
-      const req2 = (n) => { if (n === 'react') return react; throw new Error('意外 require：' + n) }
+      const req2 = (n) => {
+        if (n === 'react') return react
+        if (n === '@deepseek-ai/dsh-client-ui-primitives') return primitives
+        throw new Error('意外 require：' + n)
+      }
       // 浏览器半边所有挂载点都包在 try/catch 里（不许把宿主界面搞崩）—— 代价是**出错会静默**。
       // 所以这里把 console.warn 抓下来：假 DOM 跑的时候一声不吭，才算真的没事。
       const warns = []
@@ -297,6 +357,138 @@ console.log(`\n[panel] 课程包：${ROOT}`)
       const s2 = withSidebar(doc2)
       seen.filter((o) => o.cb).forEach((o) => o.cb())
       ok(doc2.querySelector('[data-dsh-whale-entry]')?.previousElementSibling === s2.native, '侧栏一出现就补插到「新建会话」正下方（body observer 生效）')
+
+      // ④ 整条真流程：点侧栏那行 → 弹窗开 → 拉载荷 → 填字段 → 点「发送」→ setDraft + submit
+      //    这需要 React 的**状态**（弹窗开/关、字段值、phase），所以这里用一个 40 行的 mini-React：
+      //    只实现 useState/useEffect(deps)/useRef/createElement，够跑这一个组件。
+      {
+        const doc3 = makeDom()
+        const s3 = withSidebar(doc3)
+        const made = { modal: [], buttons: [], trees: [] }
+        const prim = {
+          Modal: (props) => ({ __modal: true, props }),
+          Button: (props) => ({ __button: true, props }),
+        }
+        // mini-React：hooks 按调用顺序存；deps 变了才重跑 effect；setState 触发微任务重渲染
+        const slots = []
+        let cursor = 0
+        let comp = null
+        let props = null
+        let tree = null
+        const effects = []
+        const render = () => {
+          cursor = 0
+          effects.length = 0
+          tree = comp(props)
+          for (const fn of effects) fn()
+          return tree
+        }
+        const schedule = () => { Promise.resolve().then(render) }
+        const miniReact = {
+          createElement: (type, p, ...kids) => ({ type, props: p || {}, children: kids.flat().filter((k) => k !== null && k !== undefined && k !== false) }),
+          useState(init) {
+            const i = cursor++
+            if (!(i in slots)) slots[i] = typeof init === 'function' ? init() : init
+            return [slots[i], (v) => { slots[i] = typeof v === 'function' ? v(slots[i]) : v; schedule() }]
+          },
+          useRef(v) { const i = cursor++; if (!(i in slots)) slots[i] = { current: v }; return slots[i] },
+          useEffect(fn, deps) {
+            const i = cursor++
+            const prev = slots[i]
+            const changed = !prev || deps === undefined || !prev.deps || prev.deps.length !== deps.length || deps.some((d, k) => d !== prev.deps[k])
+            slots[i] = { deps }
+            if (changed) effects.push(fn)
+          },
+        }
+        const req4 = (n) => {
+          if (n === 'react') return miniReact
+          if (n === '@deepseek-ai/dsh-client-ui-primitives') return prim
+          throw new Error('意外 require：' + n)
+        }
+        const realFetch = globalThis.fetch
+        const realWindow = globalThis.window
+        const drafted = []
+        const submitted = []
+        const replies = [
+          {
+            ok: true,
+            configured: true,
+            entry: {
+              label: '新课程',
+              prompt: '协议全文（假）',
+              form: {
+                title: '新课程', intro: '说明（摸底在后面）', submitLabel: '发送', cancelLabel: '取消',
+                fields: [{ id: 'topic', label: '要学什么', required: true, multiline: false }],
+                template: '【开课请求】\n- 要学什么：{{topic}}\n\n{{protocol}}',
+              },
+            },
+          },
+          { ok: true, text: '【开课请求】\n- 要学什么：Vue 3\n\n协议全文（假）' },
+        ]
+        const seenUrls = []
+        globalThis.fetch = (url, init) => {
+          seenUrls.push((init && init.method ? init.method + ' ' : 'GET ') + url)
+          return Promise.resolve({ status: 200, text: () => Promise.resolve(JSON.stringify(replies.shift() || { ok: false, error: '没有更多假回复' })) })
+        }
+        globalThis.window = { setTimeout: (fn) => setTimeout(fn, 0), prompt: () => {} }
+        try {
+          const exportsObj = mod.factory(req4)
+          const regs4 = []
+          globalThis.document = doc3
+          globalThis.MutationObserver = FakeMO
+          exportsObj.apply({ slots: { inject: (n, cb) => cb(), register: (spec, c) => { regs4.push({ spec, comp: c }); return () => {} } }, effect: (fn) => fn() })
+          // 桥坐位渲染一次 → 把 inputActions 接出来（真流程里由宿主渲染）
+          regs4.find((r) => r.spec.id === 'whale-bridge').comp({
+            inputActions: { setDraft: (t) => drafted.push(t), submit: () => submitted.push(1) },
+          })
+          // 「发送」键路径要靠重渲染，所以这里把弹窗组件挂进 mini-React，再由侧栏那行把它打开
+          const dialogComp = regs4.find((r) => r.spec.name === 'shell.overlay').comp
+          comp = dialogComp
+          props = {}
+          render()
+          ok(tree?.type === prim.Modal && tree.props.open === false, `未打开时：官方 Modal 渲染但 open=false（${tree?.props?.open}）`)
+          const entryRow = doc3.querySelector('[data-dsh-whale-entry]')
+          ok(typeof entryRow?._on?.click === 'function', '侧栏那一行有 click 处理器')
+          entryRow._on.click()
+          await new Promise((r) => setTimeout(r, 0))
+          await new Promise((r) => setTimeout(r, 0))
+          ok(tree?.props?.open === true, '点一下侧栏那行 → 弹窗打开（open=true）')
+          ok(seenUrls[0] === 'GET /api/whale/starter', `弹窗打开时拉载荷（${seenUrls[0]}）`)
+          // 递归找"渲染某个字段"的那个元素（它在 body → 字段行 → FieldInput 这一层）
+          const fieldEls = []
+          const walk = (el) => {
+            if (!el || !el.children) return
+            for (const c of el.children) {
+              if (c && c.props && c.props.field) fieldEls.push(c)
+              walk(c)
+            }
+          }
+          walk(tree)
+          ok(fieldEls.length === 1, `弹窗按宿主给的字段表画出了字段（字段表来自 entry.form，实得 ${fieldEls.length} 个）`)
+          const fieldEl = fieldEls[0]
+          const inputEl = fieldEl.type(fieldEl.props) // FieldInput 是纯函数组件，直接渲染一次
+          ok(!!inputEl?.props && typeof inputEl.props.onChange === 'function', `字段渲染成 ${inputEl?.type}（${fieldEl.props.field.id}）`)
+          inputEl.props.onChange({ target: { value: 'Vue 3' } })
+          await new Promise((r) => setTimeout(r, 0))
+          const footer = tree.props.footer
+          const sendBtn = footer.children.find((b) => b && b.props && b.props.variant === 'primary')
+          ok(!!sendBtn && sendBtn.children.join('') === '发送', `底部有 primary「发送」（${sendBtn?.children?.join('')}）`)
+          const cancelBtn = footer.children.find((b) => b && b.props && b.props.variant === 'outline')
+          ok(!!cancelBtn, '底部有「取消」（outline）')
+          sendBtn.props.onClick()
+          await new Promise((r) => setTimeout(r, 0))
+          await new Promise((r) => setTimeout(r, 0))
+          ok(seenUrls[1] === 'POST /api/whale/starter', `按发送 → POST 拼装（${seenUrls[1]}）`)
+          ok(drafted.length === 1 && drafted[0].includes('Vue 3') && drafted[0].includes('协议全文（假）'), '拼好的正文交给了 inputActions.setDraft')
+          ok(submitted.length === 1, '紧接着调了 inputActions.submit —— 发送键就是启动键')
+          ok(tree?.props?.open === false, '发送后弹窗自动关上')
+        } catch (e) {
+          ok(false, `点侧栏 → 弹窗 → 发送 这条流程跑不通：${e?.message ?? e}`)
+        } finally {
+          globalThis.fetch = realFetch
+          globalThis.window = realWindow
+        }
+      }
     } catch (e) {
       ok(false, `侧栏注入假 DOM 跑不通：${e?.message ?? e}`)
     } finally {
@@ -312,10 +504,12 @@ console.log(`\n[panel] 课程包：${ROOT}`)
   const pkg = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'package.json'), 'utf8'))
   // 判"代码里有没有"必须**先剥注释**：本文件的注释里正写着"别去抢 settings.plugins.tab"、
   // 也写着"不许出现 import/export" —— 拿原文 grep 会把提醒本身当成违规（第一次就红在这儿）。
-  // 这不是 JS 解析器，只处理本文件的两种形态：块注释 + **整行**行注释。
+  // 这不是 JS 解析器，只处理本文件的两种形态。⚠️ **先剥行注释、再剥块注释**：
+  // 行注释里出现过 `/api/whale/*`，那个 `/*` 会被块注释正则当成开注释，把后面几十行代码一起吃掉
+  // （2026-09-21 实测：`require('@deepseek-ai/dsh-client-ui-primitives')` 就是这么消失的）。
   const code = src
-    .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/^[ \t]*\/\/.*$/gm, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
 
   ok(!/^\s*(import|export)\s/m.test(code), 'lazy-CJS：没有 ESM 的 import/export 语句')
   const idm = code.match(/__ModuleLoader__\.load\(\s*\{\s*id:\s*'([^']+)'/)
@@ -338,9 +532,10 @@ console.log(`\n[panel] 课程包：${ROOT}`)
   ok(!!inj && !/'settingsScope'/.test(inj[1]), '没声明用不到的 settingsScope（多写一个缺服务就整个半边不激活）')
 
   ok(/try\s*\{[\s\S]{0,220}slots\.inject/.test(code), '挂载整段在 try/catch 里 —— 浏览器半边绝不许把宿主界面搞崩')
-  ok(/\/api\/whale\/status/.test(code), '面板去拉 /api/whale/status（浏览器半边拿不到 Agent 工具）')
+  ok(/\/api\/whale\/status/.test(code), '设置页卡片拉 /api/whale/status（浏览器半边拿不到 Agent 工具）')
+  ok(/\/api\/whale\/starter/.test(code) && /postStarter/.test(code), '开课入口拉 /api/whale/starter 并 POST 拼装（话术与拼装都在宿主侧）')
 
-  // 开课入口：注册在输入框左侧工具行，点一下把协议 setDraft 进输入框
+  // 开课入口（侧栏那一行）：纯 DOM 注入，位置紧贴「新建会话」正下方
   ok(/data-dsh-whale-entry/.test(code), '入口那一行是纯 DOM 行（属性 data-dsh-whale-entry）')
   ok(/\[data-pane="sidebar"\]/.test(code) && /sidebarCol/.test(code), '定位侧栏外壳：`[data-pane="sidebar"], [class*="sidebarCol"]`（与技能中心同一套选择器）')
   ok(/button\[class\*="newSession"\]/.test(code), '定位原生「新建会话」按钮（新版嵌 logoRow、老版是直接子节点）')
@@ -348,17 +543,24 @@ console.log(`\n[panel] 课程包：${ROOT}`)
   ok(/previousElementSibling === base/.test(code), '**位置断言**：被别的插件行（技能中心）挤下去时挪回「新建会话」正下方')
   ok(/align-self:stretch/.test(code) && !/width:100%/.test(code), '撑满靠 align-self:stretch，**不写 width:100%**（写了总宽比「新会话」多 4px）')
   ok(/data-sidebar-collapsed/.test(code), '侧栏收起（rail）时切成 36×36 图标按钮（与原生收起变体一致）')
-  ok(new RegExp("ENTRY_LABEL = '" + STARTER_LABEL + "'").test(code), `客户端那行按钮的字与宿主侧 STARTER_LABEL 一致（${STARTER_LABEL}）`)
+  ok(new RegExp("ENTRY_LABEL = '" + STARTER_LABEL + "'").test(code), `按钮/弹窗标题与宿主侧 STARTER_LABEL 一致（${STARTER_LABEL}）`)
 
-  // composer 桥：不渲染任何东西，只把 inputActions 接出来给侧栏那一行用
+  // 弹窗：用**官方 Modal**（不自己造遮罩/Esc/焦点），字段来自宿主
+  ok(/require\(['"]@deepseek-ai\/dsh-client-ui-primitives['"]\)/.test(code), 'require 官方 primitives（本机多个第三方插件同款，不必进 dsh.client.external）')
+  ok(/primitives\.Modal/.test(code), '弹窗用 `primitives.Modal` —— 不自己搓模态框')
+  ok(/primitives\.Button/.test(code), '按钮用 `primitives.Button`（variant 由官方定义）')
+  ok(/shell\.overlay/.test(code) && /id:\s*'whale-new-course-dialog'/.test(code), '挂在 shell.overlay（官方"整帧浮层"缝，当前零占用）')
+  ok(!/要学什么|学完要能做出/.test(code), '**字段与话术不在客户端**（宿主 entry.form 发什么就画什么，没有第二份）')
+
+  // composer 桥：不渲染任何东西，只把 inputActions 接出来给弹窗用
   ok(/conversation\.input\.left/.test(code), '坐位 conversation.input.left（composer 左侧工具行，零占用）')
   ok(/id:\s*'whale-bridge'/.test(code), '桥坐位 id = whale-bridge（不去抢官方 id）')
   ok(/function ComposerBridge[\s\S]{0,240}return null/.test(code), '桥组件**渲染 null** —— 它唯一职责是把 inputActions 接出来')
-  ok(/setDraft/.test(code), '点一下用 inputActions.setDraft 把协议写进草稿')
+  ok(/setDraft\(\s*text\s*\)/.test(code), '「发送」先 setDraft（把拼好的正文写进草稿）')
+  ok(/ia\.submit\s*\(/.test(code), '「发送」再 submit —— 这一下就是回车启动（用户明确要求发送键启动）')
   ok(/typeof ia\.setDraft\s*===\s*'function'/.test(code), '用之前先判类型（宿主换版就走退路，不静默失败）')
   ok(/navigator\.clipboard|window\.prompt/.test(code), '拿不到 inputActions 时有复制到剪贴板的退路')
-  ok(!/\.submit\s*\(/.test(code), '**不自动 submit** —— 只填草稿，人自己回车（避免误发）')
-  ok(/entry\.prompt/.test(code), '协议全文从宿主侧的 entry.prompt 读（客户端不持有第二份）')
+  ok(/typeof ia\.submit\s*===\s*'function'/.test(code), 'submit 也先判类型（没有就别硬调）')
 
   // 样式：只许用宿主注入的语义令牌，不许自己造色（自己造色在深浅色下必崩，且和官方对不上）
   const hex = [...code.matchAll(/#[0-9a-fA-F]{3,8}[\s'";,)]/g)].map((m) => m[0].trim())
