@@ -164,14 +164,35 @@ try {
 	}
 
 	// ── [6] 反空转：什么都不配 → 必须明确报错 ─────────────────────────────
+	//
+	// ⚠️ 2026-09-22 查清的一个坑（别删这段注释）：这条判据原来**隐含假设"环境里没有 DSH_WHALE_PACK"**。
+	// 而 CI 入口 `test/ci.mjs` 正是靠设这个环境变量把课程包位置传给各套件的 ——
+	// 于是同一份代码"整轮跑红（alien-env 在 run-all 里排第 22）、单个跑绿（环境干净）"，
+	// 让人在整轮/单跑之间来回猜。**判据依赖"环境恰好干净"就是错的**：
+	// 修法是把"什么都没配"**显式**造出来（临时摘掉那个环境变量），
+	// 并顺手把它的另一半也钉住 —— 环境变量在场时，同一个裸配置**应当**顺着它找到包（那是文档写明的退路）。
+	const savedPackEnv = process.env.DSH_WHALE_PACK
 	try {
+		delete process.env.DSH_WHALE_PACK
 		const bare = await loadAlien({ dataDir: alienData })
 		const vs = bare.tools.find((t) => t.name === 'whale_style')
 		const v = await vs.execute({})
 		ok(v?.ok === false && /没有课程包根目录/.test(v?.error || ''), '没配课程包时**明确报错**（不是静默成功、不是拿 cwd 当包）')
 		bare.dispose?.()
+
+		// 另一半（这条才是把上面那条从"环境恰好干净"里救出来的）：只给环境变量也能定位
+		process.env.DSH_WHALE_PACK = alienCourse
+		const viaEnv = await loadAlien({ dataDir: alienData })
+		const vs2 = viaEnv.tools.find((t) => t.name === 'whale_style')
+		const v2 = await vs2.execute({})
+		ok(!(v2?.ok === false && /没有课程包根目录/.test(v2?.error || '')),
+			'只给 DSH_WHALE_PACK（配置里不写 packRoot）也能定位课程包 —— 本机判据不再依赖"环境恰好干净"')
+		viaEnv.dispose?.()
 	} catch (e) {
 		ok(false, `没配课程包的那一跑抛了：${e?.message ?? e}`)
+	} finally {
+		if (savedPackEnv === undefined) delete process.env.DSH_WHALE_PACK
+		else process.env.DSH_WHALE_PACK = savedPackEnv
 	}
 } finally {
 	try { fs.rmSync(tmpRoot, { recursive: true, force: true }) } catch { /* 临时目录清不掉不致命 */ }
