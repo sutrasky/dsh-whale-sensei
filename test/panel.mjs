@@ -422,6 +422,8 @@ console.log(`\n[panel] 课程包：${ROOT}`)
               },
             },
           },
+          // catalog 响应 - 返回错误，这样会跳过 wizard 直接显示表单
+          { ok: false, error: 'catalog 不可用' },
           { ok: true, text: '【开课请求】\n- 要学什么：Vue 3\n\n协议全文（假）' },
         ]
         const seenUrls = []
@@ -477,7 +479,8 @@ console.log(`\n[panel] 课程包：${ROOT}`)
           sendBtn.props.onClick()
           await new Promise((r) => setTimeout(r, 0))
           await new Promise((r) => setTimeout(r, 0))
-          ok(seenUrls[1] === 'POST /api/whale/starter', `按发送 → POST 拼装（${seenUrls[1]}）`)
+          // 现在有 3 个 fetch：GET starter, GET catalog, POST starter
+          ok(seenUrls[2] === 'POST /api/whale/starter', `按发送 → POST 拼装（${seenUrls[2]}）`)
           ok(drafted.length === 1 && drafted[0].includes('Vue 3') && drafted[0].includes('协议全文（假）'), '拼好的正文交给了 inputActions.setDraft')
           ok(submitted.length === 1, '紧接着调了 inputActions.submit —— 发送键就是启动键')
           ok(tree?.props?.open === false, '发送后弹窗自动关上')
