@@ -35,6 +35,7 @@ const SUITES = [
   ['catalog', '数据面：圆圈/知识点/课程的规范 id（唯一、可解析）+ 下一课号 + 圆圈建议'],
   ['new-course-wizard', '新课程向导：三屏顺序 / 字段逐字未变 / 归属行按需出现'],
   ['circle-create', '写入口：新建圆圈/知识点（原子、拒覆盖、坏 id 拒绝、绝不碰真包）'],
+  ['settings-catalog', '设置页：三级目录 / 圆圈改名（只改 name、其余逐字节保留）/ 模块表可查'],
 ]
 
 let failed = 0

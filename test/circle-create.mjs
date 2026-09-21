@@ -90,17 +90,17 @@ try {
     const { ctx, routes } = makeRouteCtx(tmpPack)
     plugin.install(ctx)
 
-    ok(routes.length === 2, `[9] create 注册了 2 条路由（实得 ${routes.length}）`)
-    const circleR = routes.find((r) => r.path === '/api/whale/circle')
-    const pointR = routes.find((r) => r.path === '/api/whale/point')
-    ok(circleR != null, '[9] /api/whale/circle 路由存在')
-    ok(pointR != null, '[9] /api/whale/point 路由存在')
-    ok(circleR?.methods?.includes('POST'), '[9] circle methods 包含 POST')
-    ok(pointR?.methods?.includes('POST'), '[9] point methods 包含 POST')
-    ok(circleR?.requestBody === 'buffered', `[9] circle requestBody = ${circleR?.requestBody}（期望 buffered）`)
-    ok(pointR?.requestBody === 'buffered', `[9] point requestBody = ${pointR?.requestBody}（期望 buffered）`)
-    ok(circleR?.path?.startsWith('/api/'), '[9] circle path 在 /api/ 前缀下')
-    ok(pointR?.path?.startsWith('/api/'), '[9] point path 在 /api/ 前缀下')
+    const expectedPaths = ['/api/whale/circle', '/api/whale/point', '/api/whale/circle/rename']
+    const actualPaths = routes.map((r) => r.path).sort()
+    ok(actualPaths.length === expectedPaths.length, `[9] create 注册了 ${expectedPaths.length} 条路由（实得 ${actualPaths.length}：${actualPaths.join(', ')})`)
+    ok(expectedPaths.every((p) => routes.some((r) => r.path === p)), `[9] 路由集合包含 ${expectedPaths.join(', ')}`)
+    ok(expectedPaths.length === actualPaths.length && expectedPaths.sort().join(',') === actualPaths.join(','), `[9] 路由集合精确匹配（无多余/遗漏）`)
+    for (const ep of expectedPaths) {
+      const r = routes.find((x) => x.path === ep)
+      ok(r?.methods?.includes('POST'), `[9] ${ep} methods 包含 POST`)
+      ok(r?.requestBody === 'buffered', `[9] ${ep} requestBody = ${r?.requestBody}（期望 buffered）`)
+      ok(r?.path?.startsWith('/api/'), `[9] ${ep} 在 /api/ 前缀下`)
+    }
   }
 
   // ── [1] 建圆圈 math/「数学」──

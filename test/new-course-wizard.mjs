@@ -101,7 +101,7 @@ console.log(`\n[new-course-wizard] 课程包：${ROOT}`)
 	const res = await catalogRoute.fetch(new Request('http://127.0.0.1:3090/api/whale/catalog', { method: 'GET' }))
 	const data = await res.json()
 
-	ok(data.canCreate === false, `[3] canCreate === false（实际 ${data.canCreate}）`)
+	ok(data.canCreate === true, `[3] canCreate === true（实际 ${data.canCreate}）`)
 
 	const programming = data.circles.find((c) => c.id === 'programming')
 	ok(!!programming, '[3] 找到 programming 圆圈')
@@ -242,6 +242,8 @@ function renderWithState(initialState) {
 		values: {}, why: null, step: 0,
 		catalog: { ok: true, canCreate: false, circles: [{ id: 'programming', name: '编程', points: [{ id: 'spring-boot', name: 'Spring Boot', fileBase: 0, nextNumber: 1, lessons: [] }] }] },
 		selectedCircle: null, selectedPoint: null, catalogWhy: null,
+		newCircle: { open: false, name: '', id: '', saving: false, error: null },
+		newPoint: { open: false, name: '', id: '', saving: false, error: null },
 	})
 	ok(!hasText(textsFalse, '+ 新建圆圈'), '[6] canCreate=false → 不渲染「+ 新建圆圈」')
 	ok(!hasText(textsFalse, '+ 新建知识点'), '[6] canCreate=false → 不渲染「+ 新建知识点」')
@@ -252,6 +254,8 @@ function renderWithState(initialState) {
 		values: {}, why: null, step: 0,
 		catalog: { ok: true, canCreate: true, circles: [{ id: 'programming', name: '编程', points: [{ id: 'spring-boot', name: 'Spring Boot', fileBase: 0, nextNumber: 1, lessons: [] }] }] },
 		selectedCircle: null, selectedPoint: null, catalogWhy: null,
+		newCircle: { open: false, name: '', id: '', saving: false, error: null },
+		newPoint: { open: false, name: '', id: '', saving: false, error: null },
 	})
 	ok(hasText(textsTrue, '+ 新建圆圈'), `[6] canCreate=true → 渲染了「+ 新建圆圈」`)
 
@@ -262,6 +266,8 @@ function renderWithState(initialState) {
 		catalog: { ok: true, canCreate: true, circles: [] },
 		selectedCircle: { id: 'programming', name: '编程', points: [{ id: 'spring-boot', name: 'Spring Boot', fileBase: 0, nextNumber: 1, lessons: [] }] },
 		selectedPoint: null, catalogWhy: null,
+		newCircle: { open: false, name: '', id: '', saving: false, error: null },
+		newPoint: { open: false, name: '', id: '', saving: false, error: null },
 	})
 	ok(hasText(textsStep1, '+ 新建知识点'), `[6] canCreate=true, step=1 → 渲染了「+ 新建知识点」`)
 }
