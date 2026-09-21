@@ -150,8 +150,11 @@ try {
     const halo = JSON.parse(fs.readFileSync(haloPath, 'utf8'))
     ok(halo.halo === 'math', `[1] halo.halo = ${halo.halo}`)
     ok(halo.name === '数学', `[1] halo.name = ${halo.name}`)
+    // §11（2026-09-22）：建圈必须**自动写身份色** —— 没色的圆圈会让闸门第 19 条（circle-bands）红。
+    ok(/^#[0-9a-f]{6}$/.test(halo.color || ''), `[1] 新圆圈自动写了身份色（${halo.color}）`)
+    ok(body.color === halo.color, `[1] 响应回的就是写进 halo.json 的那个色（${body.color}）`)
 
-    ok(Array.isArray(body.needsRebuild) && body.needsRebuild.length === 4, `[1] needsRebuild 含 4 条（实得 ${body.needsRebuild?.length}）`)
+    ok(Array.isArray(body.needsRebuild) && body.needsRebuild.length === 5, `[1] needsRebuild 含 5 条（实得 ${body.needsRebuild?.length}）`)
     ok(body.warn != null && body.warn.length > 0, `[1] warn 非空：${body.warn}`)
   }
 
@@ -351,7 +354,7 @@ try {
     try {
       // ── A. 对照段：复制完先跑一次闸门，收失败集合 base ──
       const base = runGate(gatePack)
-      ok(true, `[8] A. 对照基线：${base.size} 条红（${base.size}/18 失败，排除清单造成的已知缺件）`)
+      ok(true, `[8] A. 对照基线：${base.size} 条红（${base.size}/19 失败，排除清单造成的已知缺件）`)
 
       // ── B. 动作段：建 math 圆圈 + algebra 知识点 → 重建 → 闸门 ──
       const { ctx: gateCtx, routes: gateRoutes } = makeRouteCtx(gatePack)
@@ -369,6 +372,7 @@ try {
 
       // 依次真跑 4 条重建，每条要求 exit 0
       const rebuilds = [
+        'node tools/circle-bands.js',
         'node tools/build-lessons.js',
         'node tools/build-starmap.js',
         'node assets/build-glossary.js',

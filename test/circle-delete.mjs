@@ -219,8 +219,8 @@ try {
     ok(!fs.existsSync(path.join(tmpPack, 'lessons', 'src', 'victim')), '[6] lessons/src/victim 也一起消失')
     ok(JSON.stringify(d.deleted) === JSON.stringify(['lessons/victim', 'lessons/src/victim']),
       `[6] 响应列出删掉的两个目录：${JSON.stringify(d.deleted)}`)
-    ok(Array.isArray(d.needsRebuild) && d.needsRebuild.length === 4 && d.needsRebuild.every((c) => c.startsWith('node ')),
-      `[6] 回了 4 条重建命令：${JSON.stringify(d.needsRebuild)}`)
+    ok(Array.isArray(d.needsRebuild) && d.needsRebuild.length === 5 && d.needsRebuild.every((c) => c.startsWith('node ')),
+      `[6] 回了 5 条重建命令（含 circle-bands）：${JSON.stringify(d.needsRebuild)}`)
 
     const { readPack } = await import(pathToFileURL(path.join(SRC, 'lib', 'pack-model.js')).href)
     const pack = readPack(tmpPack)
