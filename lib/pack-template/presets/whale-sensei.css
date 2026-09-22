@@ -1,0 +1,314 @@
+/* ---------- 浅色：DSH 同名 alias 真值 ---------- */
+:root {
+  /* 面 —— 浅色下四层底都是白，靠描边分层（这是 DSH 的做法，不是反转） */
+  --dsw-alias-bg-base: #ffffff;
+  --dsw-alias-bg-layer-1: #ffffff;
+  --dsw-alias-bg-layer-2: #ffffff;
+  --dsw-alias-bg-layer-3: #ffffff;
+
+  /* 描边（黑 4% / 10% / 12%） */
+  --dsw-alias-border-l1: #0000000a;
+  --dsw-alias-border-l2: #0000001a;
+  --dsw-alias-border-l3: #0000001f;
+
+  /* 字 */
+  --dsw-alias-label-primary: #0f1115;
+  --dsw-alias-label-secondary: #61666b;
+  --dsw-alias-label-tertiary: #81858c;
+  --dsw-alias-label-primary-foreground: #ffffff;
+
+  /* 链接 / 强调 / 交互 */
+  --dsw-alias-link: #4176e6;
+  --dsw-alias-interactive-bg-hover: #2631480f;
+
+  /* 代码 */
+  --dsw-alias-markdown-inline-code: #fafafa;
+  --dsw-alias-markdown-code-block: #f9fafb;
+  --dsw-alias-markdown-code-block-banner: #f9fafb;
+
+  /* 语义（DSH state 家族；info 与 danger 底色 DSH 没有对应档位，见下方 --lesson-*） */
+  --dsw-alias-state-success-primary: #22c55e;
+  --dsw-alias-state-success-tertiary: #e6faed;
+  --dsw-alias-state-warn-primary: #f59e0b;
+  --dsw-alias-state-warn-tertiary: #fef5e7;
+  --dsw-alias-state-error-primary: #ec1313;
+
+  /* 圆角：DSH 的超椭圆（不支持该属性的浏览器会静默忽略，退回 border-radius） */
+  --dsw-corner-shape: superellipse(1.5);
+
+  /* 字体 */
+  --dsw-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', 'Microsoft YaHei', Arial, sans-serif;
+  --dsw-font-family-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
+  --dsw-font-family-title: 'Lanxi-朗宋', var(--dsw-font-family);
+
+  /* ============================================================
+     以下为 DSH 覆盖不到的课程语义（--lesson-* 扩展层）
+     规则：DSH 有的名字一律照用 --dsw-*；这里只放 DSH 没有的
+     ============================================================ */
+
+  /* 强调色的派生态（DSH 只有 link / brand，没有 strong / soft 两档） */
+  --lesson-accent-strong: #4868b2;   /* deepseek-600 */
+  --lesson-accent-soft: #edf3fe;     /* deepseek-50 */
+
+  /* 阴影（DSH 的 elevation 是给浮层用的，课程页的卡片阴影语义不同，单开） */
+  --lesson-shadow: 0 10px 30px rgba(0, 0, 0, .28);
+  --lesson-shadow-soft: 0 2px 8px rgba(0, 0, 0, .08);
+
+  /* 标题流彩的色带（§3，2026-09-21）—— 深浅各一条，这是**浅底校准版**：
+     同一组色相 ×0.60（等价于与黑混合 40%）。
+     为什么必须两套：widget 的 14 支命名词板没有一支能同时过浅深两底（实测最好
+     deepsea 2.43 / 2.74 —— 它们本来就是为深色界面设计的），而原样 macaron 在浅底
+     最差只有 1.17（大字 AA 线是 3.0）⇒ 浅底那几笔基本看不见。
+     校准后：浅底最差 3.26 ✅ / 深底最差 4.14 ✅。对照页与全部 16 条色带：（包外归档，不随包分发）
+     （跨项目归档：lab.html 对照页 + palettes.js 单一真源 + contrast.md 实测表 + verify.mjs 自检）。 */
+  --lesson-rainbow-band: linear-gradient(90deg, rgb(153, 108, 120), rgb(153, 123, 102), rgb(153, 135, 99), rgb(147, 144, 108), rgb(114, 144, 126), rgb(108, 138, 147), rgb(114, 129, 150), rgb(132, 120, 147), rgb(144, 120, 138), rgb(153, 108, 120));
+
+  /* 大标题的色带（§11，2026-09-22）—— 缺省值 = 上面那条，给**没有 data-circle** 的页面（笔记页）用，
+     所以笔记页观感零变化；每张课程页由 `assets/circle-bands.css` 按 `body[data-circle]` 覆盖成
+     "以该圆圈色为锚"的那条。为什么不合并成一个令牌：小标题要"与圈色最接近的词板"、大标题要
+     "圈色本身"，两条值本来就不同（笔记页没有圈色，才让它们暂时相等）。
+     值由包外归档 `_title-bands/freeze.mjs` 冻结，逐条可复算。 */
+  --lesson-title-band: linear-gradient(90deg, rgb(153, 108, 120), rgb(153, 123, 102), rgb(153, 135, 99), rgb(147, 144, 108), rgb(114, 144, 126), rgb(108, 138, 147), rgb(114, 129, 150), rgb(132, 120, 147), rgb(144, 120, 138), rgb(153, 108, 120));
+
+  /* 名词（术语 tooltip） */
+  --lesson-tip-bg: #2d2a26;
+  --lesson-tip-fg: #f5f2ee;
+  --lesson-tip-border: #7b1fa2;
+  --lesson-tip-accent: #d7b3ff;
+  --lesson-tip-muted: #c9c1b8;
+  /* tooltip 是自带深色的小面板：材质层用固定半透明白，不参与页面配色（浅深同值） */
+  --lesson-tip-soft: rgba(255, 255, 255, .08);
+  --lesson-tip-line: rgba(255, 255, 255, .18);
+  --lesson-hint-bg: #f6f0fb;
+  --lesson-hint-border: #e0cdf0;
+
+  /* 名词地图（六边形知识地图）—— 永远是深色画布：浅/深两档**同值**，
+     与 --lesson-tip-* 同一先例（自带深色材质，不随页面主题走）。
+     浅色档不是"浅色版"，只是满足 R2 的浅/深配对。 */
+  --lesson-map-canvas: #08080a;
+  --lesson-map-veil: rgba(255, 255, 255, .03);
+  --lesson-map-ink: rgba(255, 255, 255, .95);
+  --lesson-map-ink-soft: rgba(255, 255, 255, .62);
+  --lesson-map-halo: rgba(255, 255, 255, .38);
+  --lesson-map-edge-core: rgba(255, 255, 255, .40);
+  --lesson-map-edge-1: rgba(255, 255, 255, .24);
+  --lesson-map-edge-2: rgba(255, 255, 255, .12);
+  --lesson-map-inset-hi: rgba(255, 255, 255, .40);
+  --lesson-map-inset-lo: rgba(0, 0, 0, .18);
+  --lesson-map-link: rgba(255, 255, 255, .14);
+  --lesson-map-tip-bg: rgba(28, 28, 32, .72);
+  --lesson-map-tip-edge: rgba(255, 255, 255, .10);
+  --lesson-map-shadow-core: 0 20px 50px rgba(0, 0, 0, .60);
+  --lesson-map-shadow-1: 0 12px 30px rgba(0, 0, 0, .55);
+  --lesson-map-shadow-2: 0 8px 20px rgba(0, 0, 0, .45);
+  --lesson-map-shadow-3: 0 4px 12px rgba(0, 0, 0, .35);
+  --lesson-map-shadow-focus: 0 24px 60px rgba(0, 0, 0, .70);
+  --lesson-map-tip-shadow: 0 24px 60px rgba(0, 0, 0, .70);
+  --lesson-map-core: hsl(210 30% 92%);
+  /* 枢纽圆的**反色墨**：L0 是全场唯一高明度节点，白字压上去等于没写（2026-09-22 截图实测）。
+     画布永远是深色，所以浅/深两档同值 —— 与上面那批地图令牌同一先例。 */
+  --lesson-map-core-ink: rgba(8, 8, 10, .82);
+  /* 六族色相：饱和度锁 68%，明度按层级递减（L1 58 / L2 48 / L3 36） */
+  --lesson-map-c1-1: hsl(210 68% 58%);
+  --lesson-map-c1-2: hsl(210 68% 48%);
+  --lesson-map-c1-3: hsl(210 68% 36%);
+  --lesson-map-c2-1: hsl(280 68% 58%);
+  --lesson-map-c2-2: hsl(280 68% 48%);
+  --lesson-map-c2-3: hsl(280 68% 36%);
+  --lesson-map-c3-1: hsl(340 68% 58%);
+  --lesson-map-c3-2: hsl(340 68% 48%);
+  --lesson-map-c3-3: hsl(340 68% 36%);
+  --lesson-map-c4-1: hsl(20 68% 58%);
+  --lesson-map-c4-2: hsl(20 68% 48%);
+  --lesson-map-c4-3: hsl(20 68% 36%);
+  --lesson-map-c5-1: hsl(160 68% 58%);
+  --lesson-map-c5-2: hsl(160 68% 48%);
+  --lesson-map-c5-3: hsl(160 68% 36%);
+  --lesson-map-c6-1: hsl(50 68% 58%);
+  --lesson-map-c6-2: hsl(50 68% 48%);
+  --lesson-map-c6-3: hsl(50 68% 36%);
+
+  /* 名词地图（六边形）—— 2026-09-22 用户改版：圆点换成简约六边形，淡蓝细线 + 极淡填充，
+     跟着站点主题走（浅色底上才看得出"细线"）。浅/深**两档不同值**（与上面那批同值的
+     watchOS 黑底令牌不同 —— 那批是上一版方案，保留但地图已不再依赖它们）。 */
+  --lesson-hex-edge: rgba(65, 118, 230, .38);
+  --lesson-hex-edge-strong: rgba(65, 118, 230, .85);
+  --lesson-hex-fill: rgba(65, 118, 230, .05);
+  --lesson-hex-fill-strong: rgba(65, 118, 230, .12);
+  --lesson-hex-glow: rgba(65, 118, 230, .20);
+  --lesson-hex-veil: rgba(65, 118, 230, .06);
+
+  /* 答疑框（青紫）—— 语义色契约，不许与强调色撞车 */
+  --lesson-qa-accent: #6d4aff;
+  --lesson-qa-accent-strong: #5a37e0;
+  --lesson-qa-on-accent: #ffffff;
+  --lesson-qa-bg: #f3f0ff;
+  --lesson-qa-border: #d8ccff;
+
+  /* 上节课作业审视框（青蓝）—— 又一个独立色系 */
+  --lesson-review-accent: #0e7490;
+  --lesson-review-accent-strong: #0b5c73;
+  --lesson-review-border: #bfe3ea;
+
+  /* 告示：info / danger 的底色 DSH 没有对应档位 */
+  --lesson-info-bg: #eff6ff;
+  --lesson-danger-bg: #fef2f2;
+
+  /* HTTP 方法：GET 直接用 --dsw-alias-link（语义自洽：GET = 读），
+     POST/PUT/DELETE 复用 DSH state 家族，只有 PATCH 的紫 DSH 没有 → 单开 */
+  --lesson-http-patch: #7b1fa2;
+
+  /* DSH 笔记卡（左栏常驻） */
+  --lesson-notes-bg: var(--dsw-alias-bg-layer-1);
+  --lesson-notes-border: var(--dsw-alias-border-l2);
+  --lesson-notes-shadow: var(--lesson-shadow);
+  --lesson-notes-glare: rgba(255, 255, 255, 0.15);
+  --lesson-notes-rail-w: clamp(140px, 16vw, 300px);
+
+  /* 笔记卡 tilt 几何常量（不随风格变，声明在此以满足 R2） */
+  --tilt-rotate-x: 0deg;
+  --tilt-rotate-y: 0deg;
+  --tilt-glare-x: 50%;
+  --tilt-glare-y: 50%;
+  --tilt-glare-opacity: 0;
+  --tilt-lift: 0px;      /* hover 抬升（照参考物 --tilt-lift） */
+  --tilt-scale: 1;       /* hover 放大（照参考物 --tilt-scale） */
+
+  /* DSH 侧栏底色（左栏样式照抄 @deepseek-ai/dsh-client-ui-sidebar）
+     = static-neutral-bluish-50；分层靠底色，不画边框 */
+  --dsw-specific-sidebar-fill: #f9fafb;
+}
+
+/* ---------- 深色：DSH 同名 alias 真值 ---------- */
+body[data-ds-dark-theme] {
+  /* 面 —— 深色靠明度阶梯分层：950 → 875 → 850 → 800 */
+  --dsw-alias-bg-base: #151517;
+  --dsw-alias-bg-layer-1: #232324;
+  --dsw-alias-bg-layer-2: #2c2c2e;
+  --dsw-alias-bg-layer-3: #353638;
+
+  /* 描边（白 6% / 12% / 16%） */
+  --dsw-alias-border-l1: #ffffff0f;
+  --dsw-alias-border-l2: #ffffff1f;
+  --dsw-alias-border-l3: #ffffff29;
+
+  /* 字 */
+  --dsw-alias-label-primary: #f9fafb;
+  --dsw-alias-label-secondary: #cfd3d6;
+  --dsw-alias-label-tertiary: #adb2b8;
+  --dsw-alias-label-primary-foreground: #0f1115;
+
+  /* 链接 / 强调 / 交互 */
+  --dsw-alias-link: #679efe;
+  --dsw-alias-interactive-bg-hover: #ffffff14;
+
+  /* 代码（深色代码块比画布更深：#1b1b1c） */
+  --dsw-alias-markdown-inline-code: #292929;
+  --dsw-alias-markdown-code-block: #1b1b1c;
+  --dsw-alias-markdown-code-block-banner: #2c2c2e;
+
+  /* 语义 */
+  --dsw-alias-state-success-primary: #22c55e;
+  --dsw-alias-state-success-tertiary: #233c2c;
+  --dsw-alias-state-warn-primary: #f59e0b;
+  --dsw-alias-state-warn-tertiary: #27241f;
+  --dsw-alias-state-error-primary: #f25a5a;
+
+  /* ---- --lesson-* 扩展层的深色值 ---- */
+  --lesson-accent-strong: #b7c8fe;   /* deepseek-300 */
+  --lesson-accent-soft: #283142;     /* deepseek-900 */
+
+  --lesson-shadow: 0 10px 30px rgba(0, 0, 0, .55);
+  --lesson-shadow-soft: 0 2px 8px rgba(0, 0, 0, .4);
+
+  /* 标题流彩：深色主题用 widget **原样**的 macaron（深底最差 10.95；浅底那条是它的 ×0.60 校准版） */
+  --lesson-rainbow-band: linear-gradient(90deg, rgb(255, 180, 200), rgb(255, 205, 170), rgb(255, 225, 165), rgb(245, 240, 180), rgb(190, 240, 210), rgb(180, 230, 245), rgb(190, 215, 250), rgb(220, 200, 245), rgb(240, 200, 230), rgb(255, 180, 200));
+
+  /* 大标题色带的深色档缺省（§11）—— 同上，给没有 data-circle 的页面（笔记页）用 */
+  --lesson-title-band: linear-gradient(90deg, rgb(255, 180, 200), rgb(255, 205, 170), rgb(255, 225, 165), rgb(245, 240, 180), rgb(190, 240, 210), rgb(180, 230, 245), rgb(190, 215, 250), rgb(220, 200, 245), rgb(240, 200, 230), rgb(255, 180, 200));
+
+  --lesson-tip-bg: #2c2c2e;
+  --lesson-tip-fg: #eef0f3;
+  --lesson-tip-border: #c792ea;
+  --lesson-tip-accent: #d7b3ff;
+  --lesson-tip-muted: #b9bec7;
+  --lesson-tip-soft: rgba(255, 255, 255, .08);
+  --lesson-tip-line: rgba(255, 255, 255, .18);
+  --lesson-hint-bg: #1b1626;
+  --lesson-hint-border: #35284a;
+
+  /* 名词地图：见浅色档的同名块（浅/深同值，R2 配对需要） */
+  --lesson-map-canvas: #08080a;
+  --lesson-map-veil: rgba(255, 255, 255, .03);
+  --lesson-map-ink: rgba(255, 255, 255, .95);
+  --lesson-map-ink-soft: rgba(255, 255, 255, .62);
+  --lesson-map-halo: rgba(255, 255, 255, .38);
+  --lesson-map-edge-core: rgba(255, 255, 255, .40);
+  --lesson-map-edge-1: rgba(255, 255, 255, .24);
+  --lesson-map-edge-2: rgba(255, 255, 255, .12);
+  --lesson-map-inset-hi: rgba(255, 255, 255, .40);
+  --lesson-map-inset-lo: rgba(0, 0, 0, .18);
+  --lesson-map-link: rgba(255, 255, 255, .14);
+  --lesson-map-tip-bg: rgba(28, 28, 32, .72);
+  --lesson-map-tip-edge: rgba(255, 255, 255, .10);
+  --lesson-map-shadow-core: 0 20px 50px rgba(0, 0, 0, .60);
+  --lesson-map-shadow-1: 0 12px 30px rgba(0, 0, 0, .55);
+  --lesson-map-shadow-2: 0 8px 20px rgba(0, 0, 0, .45);
+  --lesson-map-shadow-3: 0 4px 12px rgba(0, 0, 0, .35);
+  --lesson-map-shadow-focus: 0 24px 60px rgba(0, 0, 0, .70);
+  --lesson-map-tip-shadow: 0 24px 60px rgba(0, 0, 0, .70);
+  --lesson-map-core: hsl(210 30% 92%);
+  --lesson-map-core-ink: rgba(8, 8, 10, .82);
+  --lesson-map-c1-1: hsl(210 68% 58%);
+  --lesson-map-c1-2: hsl(210 68% 48%);
+  --lesson-map-c1-3: hsl(210 68% 36%);
+  --lesson-map-c2-1: hsl(280 68% 58%);
+  --lesson-map-c2-2: hsl(280 68% 48%);
+  --lesson-map-c2-3: hsl(280 68% 36%);
+  --lesson-map-c3-1: hsl(340 68% 58%);
+  --lesson-map-c3-2: hsl(340 68% 48%);
+  --lesson-map-c3-3: hsl(340 68% 36%);
+  --lesson-map-c4-1: hsl(20 68% 58%);
+  --lesson-map-c4-2: hsl(20 68% 48%);
+  --lesson-map-c4-3: hsl(20 68% 36%);
+  --lesson-map-c5-1: hsl(160 68% 58%);
+  --lesson-map-c5-2: hsl(160 68% 48%);
+  --lesson-map-c5-3: hsl(160 68% 36%);
+  --lesson-map-c6-1: hsl(50 68% 58%);
+  --lesson-map-c6-2: hsl(50 68% 48%);
+  --lesson-map-c6-3: hsl(50 68% 36%);
+
+  --lesson-hex-edge: rgba(103, 158, 254, .40);
+  --lesson-hex-edge-strong: rgba(103, 158, 254, .88);
+  --lesson-hex-fill: rgba(103, 158, 254, .07);
+  --lesson-hex-fill-strong: rgba(103, 158, 254, .15);
+  --lesson-hex-glow: rgba(103, 158, 254, .28);
+  --lesson-hex-veil: rgba(103, 158, 254, .09);
+
+  --lesson-qa-accent: #a58cff;
+  --lesson-qa-accent-strong: #c0adff;
+  --lesson-qa-on-accent: #1a1030;
+  --lesson-qa-bg: #191330;
+  --lesson-qa-border: #3a2f63;
+
+  --lesson-review-accent: #4dd0e1;
+  --lesson-review-accent-strong: #7fe0ec;
+  --lesson-review-border: #1f3b45;
+
+  --lesson-info-bg: #283142;         /* deepseek-900 */
+  --lesson-danger-bg: #570c0c;       /* red-900 */
+
+  --lesson-http-patch: #c792ea;
+
+  /* DSH 笔记卡（左栏常驻）· 深色 */
+  --lesson-notes-bg: var(--dsw-alias-bg-layer-1);
+  --lesson-notes-border: var(--dsw-alias-border-l2);
+  --lesson-notes-shadow: var(--lesson-shadow);
+  --lesson-notes-glare: rgba(255, 255, 255, 0.08);
+  --lesson-notes-rail-w: clamp(140px, 16vw, 300px);
+
+  /* DSH 侧栏底色 · 深色 = static-neutral-bluish-900 */
+  --dsw-specific-sidebar-fill: #1b1b1c;
+}
+
+/* 深色下把原生控件（滚动条、输入框）也切到深色 */

@@ -30,6 +30,8 @@
 
 ## 5 分钟上手
 
+> 想知道**每一步点哪里、这一步干了什么、卡住了看哪里** → [ONBOARDING.md](./ONBOARDING.md)（新人指北，逐屏文案与真实症状表都在那儿）。
+
 ### ① 装插件
 
 **普通使用者（从 npm 装）**：
@@ -47,7 +49,16 @@ dsh plugin --profile web add link:.
 ⚠️ 这条**用 `link:`，不要用 `file:`** —— `link:` 建的是 Junction，改源码重启即生效；
 `file:` 在某些情况下会装成真实目录（拷贝），于是"改了源码、也重启了宿主，跑的还是旧代码"。
 
-或者直接跑仓库里的脚本：`install-whale-sensei.ps1`。
+或者直接跑仓库里的脚本（它要求宿主**先关掉**，会顺带做装配验证与备份）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File install-whale-sensei.ps1
+```
+
+> **想一步到位**：加上 `-PackRoot "<你的课程包根目录>"`，脚本会把 `packRoot` 一起写进 profile 层
+> （已有 `- id: whale-sensei` 就只改那一行、其余字段保留；没有才追加；改前先备份）。
+> 只想改课程包路径、不重装插件：再加 `-PackRootOnly`。加 `-DryRun` 则只打印不写盘。
+> **装完必须配 `packRoot`，否则插件装上了也不能用**（见 ②）。
 
 > 诚实标注：本机一直在用 `link:` 那条；**npm 那条未在本机实测**（装了它会把这个 link 顶掉）。
 > 两条除"代码从哪来"以外没有别的差别。
@@ -55,8 +66,21 @@ dsh plugin --profile web add link:.
 ### ② 配 `packRoot`（不配等于装了不能用）
 
 `packRoot` 指向你的课程包根目录。它**故意不给默认值** —— 插件不猜路径、也不猜 cwd。
-机器本地配置写在 **profile 那层**（`$DSH_HOME/profiles/web/cordis.patch.yml`），**不要**写进包内的
-`cordis.patch.yml`（那个随包分发，重装会被覆盖）：
+解析顺序：**配置里的 `packRoot` → 环境变量 `DSH_WHALE_PACK` → 都没有就明确报错**。
+
+**路线 A（一步到位，推荐）**：设环境变量，不碰任何 YAML。
+
+```powershell
+setx DSH_WHALE_PACK "<你的课程包根目录>"     # 永久（之后要重开终端）
+$env:DSH_WHALE_PACK = "<你的课程包根目录>"   # 只对当前终端会话
+```
+
+```bash
+export DSH_WHALE_PACK="<你的课程包根目录>"   # bash：写进 ~/.bashrc 即永久
+```
+
+**路线 B（长期用，推荐写进 profile）**：机器本地配置写在 **profile 那层**
+（`$DSH_HOME/profiles/web/cordis.patch.yml`），**不要**写进包内的 `cordis.patch.yml`（那个随包分发，重装会被覆盖）：
 
 ```yaml
 - id: whale-sensei
@@ -65,9 +89,20 @@ dsh plugin --profile web add link:.
 ```
 
 > 行 id 必须逐字是 `whale-sensei`（等于 `lib/index.js` 的 `export const name`）。写错 = **静默不生效**。
+> ⚠️ 补丁行会**整体替换**该 id 的 `config` —— 以后加字段（如 `stylesDir`）要把已有的都留着。
 
 > **换台机器只需要配 `packRoot`**（或设环境变量 `DSH_WHALE_PACK`）。
 > 风格库是可选的，要接就配 `stylesDir`（或设 `DSH_RAW_HTML_STYLES`），**不配也能用**（只是少一层 slug 校验）。
+> 用安装脚本的 `-PackRoot` 参数可以跳过手写：它就地更新上面那段，并且**先备份**。
+
+**路线 C（图形界面，推荐给不想碰 YAML 的人）**：宿主起来之后，进设置页 →「鲸师」一节 →
+点 **「选择课程包目录…」** → 在系统文件夹选择框里挑一个目录：
+
+- 挑**空文件夹** → 插件会**就地建好一个课程包**（引擎件 + 空台账），并自动把 `packRoot` 指过去；
+- 挑**已经是课程包**的目录 → 直接用它，不动它一个字节；
+- 挑其它目录 → 会被拒绝（建包只往空目录里建）。
+
+这条路线**本次会话立刻生效**，同时会写进 profile 配置（重启后依然生效）。
 
 ### ③ 重启宿主
 
@@ -84,14 +119,19 @@ npx @deepseek-ai/dsh --profile web --dump-config
 
 重启后在浏览器里打开设置页（齿轮图标），左侧导航栏应出现「鲸师」一节。
 若没出现：**刷新页面**（客户端改了要刷新才生效）。
+卡片里没有黄色警告框、且 `packRoot` 显示为你的课程包绝对路径，才算真的配好了。
 
-**不配 `packRoot` 的症状**：所有 HTTP 路由（除 `/api/whale/status`）一律返回
+**不配 `packRoot` 的症状**（各路由处理方式不同，别只盯 503）：
 
-```
-503 {"ok":false,"error":"插件没有配置 packRoot，定位不到课程包（不猜 cwd）"}
-```
+| 位置 | 现象 |
+|---|---|
+| 设置页「鲸师」卡 | 黄色提示框（那条路由**没配也回 200**，刻意的），文案以 `未配置 packRoot` 开头并给出修法 |
+| `GET /api/whale/status`、`GET/POST /api/whale/starter` | **200**（POST 不写盘，照拼） |
+| `GET /api/whale/catalog`、`/api/whale/circle*`、`/api/whale/point` | **200** + `{ok:false, error:"未配置 packRoot …"}` |
+| `POST /api/whale/ask`、`POST /api/whale/note` | **503** `插件没有配置 packRoot，定位不到课程包（不猜 cwd）` |
+| 绝大多数 `whale_*` 工具 | `没有课程包根目录：配置里写 packRoot，或给本工具传 root` |
 
-设置页的「鲸师」卡片会显示修法提示（那条路由**在没配 `packRoot` 时也回 200**，刻意的）。
+> 逐屏走查、症状→原因对照表见 [ONBOARDING.md](./ONBOARDING.md) 第 8、9 节。
 
 ---
 
@@ -228,6 +268,7 @@ npx @deepseek-ai/dsh --profile web --dump-config
 | `/api/whale/point` | `POST` | 新建知识点：`{ circle, name, id }` → `point.json`，`fileBase` = 该圈现有最大值 + 1000（空圈从 0 起） |
 | `/api/whale/circle/rename` | `POST` | 圆圈改名：`{ id, name }`。**外科式**替换 `halo.json` 里的 `name`，其余逐字节保留；`"name"` 匹配数 ≠ 1 就拒绝 |
 | `/api/whale/circle/delete` | `POST` | 删除圆圈：**必须显式 `confirm: true`**。先用 `{ id, dryRun: true }` 拿清单（目录 / 文件数 / 几门课 / 进度里要清哪几条），确认后删 `lessons/<id>` + `lessons/src/<id>`，并清 `progress.json` 里属于它的课次。**学生代码 `code/` 只报不删**；目标匹配 0 或 ≥2 个一律拒绝 |
+| `/api/whale/pack/choose` | `POST` | **选课程包**：`{}` → 宿主弹原生文件夹选择框；`{ dir }` → 直接用这个目录（脚本化用）。空目录 → 铺引擎件**就地建包**；已经是课程包 → 直接用它；其它 → 拒绝。成功后同时改内存路径与 profile 配置（写配置失败会照实回报，不静默） |
 
 `anchor` 可给课次显示名（`第1课`）或星图课次键（`point/0001`）—— **归一化在写入口做**，台账里只存键。
 
@@ -246,7 +287,25 @@ npx @deepseek-ai/dsh --profile web --dump-config
 产物一致性、审计结果、台账状态、学生工作区扫描、插件版本。
 数据来自 `GET /api/whale/status` —— 浏览器半边拿不到 Agent 工具，只能走 HTTP。
 
-**这是只读的**：配置真相只有一处（profile 的 `cordis.patch.yml`），卡片不改配置。
+卡片右上角有 **「选择课程包目录…」** 按钮（没配 `packRoot` 时，黄色提示框里也有一个）：
+点它 → **宿主**弹操作系统的原生文件夹选择框 → 三种结果由服务端判定：
+
+| 你选的目录 | 会发生什么 |
+|---|---|
+| **空文件夹** | 把 `lib/pack-template/` 的引擎件铺进去 + 生成空台账，**就地建好一个课程包**，并设为 `packRoot` |
+| 已经是课程包（有 `presets/whale-sensei.css` 或 `lessons/`） | 直接用它，**一个字节都不动** |
+| 其它（非空、又不是课程包） | **拒绝**，并说清原因（建包只往空目录里建，不合并、不覆盖） |
+
+生效两条腿：**本次会话**直接改内存里的路径（立刻可用）；同时写进 profile 层
+`cordis.patch.yml`（重启后依然生效，改前留备份、其它字段一个不丢）。
+
+> ⚠️ **这条路由是宿主侧的**：客户端改了只要刷新页面，但**宿主改了必须重启宿主**。
+> 没重启就点按钮，宿主会对这条没注册的路由回一句纯文本 `not found`，卡片上会说清这件事
+> （"宿主里还没有这条路由 —— 客户端改了只要刷新页面，宿主那半边改了必须重启宿主"）；
+> 设置页「插件」块里也会多出一行 **「模块表」**（磁盘 N 个 / 内存 M 个）提示宿主是旧的。
+
+**这是设置页里唯一的写操作**（别的行仍是只读）；它只写「选中的目录」和「profile 配置」两处，
+不碰课程内容。
 
 ### ② 侧栏「新课程」按钮 + 开课弹窗（`shell.overlay`）
 
@@ -387,6 +446,13 @@ node ../dsh-plugin-kit/kit/run-check.mjs . --live   # 加装配检查（会写 p
 
 **加一个能力 = 放一个模块文件 + 在 `lib/mods/index.js` 的表里加一行**（模块之间不许互相 import，
 共享逻辑放 `lib/*.js`）。
+
+### 要动界面？先看 [docs/dsh-native-style.md](./docs/dsh-native-style.md)
+
+那里面是**从 DSH 实现仓逐字抽出来的原生风格速查**：令牌表、面板/分区/行/选择器胶囊/按钮四档的
+逐字 CSS、组件库 `Button`/`Modal` 的 API、设置页挂载契约，以及本插件已经落地的那份配方
+（`lib/client.js` 的 `btn` / `actionBtn` / `Row` / `Section`）。
+**照它做出来的才像宿主原生的**；DSH 升级后按那份文档最后一节核对三处真源。
 
 ### 装载缝（改名字时四处一起改）
 

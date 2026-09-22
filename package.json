@@ -19,6 +19,7 @@
     "cordis.patch.yml",
     "dsh-plugin.json",
     "README.md",
+    "ONBOARDING.md",
     "LICENSE"
   ],
   "repository": {

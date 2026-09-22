@@ -1,0 +1,270 @@
+/* assets/notes.css — DSH 笔记卡 + 正文容器 + 拖动手柄
+ *
+ * 布局（≥900px）：
+ *   body = 左栏（clamp 护栏 ≈16vw）+ 1fr
+ *   .page 内容容器在 1fr 里居中，宽度走 --content-w（可拖动）
+ *
+ * <900px：左栏取消，手柄隐藏，正文满宽单列。
+ *
+ * 全部颜色走 --lesson-notes-* / --dsw-* 令牌，不写裸色值。
+ */
+
+/* ── 正文容器（.page）────────────────────────────────────────────────── */
+.page {
+  --content-w: 640px;
+  /* clamp 上下限写死在此处，不散落（必须与 notes-width.js 的 MIN/MAX 对齐：闸门 21 会机械比对） */
+  --content-min: 370px;
+  /* 宽度上限只是**防 NaN/离谱值**的护栏，不是设计边界 —— 可用区夹子与 max-width 都已取消，
+     右边能一路拖出视口。2050 曾经是真边界（2560 宽的屏上右缘会提前 390px 停住），
+     用户 2026-09 报"左右搞反了"就是它，已抬到 8192。 */
+  --content-max: 8192px;
+  /* 左缘位移：auto = 水平居中（首屏与复位）；拖动左缘后由 JS 写成具体 px。
+     在这里**声明**默认值（而不是只靠 var() 的兜底），check-terms 的令牌审计才认得它。 */
+  --content-left: auto;
+  width: clamp(var(--content-min), var(--content-w), var(--content-max));
+  /* 可用区（用户 2026-09 改口）：左缘下限 = 左栏右缘 + RAIL_GAP（40px），右缘上限 = winW − WINDOW_GAP（40px），
+     由 page-splitter.js 在拖动时实时夹。max-width 仍放开（拖到边界本来就停，
+     不会有横向滚动条），窄屏另有 width/max-width: 100%，不受这里影响；闸门 26 守着这条。 */
+  max-width: none;
+  /* --content-left 未设时是 auto → 水平居中；一旦拖过左缘（编辑器式只动左缘）就变成具体位移 */
+  margin-left: var(--content-left, auto);
+  margin-right: auto;
+  position: relative;
+}
+
+/* ── 拖动手柄的样式已搬到 assets/styles.css（2026-09-21）────────────────
+   原因：笔记页 reference/NOTES.html **不加载本文件**，只加载 theme/styles/notes-page。
+   手柄是两页共用的组件，规则留在"课程页外壳表"里，笔记页就只会拿到两个裸按钮。
+   下面原位置不再保留第二份（避免 §5 说的"两份实现"债）。 */
+
+/* 窄屏（左栏回落成普通流式区块）与打印都不显示 —— 隐藏规则随样式一起搬去 styles.css，
+   本文件下方既有的 @media 块不再重复声明手柄。 */
+
+/* ── 宽屏 ≥900px：body 两栏 ─────────────────────────────────────────── */
+@media (min-width: 900px) {
+  body {
+    display: grid;
+    grid-template-columns: var(--lesson-notes-rail-w) 1fr;
+    /* 可用区 = 这一列的宽度；左缘下限 = 左栏右缘 + gap（即正文列左端）+ RAIL_GAP − gap = 左栏右缘 + 40px。
+       两处留白都是"没被正文用上的横向空间"：
+         · 间隔 = **40px**：正文与固定左栏之间保持 40px 距离（用户 2026-09 定），
+           与 notes-width.js 的 `RAIL_GAP = 40` 同源（左栏右缘 + RAIL_GAP 换算成
+           margin-left = RAIL_GAP − gap = 0，正好"贴在正文列左端"）。
+         · 横向留白 32px/32px → 0 / 12px：base 的左 32px 正好压在固定左栏底下
+           （左栏 inset-inline-start: 0、宽 rail-w），纯属浪费；右边留 12px 是给右缘手柄的
+           命中带（`.page-splitter { right: -10px; width: 20px }`），归零会把那条线裁掉。
+       合起来正文右缘到窗口边的视觉留白 = body padding-right 12px + WINDOW_GAP 40px = 52px。
+       闸门 27 守着这三条（距离 = 40、右留白 ≥ 12、可用区不比 base 窄）。 */
+    gap: 2.5rem;
+    padding-inline: 0 12px;
+    /* base 的 `body { max-width: 1120px; margin: 0 auto }` 是**单栏时代**的居中排版。
+       两栏 + **固定**左栏（inset-inline-start: 0）下它是错的：body 被居中后，网格第 1 列
+       不再位于固定左栏底下 —— 窗口越宽，栏与正文之间那条死区越大（1600px 窗口时 240px），
+       而且可用区白白少掉同样多。放开它：body 占满视口，第 1 列正好等于左栏宽度。 */
+    max-width: none;
+    margin: 0;
+    align-items: start;
+  }
+
+  /* 左栏照 DSH 侧栏的逻辑：**贴在浏览器左边缘、占满视口高度、自己内部滚动**。
+     页面滚动时它不动（position: fixed），也不是"贯穿正文高度的长栏"。
+     它脱离文档流后，第 1 列的空间由 grid-template-columns 继续占着，正文自然从栏右侧开始。 */
+  .notes-card {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: var(--lesson-notes-rail-w);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    z-index: 50;
+    grid-column: 1;
+  }
+
+  /* .page 在第 2 列。手柄现在挂在 .page **内部**（绝对定位相对正文容器），不再是网格子元素 ——
+     否则它的包含块会是整个第 2 列，right 会把它推到窗口最右侧。 */
+  .page {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+/* ── 窄屏 <900px：取消拖动与手柄，正文满宽；左栏回到普通流式区块（不固定、不覆盖）── */
+@media (max-width: 899px) {
+  /* 手柄的窄屏隐藏随样式搬去 styles.css（两页共用），本块只管外壳 */
+  .notes-card {
+    position: static;
+    width: auto;
+    overflow: visible;
+  }
+
+  .page {
+    width: 100%;
+    max-width: 100%;
+    padding-inline: 1rem;
+    margin-left: 0;   /* 窄屏满宽：忽略拖动留下的左缘位移 */
+  }
+}
+
+/* ── 左栏长栏（样式照抄 DSH 侧栏 @deepseek-ai/dsh-client-ui-sidebar）──────
+   DSH 的侧栏：底色分层、不画边框、padding 6px 12px、font-size 14px、
+   background 用 --dsw-specific-sidebar-fill，行项目 36px/圆角 8px。 */
+.notes-card {
+  background: var(--dsw-specific-sidebar-fill);
+  padding: 6px 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--dsw-alias-label-primary);
+}
+
+/* ── 小封面卡内层（tilt 作用层）────────────────────────────────────── */
+.notes-card__inner {
+  position: relative;
+  overflow: hidden;
+  padding: 8px;
+  border-radius: 8px;                    /* DSH 行项目的圆角 */
+  background: var(--lesson-notes-bg);    /* 卡面浮在侧栏底色之上 */
+
+  /* 静态阴影层 */
+  box-shadow: var(--lesson-notes-shadow);
+
+  /* 幅度加大后过渡要短，否则是"漂"不是"摇" */
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transform: perspective(800px) rotateX(var(--tilt-rotate-x)) rotateY(var(--tilt-rotate-y))
+             translateY(var(--tilt-lift)) scale(var(--tilt-scale));
+}
+
+/* 光泽层 */
+.notes-card__inner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    circle at var(--tilt-glare-x) var(--tilt-glare-y),
+    var(--lesson-notes-glare) 0%,
+    transparent 60%
+  );
+  opacity: var(--tilt-glare-opacity);
+  pointer-events: none;
+}
+
+/* 光泽由 --tilt-glare-opacity 控制：默认 0（无 JS 就没有光泽），指针进入后由 JS 置 1 并跟随。
+   这里**不要**再用 @media 把 opacity 强制成 1 —— 那会让光泽常亮、跟手指令失效。 */
+
+/* ── 小封面卡头部（照 DSH .logoRow + .brandName）──────────────────────── */
+.notes-card__head {
+  min-height: 60px;
+  margin-bottom: 8px;
+  padding: 8px 0 8px 4px;
+  display: flex;
+  align-items: center;
+}
+
+.notes-card__title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 24px;
+  margin: 0;
+  color: var(--dsw-alias-label-primary);
+}
+
+/* ── 三个数字（紧凑一行，别把卡片撑高）───────────────────────────────── */
+.notes-card__counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--dsw-alias-label-secondary);
+  margin-bottom: 8px;
+}
+
+.notes-card__counts span {
+  white-space: nowrap;
+}
+
+/* ── 入口链接（照 DSH .panelRow：36px 起、圆角 8、次要文字色、hover 用交互底）──
+   与正文链接的"常驻下划线"不同：侧栏行走 DSH 的交互语言 —— 用底色而非下划线表示可点。 */
+.notes-card__link {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--dsw-alias-label-secondary);
+  text-decoration: none;
+}
+
+.notes-card__link:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+/* ── 疑问入口（§1：从右下角漂浮胶囊搬进来）────────────────────────────
+   与上面两条链接同形同色，区别只是它是 <button>（所以要把浏览器的默认按钮样式清掉）。 */
+.notes-card__ask {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  line-height: 22px;
+  text-align: left;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.notes-card__ask:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.notes-card__ask:focus-visible {
+  outline: 2px solid var(--dsw-alias-label-primary);
+  outline-offset: 2px;
+}
+
+/* ── reduced-motion ──────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .notes-card__inner {
+    transition: none;
+  }
+}
+
+/* ── 打印隐藏 ────────────────────────────────────────────────────────── */
+@media print {
+  .notes-card {
+    display: none;
+  }
+  /* .page-splitter / .rail-splitter 的打印隐藏随样式搬去 styles.css（笔记页也吃那条） */
+}
+/* ── 课后调整（P2 进度回写的入口）──────────────────────────────────────
+   学生写下"哪里要改"，点一下就把本课写进 progress.json，星图轮询到即点亮。
+   只用本文件已证明存在的两个令牌（--dsw-alias-border-l2 / label-secondary），
+   免得碰 style-check 的令牌存在性断言。 */
+.adjust { margin-top: 8px; }
+.adjust > summary { cursor: pointer; }
+.adjust__body { margin-top: 6px; display: grid; gap: 6px; }
+.adjust__label { font-size: 11.5px; color: var(--dsw-alias-label-secondary); }
+.adjust__text {
+  width: 100%; box-sizing: border-box; resize: vertical;
+  padding: 6px 8px; border-radius: 6px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: transparent; color: inherit; font: 12px/1.5 inherit;
+}
+.adjust__text::placeholder { color: var(--dsw-alias-label-secondary); opacity: .7; }
+.adjust__btn {
+  padding: 6px 10px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: transparent; color: inherit; font: 12px/1.4 inherit;
+}
+.adjust__btn:hover { border-color: var(--dsw-alias-label-secondary); }
+.adjust__btn:disabled { opacity: .6; cursor: progress; }
+.adjust__status { margin: 0; font-size: 11.5px; color: var(--dsw-alias-label-secondary); }

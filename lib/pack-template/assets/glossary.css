@@ -1,0 +1,252 @@
+/* ============================================================
+   glossary.css — 名词解释组件样式（可复用）
+   依赖：theme.css（令牌来源，必须先引入）
+   用法：<link rel="stylesheet" href="../assets/glossary.css">
+
+   规则（与教学要求一致）：
+   .term      名词【第一次】出现 —— 彩色 + 下划线 + 不同字体，鼠标放上去看解释
+   .term-ref  名词【后续】出现   —— 只保留颜色，无下划线
+
+   深色适配：本文件不写死任何颜色，全部取自 theme.css 的令牌；
+   小窗在两种主题下都是深底，所以文字色走 --tip-* 一组。
+   ============================================================ */
+
+/* ---------- 名词标记 ---------- */
+.term,
+.term-ref {
+  color: var(--dsw-alias-label-primary);
+  font-family: 'Georgia', 'Songti SC', 'STSong', 'Times New Roman', serif;
+  font-style: italic;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* 第一次出现：加下划线 + 可交互 */
+.term {
+  border-bottom: 1.5px dashed var(--dsw-alias-border-l3);
+  cursor: help;
+  padding-bottom: 1px;
+  transition: color .15s ease, border-color .15s ease, background-color .15s ease;
+}
+
+.term:hover,
+.term.tip-open {
+  color: var(--dsw-alias-label-primary);
+  border-bottom-style: solid;
+  background-color: var(--dsw-alias-interactive-bg-hover);
+  border-radius: 3px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+}
+
+.term:focus {
+  outline: 2px solid var(--dsw-alias-link);
+  outline-offset: 2px;
+  border-radius: 3px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+}
+
+/* 代码里的名词（如 200 OK、@Valid）：保留等宽字体，不斜体，只改颜色+下划线 */
+code.term,
+code.term-ref {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-style: normal;
+  font-weight: 700;
+}
+
+/* 标题里的名词：保持标题色，仅加下划线，避免配色打架 */
+h1 .term, h2 .term, h3 .term, h4 .term,
+h1 .term-ref, h2 .term-ref, h3 .term-ref, h4 .term-ref {
+  color: inherit;
+  font-family: inherit;
+  font-style: inherit;
+}
+h1 .term, h2 .term, h3 .term, h4 .term {
+  border-bottom: 2px dashed currentColor;
+  opacity: .95;
+}
+
+/* ---------- 悬停小窗 ---------- */
+#glossary-tooltip {
+  position: fixed;
+  z-index: 9999;
+  max-width: 460px;
+  min-width: 240px;
+  padding: .85rem 1rem;
+  background: var(--lesson-tip-bg);
+  color: var(--lesson-tip-fg);
+  border-radius: 8px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  border-left: 4px solid var(--lesson-tip-border);
+  box-shadow: var(--lesson-shadow);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  font-size: .88rem;
+  line-height: 1.55;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: opacity .13s ease, transform .13s ease, visibility .13s;
+  pointer-events: none;
+}
+
+#glossary-tooltip.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  pointer-events: auto;   /* 允许鼠标移进小窗继续阅读，不会一离开名词就消失 */
+}
+
+#glossary-tooltip .tip-head {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-bottom: .45rem;
+  padding-bottom: .4rem;
+  border-bottom: 1px solid var(--lesson-tip-line);
+}
+
+#glossary-tooltip .tip-label {
+  font-weight: 700;
+  font-size: .95rem;
+  color: var(--lesson-tip-accent);
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+#glossary-tooltip .tip-category {
+  font-size: .68rem;
+  padding: .12rem .42rem;
+  border-radius: 999px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  background: var(--lesson-tip-soft);
+  color: var(--lesson-tip-accent);
+  white-space: nowrap;
+}
+
+/* ① 官方定义（正式术语 + 英文全称） */
+#glossary-tooltip .tip-official {
+  margin: 0 0 .55rem;
+  padding-bottom: .5rem;
+  border-bottom: 1px dashed var(--lesson-tip-line);
+  font-size: .82rem;
+  line-height: 1.6;
+  color: var(--lesson-tip-muted);
+}
+
+#glossary-tooltip .tip-official::before {
+  content: '官方';
+  display: inline-block;
+  margin-right: .35rem;
+  padding: .04rem .3rem;
+  border-radius: 3px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  background: var(--lesson-tip-soft);
+  color: var(--lesson-tip-accent);
+  font-weight: 700;
+  font-size: .7rem;
+  vertical-align: 1px;
+}
+
+/* ② 大白话 */
+#glossary-tooltip .tip-short {
+  margin: 0 0 .5rem;
+  color: var(--lesson-tip-fg);
+  font-weight: 500;
+}
+
+/* ③ 生活类比 */
+#glossary-tooltip .tip-analogy {
+  margin: 0;
+  padding-left: .6rem;
+  border-left: 2px solid var(--lesson-tip-line);
+  color: var(--lesson-tip-muted);
+  font-size: .84rem;
+}
+
+#glossary-tooltip .tip-analogy::before {
+  content: '类比 ';
+  color: var(--lesson-tip-accent);
+  font-weight: 700;
+  margin-right: .15rem;
+}
+
+/* ④ 规范写法 —— 只有注解类等「有用法规范」的名词才有这一段，其余名词整块隐藏。
+   代码行请控制在 64 列以内（中文字算 2 列），check-terms.js 会检查。 */
+#glossary-tooltip .tip-code {
+  margin: .6rem 0 0;
+  padding: .5rem .6rem;
+  border-radius: 5px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  background: var(--lesson-tip-soft);
+  border-left: 2px solid var(--lesson-tip-accent);
+  overflow-x: auto;
+  font-size: .74rem;
+  line-height: 1.55;
+}
+
+#glossary-tooltip .tip-code[hidden] {
+  display: none;
+}
+
+#glossary-tooltip .tip-code::before {
+  content: '④ 规范写法';
+  display: block;
+  margin-bottom: .35rem;
+  color: var(--lesson-tip-accent);
+  font-weight: 700;
+  font-size: .7rem;
+  white-space: normal;
+}
+
+#glossary-tooltip .tip-code code {
+  font-family: 'Cascadia Code', 'Consolas', 'Menlo', monospace;
+  white-space: pre;
+  color: var(--lesson-tip-fg);
+}
+
+/* ---------- 页头的使用说明条 ---------- */
+.glossary-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: .6rem;
+  background: var(--dsw-alias-bg-layer-2);
+  border: 1px solid var(--lesson-hint-border);
+  border-left: 3px solid var(--dsw-alias-link);
+  border-radius: 6px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  padding: .8rem 1rem;
+  margin: 0 0 1.5rem;
+  font-size: .92rem;
+  color: var(--dsw-alias-label-primary);
+}
+
+.glossary-hint .hint-icon {
+  font-size: 1.1rem;
+  line-height: 1.4;
+}
+
+.glossary-hint kbd {
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  border: 1px solid var(--dsw-alias-border-l3);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  padding: .05rem .35rem;
+  font-family: 'Consolas', monospace;
+  font-size: .82rem;
+}
+
+.glossary-hint a {
+  color: var(--dsw-alias-link);
+  font-weight: 600;
+}
+
+/* ---------- 打印：不要小窗，名词淡化 ---------- */
+@media print {
+  #glossary-tooltip { display: none !important; }
+  .term, .term-ref {
+    color: var(--dsw-alias-label-primary);
+    font-style: normal;
+    border-bottom: none;
+    background: none;
+  }
+}

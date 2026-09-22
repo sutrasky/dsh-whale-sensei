@@ -1,0 +1,133 @@
+/* ============================================================
+   a11y-print.css —— S5：无障碍与打印
+   ============================================================
+   三件事，各自独立：
+     ① 键盘焦点可见：一条**全局** :focus-visible 兜底环，任何组件都不许再有盲点
+     ② 跳转链接 skip-link：Tab 第一下就能跳过左栏直达正文
+     ③ 打印：白底黑字、隐去外壳控件、展开 <details>、避免跨页断行
+
+   判断（HTML-STYLE-INVENTORY 的 S5 判据）：键盘 Tab 一圈无盲点 / 打印预览白底黑字 /
+   开 reduced-motion 后无动画。
+
+   注意：@media print 里的黑/白是**绝对色值**（打印是另一个介质，不该跟主题令牌走）；
+   style-check 的 R1 对 @media print 块内的裸色值放行，且另有闸门限定只许黑白灰。
+   ============================================================ */
+
+/* ── ① 焦点环：全局兜底 ──────────────────────────────────────────────
+   写法照 DSH 的侧栏行（.panelRow:focus-visible），改成正 offset 更适合文档正文。 */
+:focus-visible {
+  outline: 2px solid var(--dsw-alias-label-primary);
+  outline-offset: 2px;
+}
+
+/* ── ② 跳转链接 ──────────────────────────────────────────────────────
+   平时移出视口（不是 display:none —— 那样键盘也到不了），聚焦时落下。 */
+.skip-link {
+  position: absolute;
+  top: -3rem;
+  left: 0.5rem;
+  z-index: 1000;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+
+.skip-link:focus-visible {
+  top: 0.5rem;
+}
+
+/* ── ③ reduced-motion：全局总则 ──────────────────────────────────────
+   组件各自的动效都归一到这里兜住；tilt 的 JS 另有 prefers-reduced-motion 守卫。 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── ④ 打印 ────────────────────────────────────────────────────────── */
+@media print {
+  html {
+    color-scheme: light;
+  }
+
+  /* 白底黑字；并取消两栏网格，让正文独占纸面 */
+  body {
+    background: #ffffff;
+    color: #000000;
+    display: block;
+  }
+
+  .page {
+    width: auto;
+    max-width: none;
+    margin: 0;
+  }
+
+  /* 隐去外壳与交互件（左栏 .notes-card 由 notes.css 自己的打印规则负责，避免两处重复） */
+  .skip-link,
+  .page-splitter,
+  .theme-switch,
+  .ask-widget,
+  .glossary-hint,
+  #glossary-tooltip,
+  .nav-links,
+  footer {
+    display: none !important;
+  }
+
+  /* 折叠全部展开：纸面上没有"点击"这回事 */
+  details > summary {
+    display: none;
+  }
+
+  details > *:not(summary) {
+    display: block !important;
+  }
+
+  /* 别在卡片 / 图型 / 表格 / 代码 / 引用中间断页 */
+  .card,
+  .concept-card,
+  .qa-box,
+  pre,
+  table,
+  blockquote,
+  figure,
+  [class^='ds-'],
+  [class*=' ds-'] {
+    break-inside: avoid;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+
+  /* 代码块：可换行，别把长行裁掉 */
+  pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    border: 1px solid #cccccc;
+  }
+
+  /* 外链把地址打出来，纸面上可追 */
+  a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.75rem;
+  }
+
+  @page {
+    margin: 16mm;
+  }
+}

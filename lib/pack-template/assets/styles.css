@@ -1,0 +1,592 @@
+/* ============================================================
+   styles.css — 课程通用样式（可复用）
+   依赖：theme.css（必须在它之前引入，令牌都在那边定义）
+
+   规则：这里【只消费令牌，不写死颜色】。
+   任何硬编码的 #f8f9fa 之类都会在深色模式下变成刺眼的一块。
+   ============================================================ */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--dsw-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', 'Microsoft YaHei', Arial, sans-serif);
+  line-height: 1.6;
+  color: var(--dsw-alias-label-primary);
+  background-color: var(--dsw-alias-bg-base);
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 2rem;
+  padding-top: 3.6rem;   /* 给右上角的外观切换控件让位 */
+}
+
+h1, h2, h3, h4 {
+  color: var(--dsw-alias-label-primary);
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+h1 {
+  font-family: var(--dsw-font-family-title, 'Lanxi-朗宋', serif);   /* 标题上衬线：Lanxi-朗宋（内置字体，随 assets/fonts 分发） */
+  font-size: 2rem;
+  border-bottom: 3px solid var(--dsw-alias-link);
+  padding-bottom: 0.5rem;
+}
+
+h2 {
+  font-size: 1.5rem;
+  color: var(--lesson-accent-strong);
+}
+
+h3 {
+  font-size: 1.25rem;
+}
+
+p {
+  margin-bottom: 1rem;
+}
+
+a {
+  color: var(--dsw-alias-link);
+  text-decoration: underline;
+  text-underline-offset: .18em;
+  text-decoration-thickness: 1px;
+}
+
+code {
+  background-color: var(--dsw-alias-markdown-inline-code);
+  color: var(--dsw-alias-label-primary);
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  font-family: var(--dsw-font-family-mono, Consolas, 'Courier New', monospace);
+  font-size: 0.9em;
+}
+
+pre {
+  background-color: var(--dsw-alias-markdown-code-block);
+  color: var(--dsw-alias-label-primary);
+  padding: 1rem;
+  border-radius: 5px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+}
+
+pre code {
+  background-color: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+/* ---------- 提示条 ---------- */
+.alert {
+  padding: 1rem;
+  border-radius: 5px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  margin-bottom: 1.5rem;
+  color: var(--dsw-alias-label-primary);
+}
+
+.alert-info    { background-color: var(--dsw-alias-bg-layer-2); border-left: 3px solid var(--dsw-alias-link); }
+.alert-success { background-color: var(--dsw-alias-bg-layer-2); border-left: 3px solid var(--dsw-alias-state-success-primary); }
+.alert-warning { background-color: var(--dsw-alias-bg-layer-2); border-left: 3px solid var(--dsw-alias-state-warn-primary); }
+.alert-danger  { background-color: var(--lesson-danger-bg); border-left: 3px solid var(--dsw-alias-state-error-primary); }
+
+/* ---------- 步骤块 ---------- */
+.step {
+  background-color: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 5px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.step-number {
+  display: inline-block;
+  background-color: var(--dsw-alias-link);
+  color: var(--dsw-alias-label-primary-foreground);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  text-align: center;
+  line-height: 30px;
+  font-weight: bold;
+  margin-right: 0.5rem;
+}
+
+.step-title {
+  font-weight: bold;
+  color: var(--dsw-alias-label-primary);
+}
+
+/* ---------- 表格 ---------- */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+
+th, td {
+  border: 1px solid var(--dsw-alias-border-l2);
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+}
+
+th {
+  background-color: var(--dsw-alias-link);
+  color: var(--dsw-alias-label-primary-foreground);
+}
+
+/* ---------- 测验 ---------- */
+.quiz {
+  background-color: var(--dsw-alias-bg-layer-1);
+  border: 2px solid var(--dsw-alias-link);
+  border-radius: 5px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.quiz-question {
+  font-weight: bold;
+  color: var(--dsw-alias-label-primary);
+  margin-bottom: 1rem;
+}
+
+.quiz-options {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.quiz-option {
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background-color: var(--dsw-alias-markdown-inline-code);
+  color: var(--dsw-alias-label-primary);
+  border-radius: 3px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.quiz-option:hover {
+  background-color: var(--dsw-alias-bg-layer-3);
+}
+
+.quiz-option.correct {
+  background-color: var(--dsw-alias-state-success-tertiary);
+  color: var(--dsw-alias-state-success-primary);
+  border-left: 4px solid var(--dsw-alias-state-success-primary);
+}
+
+.quiz-option.incorrect {
+  background-color: var(--lesson-danger-bg);
+  color: var(--dsw-alias-state-error-primary);
+  border-left: 4px solid var(--dsw-alias-state-error-primary);
+}
+
+.quiz-option.locked {
+  cursor: default;
+}
+
+.quiz-option:focus-visible {
+  outline: 2px solid var(--dsw-alias-link);
+  outline-offset: 2px;
+}
+
+.quiz-feedback {
+  margin-top: 0.9rem;
+  font-weight: 600;
+  min-height: 1.4em;
+}
+
+.quiz-feedback.is-correct { color: var(--dsw-alias-state-success-primary); }
+.quiz-feedback.is-wrong   { color: var(--dsw-alias-state-error-primary); }
+
+.quiz-retry {
+  margin-top: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--dsw-alias-border-l3);
+  border-radius: 999px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.quiz-retry:hover {
+  background: var(--dsw-alias-bg-layer-3);
+}
+
+/* ---------- 上一课作业审视框 ----------
+   放在课程页最前面（紧跟目标框），让学生先面对自己写的代码，再进新内容。
+   两栏语义色沿用 ok / warn，外框用独立的青蓝 --review-*，
+   这样它既不像普通提示框，也不会和疑问解答框混淆。 */
+.review-box {
+  background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--lesson-review-border);
+  border-left: 4px solid var(--lesson-review-accent);
+  border-radius: 8px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  padding: 1.1rem 1.2rem;
+  margin: 0 0 1.75rem;
+}
+
+.review-box__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .55rem;
+  margin-bottom: .9rem;
+}
+
+.review-box__tag {
+  font-weight: 700;
+  font-size: .96rem;
+  color: var(--lesson-review-accent-strong);
+}
+
+.review-box__meta {
+  font-size: .74rem;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.review-box__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: .8rem;
+}
+
+.review-box__col {
+  border-radius: 6px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  padding: .8rem .9rem;
+  font-size: .92rem;
+}
+
+.review-box__col h4 {
+  margin: 0 0 .5rem;
+  font-size: .88rem;
+  font-weight: 700;
+}
+
+.review-box__col--good { background: var(--dsw-alias-state-success-tertiary); }
+.review-box__col--good h4 { color: var(--dsw-alias-state-success-primary); }
+
+.review-box__col--bad { background: var(--dsw-alias-state-warn-tertiary); }
+.review-box__col--bad h4 { color: var(--dsw-alias-state-warn-primary); }
+
+.review-box__col ul {
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.review-box__col li {
+  margin-bottom: .4rem;
+  color: var(--dsw-alias-label-primary);
+}
+
+.review-box__col li:last-child {
+  margin-bottom: 0;
+}
+
+.review-box__foot {
+  margin-top: .95rem;
+  padding-top: .8rem;
+  border-top: 1px dashed var(--lesson-review-border);
+  font-size: .93rem;
+  color: var(--dsw-alias-label-primary);
+}
+
+.review-box__foot strong {
+  color: var(--lesson-review-accent-strong);
+}
+
+.review-box__foot ol,
+.review-box__foot ul {
+  margin: .4rem 0 0;
+  padding-left: 1.15rem;
+}
+
+.review-box code {
+  background: var(--dsw-alias-markdown-inline-code);
+  color: var(--dsw-alias-label-primary);
+}
+
+/* ---------- 导航与页脚 ---------- */
+.nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: .6rem;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--dsw-alias-border-l2);
+}
+
+.nav-links a {
+  color: var(--lesson-accent-strong);
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.nav-links a:hover {
+  text-decoration: underline;
+}
+
+footer {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--dsw-alias-border-l2);
+  text-align: center;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 0.9rem;
+}
+
+footer a {
+  color: var(--lesson-accent-strong);
+}
+
+/* ---------- 标题流彩（可选装饰 · 仅限标题）----------
+   来自 styles/whale-sensei.md / widget：渐变首尾同色 → background-position 0%→200% 即无缝循环。
+   这是全项目**唯一**被批准的颜色例外族：色带值本身是**主题令牌**（住在 presets → theme.css
+   的令牌块里，由 tokenBlockRanges 放行）；本文件里只有裁字/动画规则，不含裸色值。
+
+   §3（2026-09-21）两件事：
+   ① **两套色带**：深色主题用 widget 原样的 macaron（深底最差 10.95），浅色主题用同一组色相
+      ×0.60 的**浅底校准版**（等价于与黑混合 40%）。为什么必须分两套：widget 那 14 支命名词板
+      **没有一支**能同时过浅深两底（实测最好 deepsea 2.43 / 2.74 —— 它们本来就是为 widget 自己的
+      深色界面设计的），而原样 macaron 在浅底最差只有 **1.17**（大字 AA 线是 3.0）
+      ⇒ 浅底那几笔基本看不见。校准后：浅底 **3.26** ✅ / 深底 **4.14** ✅。
+      数值与推导可复算，对照页见跨项目归档 （包外归档，不随包分发）（同目录 verify.mjs 自检）。
+   ② **动态 / 静态分工**：h1 用 `.rainbow-title`（流动）；h2/h3 与副标题用 `.rainbow-subtitle`
+      （同一条色带、不流动）—— 一页几十个动标题又吵又费电。h4 不上色。
+
+   ⚠️ 主题开关是 `body[data-ds-dark-theme]`（与 theme.css 同一套；不是 prefers-color-scheme）。 */
+@keyframes rainbow-flow { 0% { background-position: 0% 0 } 100% { background-position: 200% 0 } }
+
+/* 色带的两套值（浅/深）不在这里 —— 它们是**主题令牌**，住在 `presets/whale-sensei.css`，
+   由 style-adapter 注入 `assets/theme.css`：
+     浅色档 = 浅底校准版（macaron ×0.60）· 深色档 = widget 原样的 macaron。
+   这里只消费 `var(--lesson-rainbow-band)`（R2「令牌完备」要求的正是这个：引用必有声明）。 */
+
+/* 两条共用的基规则：裁字 + 200% 带宽 + 关掉字影（widget 那边也是 text-shadow:none） */
+.rainbow-title,
+.rainbow-subtitle {
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+}
+
+/* 大标题（§11，2026-09-22）：吃 `--lesson-title-band` —— **以本圆圈的颜色为锚**的那条。
+   每张课程页由 `assets/circle-bands.css` 按 `body[data-circle]` 覆盖；没有 data-circle 的页面
+   （笔记页）回落 `presets/whale-sensei.css` 里的全局默认（= 原来那条 macaron 浅底校准版），所以观感零变化。 */
+.rainbow-title {
+  background-image: var(--lesson-title-band);
+  animation: rainbow-flow 2.6s linear infinite;
+}
+
+/* 小标题：吃 `--lesson-rainbow-band` —— 与该圆圈色 ΔE76 最接近的那支词板（浅底只有 3 支过闸门，
+   所以浅色主题下多数圆圈的小标题都会是同一支：这是闸门的必然结果，不是 bug）。静态、冻结在起点。 */
+.rainbow-subtitle {
+  background-image: var(--lesson-rainbow-band);
+  animation: none;
+  background-position: 0% 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rainbow-title,
+  .rainbow-subtitle { animation: none; color: var(--dsw-alias-label-primary); -webkit-text-fill-color: currentColor; background: none; }
+}
+
+@media print {
+  .rainbow-title,
+  .rainbow-subtitle { color: var(--dsw-alias-label-primary); -webkit-text-fill-color: currentColor; background: none; }
+}
+
+/* ============================================================
+   S3 · 简约化与布局重构（2026-09-19）
+   ① 行宽：文本元素收到 640px（≈35 字/行；之前一行约 52 字，是"读着累"的物理原因）
+   ② 卡片网格：把"段落流"变"格子流"，宽屏两栏、窄屏一栏
+   ③ 通用组件补齐：table / blockquote / kbd / 列表 / details / figure
+   ④ 工具类：.is-muted / .is-note / .stack-*（替代正文里的内联样式）
+   规则不变：只消费令牌、禁裸色值、每个 var() 带兜底。
+   ============================================================ */
+
+/* ---------- ① 行宽：需要"读"的元素 ---------- */
+p, ul, ol, blockquote, .alert, figure, table, details, h2, h3, h4 { max-width: 640px; }
+
+/* ---------- ② 卡片网格 ---------- */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; margin-bottom: 1.5rem; }
+.card { background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; corner-shape: var(--dsw-corner-shape, superellipse(1.5)); overflow: hidden; }
+.card__head { padding: 8px 12px; font-size: 12px; letter-spacing: .04em; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-markdown-code-block-banner); border-bottom: 1px solid var(--dsw-alias-border-l1); }
+.card__body { padding: 12px; }
+.card__body pre { margin-bottom: 0; border-radius: 0; }
+corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+.card__body > :last-child, .card__body > :last-child > :last-child { margin-bottom: 0; }
+
+/* ---------- ③ 通用表格（此前只有 .api-table 一个特例有样式）---------- */
+table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
+th, td { padding: .6rem .5rem; text-align: left; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+th { font-weight: 600; font-size: .85rem; letter-spacing: .02em; color: var(--dsw-alias-label-secondary); border-bottom: 1px solid var(--dsw-alias-border-l2); }
+
+/* ---------- ③ 引用块（"官方原话"用）---------- */
+blockquote { margin: 0 0 1.5rem; padding: .2rem 0 .2rem 1rem; border-left: 3px solid var(--dsw-alias-border-l3); color: var(--dsw-alias-label-secondary); }
+
+/* ---------- ③ 键盘键 ---------- */
+kbd { font-family: var(--dsw-font-family-mono, monospace); font-size: .82em; padding: .1rem .4rem; border: 1px solid var(--dsw-alias-border-l3); border-bottom-width: 2px; border-radius: 4px; corner-shape: var(--dsw-corner-shape, superellipse(1.5)); background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); }
+
+/* ---------- ③ 列表（此前完全没有基础样式）---------- */
+ul, ol { padding-left: 1.4em; margin-bottom: 1rem; }
+li { margin: .3rem 0; }
+li > ul, li > ol { margin-bottom: 0; }
+
+/* ---------- ③ 折叠：零 JS，比手写 tab 可靠（可打印、可被浏览器搜索命中）---------- */
+details { margin-bottom: 1rem; border: 1px solid var(--dsw-alias-border-l2); border-radius: 6px; corner-shape: var(--dsw-corner-shape, superellipse(1.5)); background: var(--dsw-alias-bg-layer-1); }
+summary { padding: .5rem .8rem; cursor: pointer; font-weight: 600; color: var(--dsw-alias-label-primary); }
+summary::marker { color: var(--dsw-alias-label-tertiary); }
+details[open] summary { border-bottom: 1px solid var(--dsw-alias-border-l1); }
+details > *:not(summary) { padding-left: .8rem; padding-right: .8rem; }
+details > *:last-child { padding-bottom: .8rem; }
+
+/* ---------- ③ 图与图注 ---------- */
+figure { margin: 0 0 1.5rem; }
+figcaption { margin-top: .4rem; font-size: .82rem; color: var(--dsw-alias-label-tertiary); }
+
+/* ---------- ④ 工具类：替代正文里的内联样式（都落在 8px 节奏上）---------- */
+.is-muted { color: var(--dsw-alias-label-secondary); }
+.is-note { font-size: .85rem; color: var(--dsw-alias-label-tertiary); }
+.stack-xs { margin-top: .5rem; }
+.stack-sm { margin-top: 1rem; }
+.stack { margin-top: 1.5rem; }
+
+/* ============================================================
+   拖动手柄（课程页 + 笔记页**共用**，所以住在两页都加载的基础表里）
+   ------------------------------------------------------------
+   为什么在这儿而不在 notes.css：这两组规则原先写在 `assets/notes.css`（课程页外壳表）里，
+   而笔记页 `reference/NOTES.html` 只加载 `theme.css / styles.css / notes-page.css` ——
+   只抄标记和脚本、不搬样式，笔记页拿到的就是两个**没有样式的裸按钮**
+   （绝对定位、1px 细线、命中区全没了）。搬进共用基础表：两页同源，且不必复制第二份。
+
+   ⚠️ 两条硬约束（原注释照留）：
+   ① 正文手柄必须挂在 `[data-content]` 容器**里面** —— 否则绝对定位的包含块会变成
+      body 网格区的整个第 2 列，`right` 会把人推到窗口最右侧（甚至裁掉）；之前就是这么错的。
+   ② 默认就要显一条淡线：完全隐形的手柄等于没有（用户找不到）。
+   ============================================================ */
+
+/* ---------- 左栏手柄：贴在左栏**右缘**，拖动改 --lesson-notes-rail-w ----------
+   左栏是 position: fixed，所以绝对定位的包含块就是它自己。 */
+.rail-splitter {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: -8px;
+  width: 16px;
+  cursor: col-resize;
+  border: none;
+  background: transparent;
+  padding: 0;
+  /* 高于正文左缘手柄（60）：左栏与正文都贴左时，两者的命中区可能在窄间隔里重叠 */
+  z-index: 70;
+  outline: none;
+}
+
+.rail-splitter::after {
+  content: '';
+  display: block;
+  width: 1px;
+  height: 100%;
+  margin: 0 auto;
+  background: var(--dsw-alias-border-l2);
+  transition: background 0.15s ease, width 0.15s ease;
+}
+
+.rail-splitter:hover::after,
+.rail-splitter:focus-visible::after,
+.rail-splitter[data-dragging]::after {
+  width: 2px;
+  background: var(--dsw-alias-link);
+}
+
+/* ---------- 正文左右缘手柄（挂在 [data-content] 里）------------------------- */
+.page-splitter {
+  position: absolute;
+  top: 0;
+  right: -10px;
+  width: 20px;
+  height: 100%;
+  cursor: col-resize;
+  border: none;
+  background: transparent;
+  padding: 0;
+  /* 抬到固定左栏（z-index: 50）之上：左缘手柄紧邻左栏，不能被它盖住 */
+  z-index: 60;
+  outline: none;
+}
+
+/* 左缘那个手柄：命中区**往左栏那侧的间隔里扩**（用户报过"点不到、像有东西挡住"），
+   视觉细线仍贴在正文左缘 —— 用 margin 把 ::after 推到盒子右端附近（0 处）。 */
+.page-splitter--start {
+  right: auto;
+  left: -26px;
+  width: 32px;
+}
+
+.page-splitter--start::after {
+  margin: 0 6px 0 auto;
+}
+
+/* 默认就有一条 1px 的淡线（可发现），悬停/聚焦时变成强调色 */
+.page-splitter::after {
+  content: '';
+  display: block;
+  width: 1px;
+  height: 100%;
+  margin: 0 auto;
+  background: var(--dsw-alias-border-l2);
+  transition: background 0.15s ease, width 0.15s ease;
+}
+
+.page-splitter:hover::after,
+.page-splitter:focus-visible::after {
+  width: 2px;
+  background: var(--dsw-alias-link);
+}
+
+.page-splitter:hover,
+.page-splitter:focus-visible {
+  cursor: col-resize;
+}
+
+/* 拖动中视觉反馈 */
+.page-splitter[data-dragging]::after {
+  width: 2px;
+  background: var(--dsw-alias-link);
+}
+
+/* 窄屏（<900px）：没有网格可用区，手柄一律不显示 —— 两页共用同一条边界 */
+@media (max-width: 899px) {
+  .page-splitter,
+  .rail-splitter {
+    display: none;
+  }
+}
+
+/* 打印：手柄绝不进纸面（笔记页不加载 notes.css，所以这条也必须住在这里） */
+@media print {
+  .page-splitter,
+  .rail-splitter {
+    display: none;
+  }
+}

@@ -1,0 +1,144 @@
+<!--
+  assets/_frame.html — 课程页固定外壳（全工作区唯一一份）
+
+  为什么放在 assets/ 而不是 lessons/：
+  check-terms.js 会审 lessons/ 下**每一个** .html，模板里的 {{槽位}} 会被判为坏页面。
+  assets/ 是"工作区组件"目录，模板是组件不是课，放这里对现有脚本零影响。
+
+  谁生成什么：
+    外壳拥有（每课一字不改）—— doctype/head/样式表/theme-boot/名词引导条/
+      名词速查横幅/推荐阅读与课后挑战的标题/导航/页脚/尾部脚本
+    构建器生成（来自 meta 或数据源）—— <title>、名词数量、本课名词清单、
+      上一课/下一课链接、页脚参考来源、封面卡三个数字
+    作者只写 5 段 —— objective / review / body / reading / challenges
+
+  {{槽位}} 由 tools/build-lessons.js 填充；填完即产出 lessons/NNNN-*.html。
+  生成物**不要手改** —— 下次构建会覆盖。要改就改 lessons/src/ 里的源文件再构建。
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{LESSON_LABEL}}：{{TITLE}}</title>
+    <!-- 课程页也用同一颗星做 favicon（与星图 / 桌面快捷方式一致） -->
+    <link rel="icon" type="image/x-icon" href="{{PAGE_UP}}assets/starmap.ico">
+    <link rel="stylesheet" href="{{PAGE_UP}}assets/theme.css">
+    <link rel="stylesheet" href="{{PAGE_UP}}assets/circle-bands.css">
+    <link rel="stylesheet" href="{{PAGE_UP}}assets/styles.css">
+    <link rel="stylesheet" href="{{PAGE_UP}}assets/glossary.css">
+    <link rel="stylesheet" href="{{PAGE_UP}}assets/ask.css">
+    <link rel="stylesheet" href="{{PAGE_UP}}assets/lesson-blocks.css">
+    <link rel="stylesheet" href="{{PAGE_UP}}assets/notes.css">
+    <link rel="stylesheet" href="{{PAGE_UP}}assets/a11y-print.css">
+{{PAGE_STYLE}}
+</head>
+<body data-ask-lesson="{{LESSON_LABEL}}" data-ask-page="{{PAGE_REL}}" data-circle="{{CIRCLE}}">
+    <script src="{{PAGE_UP}}assets/theme-boot.js"></script>
+    <a class="skip-link" href="#main">跳到正文</a>
+
+    <aside class="notes-card" id="dsh-notes" aria-label="DSH 笔记">
+      <div class="notes-card__inner">
+        <header class="notes-card__head">
+          <h2 class="notes-card__title">DSH 笔记</h2>
+        </header>
+        <div class="notes-card__counts">
+          <span>名词 {{COVER_TERM_COUNT}}</span>
+          <span>答疑 {{COVER_QA_COUNT}}</span>
+          <span>笔记 {{COVER_NOTE_COUNT}}</span>
+        </div>
+        <a class="notes-card__link" href="{{PAGE_UP}}reference/NOTES.html#{{LESSON_LABEL}}">打开完整笔记 →</a>
+        <!-- 名词解释与疑问**分开**：名词不再进笔记页，改住名词地图（glossary/index.html）。
+             这条是课程页去地图的唯一入口，别删。 -->
+        <a class="notes-card__link" href="{{PAGE_UP}}glossary/">名词地图 →</a>
+        <a class="notes-card__link" href="{{STARMAP_HREF}}#{{LESSON_ID}}" target="starmap">在星图中查看这一课 →</a>
+        <!-- 疑问入口（§1：旧的右下角漂浮胶囊已撤销，改成卡片里的按钮 + 居中弹层；由 ask.js 绑定） -->
+        <button type="button" class="notes-card__ask" data-ask-open aria-haspopup="dialog">我有疑问 →</button>
+        <!-- 课后调整 → 进度回写：记录调整 + 点亮本课（星图那边轮询到就同步点亮） -->
+        <details class="adjust" data-lesson="{{LESSON_ID}}">
+          <summary class="notes-card__link">课后调整 / 学完了 →</summary>
+          <div class="adjust__body">
+            <label class="adjust__label" for="adjust-text">这一课哪里要改？（可以空着）</label>
+            <textarea class="adjust__text" id="adjust-text" rows="3"
+                      placeholder="听不懂的、想补充的、想删掉的…"></textarea>
+            <button class="adjust__btn" id="adjust-done" type="button">记录并完成本课</button>
+            <p class="adjust__status" id="adjust-status" role="status" aria-live="polite"></p>
+          </div>
+        </details>
+      </div>
+      <button class="rail-splitter" role="separator" aria-orientation="vertical"
+              aria-label="拖动调整左栏宽度" title="拖动调整左栏宽度" tabindex="0"></button>
+    </aside>
+
+    <div class="page" data-content id="main">
+    <button class="page-splitter page-splitter--start" role="separator" aria-orientation="vertical"
+            data-side="start" aria-label="拖动调整正文左缘（右缘不动）；按住 Shift 平移整列" title="拖动调整正文左缘；按住 Shift 平移整列" tabindex="0"></button>
+    <h1 class="rainbow-title">{{LESSON_LABEL}}：{{TITLE}}</h1>
+
+{{OBJECTIVE}}
+
+{{REVIEW}}
+
+    <div class="glossary-hint">
+        <span class="hint-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="5"/><path d="M12 6.5v3.5"/></svg></span>
+        <div>
+            <strong>本课阅读方式：</strong>
+            正文里带<strong>彩色虚线下划线</strong>的名词，<strong>鼠标放上去</strong>就会弹出一个小窗，
+            里面是<strong>三段式</strong>：<strong>① 官方定义</strong>（正式术语 + 英文全称）→
+            <strong>② 一句话大白话</strong> → <strong>③ 生活类比</strong>；
+            带用法的名词（比如各种 <code>@</code> 注解）还会多一段
+            <strong>④ 规范写法</strong>——可直接照抄的最小代码示例。
+            比如把鼠标放到 <span data-term="{{HINT_TERM}}">{{HINT_TERM_LABEL}}</span> 上试试。<br>
+            每个名词<strong>只在第一次出现时带下划线</strong>，之后再出现只保留颜色，不再重复弹窗。
+            全部 {{TERM_COUNT}} 个名词都记录在 <a href="{{PAGE_UP}}GLOSSARY.md">名词速查笔记 GLOSSARY.md</a>（带目录，可搜索）。
+            答疑和笔记都收在 <a href="{{PAGE_UP}}reference/NOTES.html#{{LESSON_LABEL}}">DSH 笔记文档页</a>。
+        </div>
+    </div>
+
+{{BODY}}
+
+    <div class="alert alert-info">
+        全部 {{TERM_COUNT}} 个名词（含前面课程内容）都在
+        <a href="{{PAGE_UP}}GLOSSARY.md">GLOSSARY.md</a> 里，带目录表格，可直接搜索。
+    </div>
+
+    <h2>推荐阅读（按优先级）</h2>
+
+{{READING}}
+
+    <h2>课后挑战（做完再往下学）</h2>
+
+{{CHALLENGES}}
+
+    <noscript><p class="stack-xs">实践区需要 JS 才能显示；关掉脚本时请看 <code>learning-records/state.json</code> 里的完成度。</p></noscript>
+    <div id="practice-zone" class="stack-xs" hidden></div>
+
+    <div class="nav-links">
+{{NAV_PREV}}
+        <a href="{{PAGE_UP}}GLOSSARY.md">名词速查笔记</a>
+{{NAV_NEXT}}
+    </div>
+
+    <footer>
+        <p>教学课程 | {{LESSON_LABEL}} | 参考：<a href="{{SOURCE_URL}}" target="_blank">{{SOURCE_LABEL}}</a></p>
+    </footer>
+
+    <button class="page-splitter" role="separator" aria-orientation="vertical"
+            data-side="end" aria-label="拖动调整正文右缘（左缘不动）；按住 Shift 平移整列" title="拖动调整正文右缘；按住 Shift 平移整列" tabindex="0"></button>
+    </div><!-- /.page -->
+
+    <script src="{{PAGE_UP}}assets/glossary-data.js"></script>
+    <script src="{{PAGE_UP}}assets/glossary.js"></script>
+    <script src="{{PAGE_UP}}assets/quiz.js"></script>
+    <script src="{{PAGE_UP}}assets/practice-data.js"></script>
+    <script src="{{PAGE_UP}}assets/practice.js"></script>
+    <script src="{{PAGE_UP}}assets/theme.js"></script>
+    <script src="{{PAGE_UP}}assets/ask.js"></script>
+    <script src="{{PAGE_UP}}assets/adjust.js"></script>
+    <script src="{{PAGE_UP}}assets/lesson-blocks.js"></script>
+    <script src="{{PAGE_UP}}assets/notes.js"></script>
+    <script src="{{PAGE_UP}}assets/notes-width.js"></script>
+    <script src="{{PAGE_UP}}assets/page-splitter.js"></script>
+    <script src="{{PAGE_UP}}assets/lesson-fs.js"></script>
+</body>
+</html>

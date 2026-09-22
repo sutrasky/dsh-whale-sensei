@@ -1,0 +1,336 @@
+/* assets/lesson-blocks.css — 课程页共享块样式
+ *
+ * 由 node tools/build-lessons.js --extract 从各课程页的内联 <style> 合并而来。
+ * 以前每课在自己的 <style> 里各写一份（.term-list、.real-path 甚至两页重复定义），
+ * 改一处漏一处就会两页样式不一致。现在只有这一份。
+ *
+ * 规则：只允许用 theme.css 的令牌，不写死颜色（check-terms.js 会查）。
+ * 含 31 条规则。
+ */
+
+.concept-card {
+    background: var(--dsw-alias-bg-layer-2);
+    border: 1px solid var(--dsw-alias-border-l2);
+    color: var(--dsw-alias-label-primary);
+    padding: 1.5rem;
+    border-radius: 10px;
+    corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+    margin-bottom: 1.5rem;
+}
+
+.concept-card h3 {
+    color: var(--dsw-alias-label-primary);
+    margin-top: 0;
+}
+
+.file-tree {
+    background-color: var(--dsw-alias-bg-layer-2);
+    border: 1px solid var(--dsw-alias-border-l2);
+    border-radius: 5px;
+    corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+    padding: 1rem;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: .92rem;
+    line-height: 1.7;
+    margin-bottom: 1.5rem;
+}
+
+.file-tree .folder {
+    color: var(--dsw-alias-link); font-weight: bold;
+}
+
+.file-tree .file {
+    color: var(--dsw-alias-label-primary);
+}
+
+.term-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: .5rem;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.5rem;
+}
+
+.term-list li {
+    background: var(--dsw-alias-bg-layer-1);
+    border: 1px solid var(--dsw-alias-border-l2);
+    border-radius: 6px;
+    corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+    padding: .5rem .7rem;
+    font-size: .9rem;
+}
+
+.term-list a {
+    color: var(--dsw-alias-link); text-decoration: none; font-weight: 600;
+}
+
+.term-list a:hover {
+    text-decoration: underline;
+}
+
+.term-list span {
+    color: var(--dsw-alias-label-secondary); font-size: .8rem; display: block;
+}
+
+.real-path {
+    background: var(--lesson-accent-soft);
+    border-left: 4px solid var(--dsw-alias-link);
+    padding: .8rem 1rem;
+    border-radius: 0 5px 5px 0;
+    corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+    margin-bottom: 1.5rem;
+    font-size: .93rem;
+}
+
+.real-path code {
+    background: var(--dsw-alias-bg-layer-1);
+}
+
+.api-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1.5rem;
+}
+
+.api-table th, .api-table td {
+    border: 1px solid var(--dsw-alias-border-l2);
+    padding: 0.75rem;
+    text-align: left;
+}
+
+.api-table th {
+    background-color: var(--dsw-alias-bg-layer-2);
+    color: var(--dsw-alias-label-primary);
+}
+
+.method-get {
+    color: var(--dsw-alias-link); font-weight: bold;
+}
+
+.method-post {
+    color: var(--dsw-alias-state-success-primary); font-weight: bold;
+}
+
+.method-put {
+    color: var(--dsw-alias-state-warn-primary); font-weight: bold;
+}
+
+.method-delete {
+    color: var(--dsw-alias-state-error-primary); font-weight: bold;
+}
+
+.code-tabs {
+    display: flex;
+    border-bottom: 2px solid var(--dsw-alias-link);
+    margin-bottom: 0;
+}
+
+.code-tab {
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    background-color: var(--dsw-alias-bg-layer-2);
+    color: var(--dsw-alias-label-primary);
+    border: 1px solid var(--dsw-alias-border-l2);
+    border-bottom: none;
+    margin-right: 2px;
+    border-radius: 5px 5px 0 0;
+    corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+}
+
+.code-tab.active {
+    background-color: var(--dsw-alias-bg-layer-1);
+    box-shadow: inset 0 -2px 0 var(--dsw-alias-link);
+    color: var(--dsw-alias-label-primary);
+    border-color: var(--dsw-alias-border-l2);
+}
+
+.code-content {
+    display: none;
+    background-color: var(--dsw-alias-markdown-code-block);
+    padding: 1rem;
+    border-radius: 0 0 5px 5px;
+    corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+    margin-bottom: 1.5rem;
+}
+
+.code-content.active {
+    display: block;
+}
+
+.flow-diagram {
+    background-color: var(--dsw-alias-bg-layer-2);
+    border: 1px solid var(--dsw-alias-border-l2);
+    border-radius: 10px;
+    corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.flow-arrow {
+    font-size: 1.5rem;
+    color: var(--dsw-alias-link);
+    margin: 0 1rem;
+}
+
+.layer-box {
+    display: block;
+    padding: 0.75rem 1.5rem;
+    border-radius: 5px;
+    corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+    background: var(--dsw-alias-bg-layer-2);
+    border: 1px solid var(--dsw-alias-border-l2);
+    margin: .4rem 0;
+    font-weight: bold;
+}
+
+.layer-controller {
+    border-left: 3px solid var(--dsw-alias-label-primary);
+}
+
+.layer-service {
+    border-left: 3px solid var(--dsw-alias-label-secondary);
+}
+
+.layer-repository {
+    border-left: 3px solid var(--dsw-alias-label-tertiary);
+}
+
+.error-box {
+    background-color: var(--lesson-danger-bg);
+    border-left: 4px solid var(--dsw-alias-state-error-primary);
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 0 5px 5px 0;
+    corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+}
+
+/* ============================================================
+   S3.5 · 图型变式：用「数据结构」来解释知识（不只是方框）
+   选哪种图型由知识形态决定，不由好看决定：
+     层级/继承/分类 → .ds-tree      顺序加工/责任链 → .ds-chain
+     调用顺序(LIFO) → .ds-stack     多方交互的时序   → .ds-seq
+     状态迁移       → .ds-state     二维对照         → .ds-kv / table
+   规则：只用令牌；只用中性 + 一个强调色（蓝）；无 JS；无 SVG；
+        靠 border/伪元素画线，不靠图片，所以深浅色两套自动成立。
+   ============================================================ */
+
+/* ---------- 共享小件 ---------- */
+.ds-arrow { color: var(--dsw-alias-label-tertiary); }
+.ds-node { padding: .35rem .65rem; border: 1px solid var(--dsw-alias-border-l2); border-radius: 6px; corner-shape: var(--dsw-corner-shape, superellipse(1.5)); background: var(--dsw-alias-bg-layer-2); }
+.ds-node.is-current { border-color: var(--dsw-alias-link); color: var(--dsw-alias-link); font-weight: 600; }
+.ds-node.is-dim { border-style: dashed; color: var(--dsw-alias-label-tertiary); }
+
+/* ---------- 树：层级 / 继承 / 分类体系 ---------- */
+.ds-tree { font-family: var(--dsw-font-family-mono, monospace); font-size: .9rem; line-height: 1.85; margin-bottom: 1.5rem; }
+.ds-tree ul { list-style: none; margin: 0; padding-left: 1.1rem; border-left: 1px solid var(--dsw-alias-border-l2); }
+.ds-tree > ul { padding-left: 0; border-left: 0; }
+.ds-tree li { position: relative; padding-left: 1rem; margin: 0; }
+.ds-tree li::before { content: ""; position: absolute; left: 0; top: 1em; width: .8rem; height: 1px; background: var(--dsw-alias-border-l2); }
+.ds-tree > ul > li { padding-left: 0; }
+.ds-tree > ul > li::before { display: none; }
+.ds-tree .ds-tag { margin-left: .45rem; font-size: .8rem; color: var(--dsw-alias-label-tertiary); }
+.ds-tree .is-current { color: var(--dsw-alias-link); font-weight: 600; }
+
+/* ---------- 链 / 管道：顺序加工、责任链 ---------- */
+.ds-chain { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin-bottom: 1.5rem; font-size: .9rem; }
+
+/* ---------- 栈：后进先出、调用顺序（自下而上生长） ---------- */
+.ds-stack { display: flex; flex-direction: column-reverse; gap: 2px; margin-bottom: 1.5rem; font-family: var(--dsw-font-family-mono, monospace); font-size: .88rem; }
+.ds-stack .ds-node { border-radius: 0; }
+.ds-stack .ds-node:first-child { border-radius: 0 0 6px 6px; }
+.ds-stack .ds-node:last-child { border-radius: 6px 6px 0 0; }
+.ds-stack .ds-note { padding-left: .2rem; font-size: .8rem; color: var(--dsw-alias-label-tertiary); }
+
+/* ---------- 时序：多方交互的时间顺序（左列时间/序号，右列事件） ---------- */
+.ds-seq { display: grid; grid-template-columns: 6.5rem 1fr; gap: .35rem .8rem; margin-bottom: 1.5rem; font-size: .88rem; }
+.ds-seq .ds-step-no { text-align: right; font-family: var(--dsw-font-family-mono, monospace); color: var(--dsw-alias-label-tertiary); }
+.ds-seq .ds-step { padding-left: .8rem; border-left: 2px solid var(--dsw-alias-border-l2); }
+
+/* ---------- 状态流：状态迁移（胶囊节点 + 箭头） ---------- */
+.ds-state { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-bottom: 1.5rem; font-size: .88rem; }
+.ds-state .ds-node { border-radius: 999px; }
+
+/* ---------- 键值清单：二维对照（轻量替代表格；用语义 dl/dt/dd） ---------- */
+.ds-kv { display: grid; grid-template-columns: max-content 1fr; gap: .3rem 1rem; margin-bottom: 1.5rem; font-size: .9rem; }
+.ds-kv dt { font-family: var(--dsw-font-family-mono, monospace); color: var(--dsw-alias-label-secondary); }
+.ds-kv dd { margin: 0; padding-left: .9rem; border-left: 1px solid var(--dsw-alias-border-l1); }
+
+/* ---------- 旧名兼容：.flow-diagram 是 .ds-chain 的前身（新内容请用 .ds-chain） ---------- */
+.flow-diagram .ds-node, .flow-diagram span { padding: .35rem .65rem; }
+
+/* ============================================================
+   S3.6 · 图型实验室所需的补充能力
+   差值高亮（.is-new）· 进度态（.is-done）· 填空位（.ds-blank）
+   练习态（.ds-ex）· 右侧栏骨架（.with-aside）· 打印降级
+   ============================================================ */
+
+/* 差值高亮：与上一课对比时，只把新增的那一枝点出来 */
+.ds-tree .is-new { color: var(--dsw-alias-link); font-weight: 600; }
+.ds-new-tag { margin-left: .45rem; padding: 0 .35rem; font-size: .74rem; border: 1px solid var(--dsw-alias-link); border-radius: 999px; corner-shape: var(--dsw-corner-shape, superellipse(1.5)); color: var(--dsw-alias-link); }
+
+/* 进度态：学过的节点退成次要色，当前节点保持强调 */
+.ds-tree .is-done { color: var(--dsw-alias-label-secondary); }
+.ds-tree .is-done::after { content: " · 已学"; font-size: .74rem; color: var(--dsw-alias-label-tertiary); }
+
+/* 填空位：残缺版图型里的"待补"空槽 */
+.ds-blank { display: inline-block; min-width: 5.5rem; padding: 0 .4rem; border-bottom: 1px dashed var(--dsw-alias-border-l3); color: var(--dsw-alias-label-tertiary); }
+
+/* 练习态：排序/归属题的判定 */
+.ds-ex { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin-bottom: .6rem; }
+.ds-ex .ds-node { cursor: grab; }
+.ds-ex .ds-node.is-ok { border-color: var(--dsw-alias-state-success-primary); }
+.ds-ex .ds-node.is-bad { border-color: var(--dsw-alias-state-error-primary); }
+.ds-ex .is-slot { border-style: dashed; color: var(--dsw-alias-label-tertiary); }
+
+/* 右侧栏骨架（宽屏才出现）：把"进度树 / 速览"这类次要信息放右边，正文不变窄 */
+.with-aside { max-width: 1120px; }
+.with-aside__aside { margin-top: 1.5rem; }
+@media (min-width: 1100px) {
+  .with-aside { display: grid; grid-template-columns: minmax(0, 1fr) 17rem; gap: 32px; align-items: start; }
+  .with-aside__aside { position: sticky; top: 1rem; margin-top: 0; }
+}
+
+/* 打印降级：图型必须能在纸上成立（不靠颜色、不靠悬浮） */
+@media print {
+  .ds-chain, .ds-state, .ds-stack { display: block; }
+  .ds-chain .ds-node, .ds-state .ds-node, .ds-stack .ds-node { display: inline-block; margin: 2px 0; }
+  .ds-arrow { color: var(--dsw-alias-label-primary); }
+  .with-aside { display: block; }
+  .with-aside__aside { position: static; }
+  details { border: 0; }
+  details > *:not(summary) { padding-left: 0; padding-right: 0; }
+}
+
+/* ============================================================
+   S3.7 · 交互型 shape 的样式（quiz / trace / state-explore / matrix-pick）
+   统一原则：**没有 JS 时是可读的静态结构**，JS 只是把"判定与展开"变快。
+   quiz 复用已有的 .quiz / .quiz-option / .quiz-feedback，不另造一套。
+   ============================================================ */
+
+/* 单步执行：调用栈按步推进（未到的节点压暗，不是隐藏 —— 布局稳定） */
+.ds-trace { margin-bottom: 1.5rem; }
+.ds-trace__bar { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-bottom: .6rem; }
+.ds-trace .ds-stack { margin-bottom: .6rem; }
+.ds-trace .ds-stack .ds-node { opacity: .25; transition: opacity .15s ease; }
+.ds-trace .ds-stack .ds-node.is-on { opacity: 1; }
+.ds-trace__log { margin: 0; padding-left: 1.4rem; font-size: .85rem; color: var(--dsw-alias-label-secondary); }
+.ds-trace__log li { margin: .2rem 0; }
+.ds-trace__log li.is-on { color: var(--dsw-alias-link); font-weight: 600; }
+
+/* 状态探索：点状态看允许/不允许的迁移 */
+.ds-explore { margin-bottom: .6rem; }
+.ds-explore .ds-state .ds-node { cursor: pointer; }
+.ds-explore .ds-state .ds-node.is-picked { border-color: var(--dsw-alias-link); color: var(--dsw-alias-link); font-weight: 600; }
+.ds-explore__panel { min-height: 1.4rem; font-size: .88rem; }
+.ds-explore__panel ul { margin: .2rem 0 0; padding-left: 1.2rem; }
+.ds-explore__panel .is-legal { color: var(--dsw-alias-state-success-primary); }
+.ds-explore__panel .is-illegal { color: var(--dsw-alias-label-tertiary); }
+
+/* 二维查表：点行头 + 列头 → 交叉格 */
+.ds-pick table { margin-bottom: 0; }
+.ds-pick th { cursor: pointer; }
+.ds-pick th.is-picked { color: var(--dsw-alias-link); border-bottom-color: var(--dsw-alias-link); }
+.ds-pick .ds-pick__cell.is-picked { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); font-weight: 600; }
+

@@ -1,0 +1,110 @@
+/* ============================================================
+   theme.css — 鲸师（whale-sensei）令牌契约 + 外观切换控件
+   ============================================================
+   【S1 令牌对齐 · 2026-09-19】
+   · 命名：DSH 有的照用 `--dsw-*`（同名 alias）；DSH 没有的课程语义 → `--lesson-*` 扩展层
+   · 取值：全部取 @deepseek-ai/dsh-client-ui-theme 的真值
+           （抽取过程与原始变量块见 _plugin-prep/dsh-theme-tokens.md）
+   · 圆角：抄 `--dsw-corner-shape: superellipse(1.5)`（DSH 的圆角不是 border-radius）
+   · 深色开关：沿用 DSH 契约 —— JS 解析三态后写两个 DOM 字段：
+       document.documentElement.style.colorScheme = 'dark' | 'light'
+       document.body.toggleAttribute('data-ds-dark-theme', dark)
+     所以样式表里只需要一条 `body[data-ds-dark-theme]` 覆盖；CSS 自己不查媒体查询。
+   · S1 删除：旧别名层（--primary-color / --background-color / --text-color / --border-color /
+     --success-color / --warning-color / --error-color / --secondary-color）——实测只有本文件
+     自己引用它们，lessons/ 与 reference/ 均为 0 次。
+   · 本文件当前**同时**承担「契约」（名字与映射）与「默认预设值」；S4 按 LESSON-PLUGIN-PLAN §12
+     迁移表拆成 templates/contract.css + 风格适配器时，只需把下面两个值块搬走，
+     组件 CSS 一行都不用动 —— 这就是 S1 先把名字统一掉的意义。
+
+   引入顺序：theme.css 必须在 styles.css / glossary.css / ask.css / lesson-blocks.css 之前。
+   规则：组件 CSS 只消费令牌，禁写裸色值；每个 var() 都要带兜底值。
+   ============================================================ */
+
+/* 标题字体：Lanxi-朗宋（raw-html-v2 内置 26 款之一，随工作区分发）
+   字体文件随风格库分发，拷到 assets/fonts/ 后离线可用。 */
+@font-face {
+  font-family: 'Lanxi-朗宋';
+  src: url('./fonts/Lanxi-LangSong.woff2') format('woff2');
+  font-display: swap;
+}
+
+/* @preset-values */
+html { color-scheme: light; }
+body[data-ds-dark-theme] { color-scheme: dark; }
+
+/* ============================================================
+   外观切换控件（三态：浅色 / 深色 / 跟随系统）
+   选中态跟随「已保存的偏好」，而不是解析后的实际明暗
+   ============================================================ */
+.theme-switch {
+  position: fixed;
+  top: 1rem;
+  right: 1.25rem;
+  z-index: 900;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 999px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  box-shadow: var(--lesson-shadow-soft, 0 2px 8px rgba(0, 0, 0, .08));
+}
+
+.theme-switch__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .35rem .7rem;
+  border: none;
+  border-radius: 999px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: .82rem;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
+}
+
+.theme-switch__btn:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.theme-switch__btn[aria-pressed="true"] {
+  background: var(--lesson-accent-soft);
+  color: var(--lesson-accent-strong);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--dsw-alias-link);
+}
+
+.theme-switch__btn svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.theme-switch__btn:focus-visible {
+  outline: 2px solid var(--dsw-alias-link);
+  outline-offset: 2px;
+}
+
+/* 窄屏收起文字，只留图标 */
+@media (max-width: 560px) {
+  .theme-switch__label { display: none; }
+  .theme-switch__btn { padding: .4rem .5rem; }
+}
+
+/* 打印时不显示切换控件 */
+@media print {
+  .theme-switch { display: none !important; }
+}

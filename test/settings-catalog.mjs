@@ -421,20 +421,21 @@ console.log(`\n[settings-catalog] 课程包：${PACK}`)
       exp2.apply({ slots: { inject: (n, cb) => cb(), register: (spec, c) => { regs2.push({ spec, comp: c }); return () => {} } }, effect: (fn) => fn() })
       const Comp = regs2.find((r) => r.spec.id === 'whale-sensei')?.comp
 
-      // StatusPanel hooks
+      // StatusPanel hooks：state / tick / pick（选课程包）—— pick 之后才是 useEffect
       slots[0] = { phase: 'ok', data: statusData, at: '12:00:00' }  // state
       slots[1] = 0  // tick
+      slots[2] = null  // pick（选课程包目录的状态）
 
       // CatalogPanel hooks (嵌在 StatusPanel 里)
       const expandedInit = {}
       if (catalogData && catalogData.circles) {
         for (const c of catalogData.circles) expandedInit[c.id] = true
       }
-      slots[3] = { phase: 'ok', data: catalogData, error: null }  // catalog state
-      slots[4] = 0  // catalog tick
-      slots[5] = expandedInit  // expanded
-      slots[6] = {}  // rename
-      slots[7] = { open: false, name: '', id: '', saving: false, error: null }  // newCircle
+      slots[4] = { phase: 'ok', data: catalogData, error: null }  // catalog state
+      slots[5] = 0  // catalog tick
+      slots[6] = expandedInit  // expanded
+      slots[7] = {}  // rename
+      slots[8] = { open: false, name: '', id: '', saving: false, error: null }  // newCircle
 
       const tree = Comp({})
       const texts = []
@@ -551,13 +552,14 @@ console.log(`\n[settings-catalog] 课程包：${PACK}`)
     exp.apply({ slots: { inject: (n, cb) => cb(), register: (spec, c) => { regs.push({ spec, comp: c }); return () => {} } }, effect: (fn) => fn() })
     const Comp = regs.find((r) => r.spec.id === 'whale-sensei')?.comp
 
-    // StatusPanel: useState(state)=0, useState(tick)=1, useEffect=2
-    // CatalogPanel: useState(catState)=3, useState(catTick)=4, useState(expanded)=5,
-    //               useState(rename)=6, useState(newCircle)=7, useState(del)=8, useState(notice)=9, useEffect=10
+    // StatusPanel: useState(state)=0, useState(tick)=1, useState(pick)=2, useEffect=3
+    // CatalogPanel: useState(catState)=4, useState(catTick)=5, useState(expanded)=6,
+    //               useState(rename)=7, useState(newCircle)=8, useState(del)=9, useState(notice)=10, useEffect=11
     slots[0] = { phase: 'ok', data: { ok: true, configured: true, version: '0.1.0', sections: [{ title: '插件', rows: [{ name: '版本', value: '0.1.0' }] }] }, at: '12:00:00' }
     slots[1] = 0
-    slots[3] = { phase: 'ok', data: catalogData, error: null }
-    slots[4] = 0
+    slots[2] = null
+    slots[4] = { phase: 'ok', data: catalogData, error: null }
+    slots[5] = 0
     return { render: () => { cursor = 0; return Comp({}) }, slots }
   }
 
@@ -703,6 +705,7 @@ console.log(`\n[settings-catalog] 课程包：${PACK}`)
     '/api/whale/circle',
     '/api/whale/circle/rename',
     '/api/whale/point',
+    '/api/whale/pack/choose',
   ]
   for (const p of knownClientPaths) {
     // 只把源码里确实出现的路径加入
@@ -717,7 +720,7 @@ console.log(`\n[settings-catalog] 课程包：${PACK}`)
 
   // 8b. 收集所有模块注册的路径
   const allRegisteredPaths = new Set()
-  const mods = ['status.js', 'catalog.js', 'create.js', 'starter.js']
+  const mods = ['status.js', 'catalog.js', 'create.js', 'starter.js', 'pack.js']
   for (const modFile of mods) {
     try {
       const { plugin } = await import(pathToFileURL(path.join(SRC, 'lib', 'mods', modFile)).href)
