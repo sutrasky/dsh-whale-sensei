@@ -128,5 +128,5 @@ console.log('== ⑥ 边角 ==')
 }
 
 fs.rmSync(root, { recursive: true, force: true })
-console.log(`\n${pass} 通过 / ${fail} 失败`)
+console.log(`\n=== ${pass} 通过 / ${fail} 失败 ===`)
 process.exit(fail ? 1 : 0)
