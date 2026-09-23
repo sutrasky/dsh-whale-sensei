@@ -21,6 +21,7 @@ const SUITES = [
   ['ask-route', '课程疑问：提交 / 拉取 / 坏样本一动不动'],
   ['ask-answer', '解答写回：台账外科手术式追加 + 真跑重建'],
   ['rebuild-job', '异步重建器：起完就返回 / 顺序有意义 / 失败不中断 / 与同步版告警逐字相同'],
+  ['rebuild-wiring', '三入口接重建：建圈五条 / 建点建课两条 / 入口不等脚本 / 缺件如实报 / 全缺不起作业'],
   ['bom-tolerance', 'BOM 容忍：带 BOM 与不带 BOM 结果完全一致'],
   ['glossary-verify', '名词台账：合成 == CLI，漂移/缺失报得出'],
   ['glossary-edit', '术语增改：切片插入/拒绝覆盖/替换；code 含花括号也不崩，写出的源码能 require 回来'],

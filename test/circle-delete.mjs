@@ -148,10 +148,10 @@ try {
 
   // ── [1] 路由契约 ──
   {
-    const expected = ['/api/whale/circle', '/api/whale/point', '/api/whale/circle/rename', '/api/whale/circle/delete']
+    const expected = ['/api/whale/circle', '/api/whale/point', '/api/whale/circle/rename', '/api/whale/circle/delete', '/api/whale/rebuild']
     const actual = routes.map((r) => r.path).sort()
     ok(expected.slice().sort().join(',') === actual.join(','),
-      `[1] create 注册的路径集合精确匹配 4 条（实得 ${actual.length}：${actual.join(', ')}）`)
+      `[1] create 注册的路径集合精确匹配 ${expected.length} 条（实得 ${actual.length}：${actual.join(', ')}）`)
     ok(deleteRoute != null, '[1] /api/whale/circle/delete 已注册')
     ok(deleteRoute?.methods?.includes('POST'), '[1] delete methods 包含 POST')
     ok(deleteRoute?.requestBody === 'buffered', `[1] delete requestBody = ${deleteRoute?.requestBody}（期望 buffered）`)

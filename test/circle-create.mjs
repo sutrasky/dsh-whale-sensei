@@ -121,12 +121,16 @@ try {
     const { ctx, routes } = makeRouteCtx(tmpPack)
     plugin.install(ctx)
 
-    const expectedPaths = ['/api/whale/circle', '/api/whale/point', '/api/whale/circle/rename', '/api/whale/circle/delete']
+    // 四条写入口（POST）+ 一条重建查询口（GET，2026-09-24 加：入口建完自己起重建，前端轮询进度）
+    const postPaths = ['/api/whale/circle', '/api/whale/point', '/api/whale/circle/rename', '/api/whale/circle/delete']
+    const getPaths = ['/api/whale/rebuild']
+    const expectedPaths = [...postPaths, ...getPaths]
     const actualPaths = routes.map((r) => r.path).sort()
     ok(actualPaths.length === expectedPaths.length, `[9] create 注册了 ${expectedPaths.length} 条路由（实得 ${actualPaths.length}：${actualPaths.join(', ')})`)
     ok(expectedPaths.every((p) => routes.some((r) => r.path === p)), `[9] 路由集合包含 ${expectedPaths.join(', ')}`)
     ok(expectedPaths.length === actualPaths.length && expectedPaths.sort().join(',') === actualPaths.join(','), `[9] 路由集合精确匹配（无多余/遗漏）`)
-    for (const ep of expectedPaths) {
+    ok(routes.find((r) => r.path === '/api/whale/rebuild')?.methods?.includes('GET'), '[9] /api/whale/rebuild methods 包含 GET')
+    for (const ep of postPaths) {
       const r = routes.find((x) => x.path === ep)
       ok(r?.methods?.includes('POST'), `[9] ${ep} methods 包含 POST`)
       ok(r?.requestBody === 'buffered', `[9] ${ep} requestBody = ${r?.requestBody}（期望 buffered）`)
