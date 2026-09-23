@@ -14,6 +14,8 @@
  *   [7] 真包零改动：git status --porcelain 必须为空
  *   [8] 闸门回归：对照基线 → 建圆圈+知识点 → 重建 → 闸门，新红=0 且 build-starmap/build-lessons 真绿 + 反空转 + 真包零改动
  *   [9] 路由契约：两条路由都存在、methods/POST/requestBody/path
+ *   [10] 色带用尽：把圈色吃到尽 → 再建圈 → 拒绝 + 文案含修法（到哪加色/怎么加/哪条对拍），
+ *        不是"建出一个没 color 的圈"，被拒的不落盘
  */
 
 import fs from 'node:fs'
@@ -419,6 +421,41 @@ try {
     } finally {
       try { fs.rmSync(gateRoot, { recursive: true, force: true }) } catch { /* best effort */ }
     }
+  }
+
+  // ── [10] 色带用尽：吃到尽 → 再建圈 → 拒绝 + 文案含修法（不留静默）──
+  // 全程只动 os.tmpdir() 的影副本（tmpPack），一次都不写真包。
+  {
+    const { ctx, routes } = makeRouteCtx(tmpPack)
+    plugin.install(ctx)
+    const circleR = routes.find((r) => r.path === '/api/whale/circle')
+
+    // 把色带**吃到尽**：一直建圈，直到第一次被拒（上限 64 防死循环）
+    const created = []
+    let rejected = null
+    for (let i = 0; i < 64; i++) {
+      const id = `band${i}`
+      const res = await circleR.fetch(fakeRequest('POST', { name: `吃色${i}`, id }))
+      const body = await res.json()
+      if (!body.ok) { rejected = { id, body }; break }
+      const halo = JSON.parse(fs.readFileSync(path.join(tmpPack, 'lessons', id, 'halo.json'), 'utf8'))
+      created.push({ id, color: halo.color })
+    }
+
+    ok(created.length > 0, `[10] 吃色阶段建了 ${created.length} 个圈（期望 > 0）`)
+    ok(created.every((c) => /^#[0-9a-f]{6}$/.test(c.color || '')),
+      `[10] 吃到尽为止每个圈都写了身份色（${created.length} 个）——没有"建出一个没 color 的圈"`)
+    ok(new Set(created.map((c) => c.color)).size === created.length, '[10] 每个圈的身份色互不重复')
+    ok(rejected != null, '[10] 色带吃到尽后，下一个圈被拒绝（不是无限建下去）')
+
+    const err = rejected?.body?.error || ''
+    ok(rejected?.body?.ok === false, `[10] 用尽后建 "${rejected?.id}" 被拒绝（ok=false，走现有拒绝面）`)
+    ok(/圈色用尽/.test(err), `[10] 文案说清原因（${err.slice(0, 30)}…）`)
+    ok(/修法/.test(err), '[10] 文案含"修法"')
+    ok(/_title-bands/.test(err) && /freeze\.mjs/.test(err) && /--check/.test(err),
+      '[10] 修法可执行：到哪加色（_title-bands）/ 怎么加（freeze.mjs 重新冻结）/ 连带更新哪条对拍（--check）')
+    ok(!fs.existsSync(path.join(tmpPack, 'lessons', rejected?.id ?? '~none~')),
+      '[10] 被拒的圆圈没有落盘（磁盘上什么都没多出来）')
   }
 
   // ── [7] 真包零改动（**相对基线**，不是"必须为空"）──
