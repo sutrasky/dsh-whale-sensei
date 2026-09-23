@@ -251,6 +251,22 @@ try {
     const again = await post({ lesson: 'demo/0001', done: true })
     ok(again.body.ok === true && readJson(PROGRESS(tmp)).learned.length === 1,
       'F 幂等：重复提交 learned 仍只有一条')
+
+    // Q2 欠账（2026-09-24）：本课 required 还缺着 → **不阻塞点亮**，但回执必须说出来。
+    // 为什么两件事都要钉：判词只看 challenges（要 done 会把「required 里也有机器判不了的项」
+    // 变成新的死锁）；可要是只点亮不吭声，学生就会以为"全过、万事大吉"——那也是静默。
+    {
+      const before = fs.readFileSync(STATE(tmp), 'utf8')
+      const doc = readJson(STATE(tmp))
+      const les = doc.projects[0].lessons.find((l) => l.id === 'demo/0001')
+      les.missing = [{ id: 'x', kind: 'dir', value: 'controller', hint: 'controller 包（接口层）', evidence: '目录不存在：controller' }]
+      fs.writeFileSync(STATE(tmp), JSON.stringify(doc, null, 2) + '\n', 'utf8')
+      const r = await post({ lesson: 'demo/0001', done: true, adjust: 'F2：required 还缺' })
+      ok(r.body.ok === true, `F2 required 有缺口**不阻塞**点亮（ok=${r.body.ok}）`)
+      ok(Array.isArray(r.body.requiredGaps) && r.body.requiredGaps.join('|') === 'controller 包（接口层）',
+        `F2 缺口如实回执 requiredGaps（实得 ${JSON.stringify(r.body.requiredGaps)}）`)
+      fs.writeFileSync(STATE(tmp), before, 'utf8')
+    }
   }
 
   // ── 记录形状（键序钉死）────────────────────────────────────────────────
