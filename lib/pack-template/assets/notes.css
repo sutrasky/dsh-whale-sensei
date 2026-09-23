@@ -30,6 +30,18 @@
   margin-left: var(--content-left, auto);
   margin-right: auto;
   position: relative;
+  /* 正文**默认居中**（2026-09-24 用户定）：课程页正文的行内内容（段落、标题、列表、
+     提示条、步骤块……）一律居中显示，不再沿用浏览器默认的左对齐。
+     只管"行内内容怎么排"这一层；容器自身怎么摆仍由上面的 margin 负责（两道闸门守着
+     margin-left: var(--content-left, auto) + margin-right: auto 的写法，别动）。
+     少数"居中会读坏"的组件各自把对齐钉死在自己的规则里，不跟着这条走：
+       · 代码块 pre → assets/styles.css 的 pre 规则（text-align: left，长行还要能横向滚）
+       · 图型块 .ds-tree / .ds-seq / .ds-kv / .ds-chain … → assets/lesson-blocks.css
+         顶上的「图型块逃逸口」一节（缩进与连线就是它们的结构，居中即读坏；
+         那条钉在 lesson-blocks.css 里是因为 R4 闸门禁同一个类跨文件重复定义）
+       · 表格单元格 th/td 与 .api-table → 本来就显式 text-align: left
+       · 已显式声明对齐的组件（.step-number / .ds-seq .ds-step-no / .review-box 等）原样保留 */
+  text-align: center;
 }
 
 /* ── 拖动手柄的样式已搬到 assets/styles.css（2026-09-21）────────────────

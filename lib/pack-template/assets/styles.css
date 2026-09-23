@@ -74,6 +74,10 @@ pre {
   corner-shape: var(--dsw-corner-shape, superellipse(1.5));
   overflow-x: auto;
   margin-bottom: 1.5rem;
+  /* 正文整体默认居中（assets/notes.css 的 .page），但代码块**必须**保持左对齐：
+     一居中，长行走 overflow-x 横向滚动时首行会从中间被裁掉，代码就没法读了。
+     这一条是那条默认值的**逃逸口**，不是历史遗留 —— 别顺手删。 */
+  text-align: left;
 }
 
 pre code {

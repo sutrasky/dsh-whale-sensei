@@ -216,6 +216,18 @@
         靠 border/伪元素画线，不靠图片，所以深浅色两套自动成立。
    ============================================================ */
 
+/* ── 图型块的**逃逸口**：正文整体默认居中（assets/notes.css 的 .page）────────
+   图型块不吃那条默认值：它们靠缩进、连线、左边框表达结构 —— 一居中，树的分叉线、
+   `.ds-step` 的左边框、`.ds-kv dd` 的竖线就跟文字错位，结构读不出来。
+   `text-align` 向下继承，所以只钉这排**根节点**，不往每个子元素上重复写一遍。
+   为什么写在这份文件里（而不是 styles.css）：R4 闸门禁止同一个类跨文件重复定义，
+   而下面这些类正是**本文件**定义的；放别处会让 style-check 报 10 处跨文件重复。
+   ⚠️ 本文件是 `build-lessons.js --extract` 的产物，这条是手工加的 —— 若哪天重跑
+   `--extract`，记得把它补回来（或改用 --no-blocks）。 */
+.ds-tree, .ds-ex,
+.ds-chain, .ds-stack, .ds-seq, .ds-state,
+.ds-kv, .ds-trace, .ds-explore, .ds-pick { text-align: left; }
+
 /* ---------- 共享小件 ---------- */
 .ds-arrow { color: var(--dsw-alias-label-tertiary); }
 .ds-node { padding: .35rem .65rem; border: 1px solid var(--dsw-alias-border-l2); border-radius: 6px; corner-shape: var(--dsw-corner-shape, superellipse(1.5)); background: var(--dsw-alias-bg-layer-2); }
