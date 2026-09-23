@@ -163,6 +163,24 @@ try {
 		ok(false, '拿不到 resolvePackRoot，环境变量判据没跑')
 	}
 
+	// ── [5b] 学生工作区目录（codeDir）：配置 → 环境变量 → 'code' ──────────────
+	// 为什么要有这一条（2026-09-24 主人定）：`code/` 只是**惯例**，不是契约。
+	// 把作品放在别处（本机是 `math/`）时，探针 / 插件侧 pack-model / 包侧 lesson-map
+	// **必须认同一个值** —— 否则会出现"点亮修好了、挑战判据却瞎着"的半瘫。
+	// 这条钉住"唯一算它的地方"的三段顺序与归一化写法。
+	const rc = alien?.mod?.resolveCodeDir
+	if (typeof rc === 'function') {
+		ok(rc('math', {}) === 'math', `显式配置生效（${rc('math', {})}）`)
+		ok(rc(undefined, {}) === 'code', `什么都没配 → 'code'（老包零回归：${rc(undefined, {})}）`)
+		ok(rc(undefined, { DSH_WHALE_CODE: 'math' }) === 'math', 'DSH_WHALE_CODE 环境变量能定位')
+		ok(rc('math', { DSH_WHALE_CODE: 'other' }) === 'math', '显式配置优先于环境变量')
+		ok(rc('  math/  ', {}) === 'math', `去空白与首尾斜杠（${rc('  math/  ', {})}）`)
+		ok(rc('a\\b', {}) === 'a/b', `反斜杠归一成正斜杠（${rc('a\\b', {})}）`)
+		ok(rc('   ', {}) === 'code', '空白当没配（不把空串当目录）')
+	} else {
+		ok(false, '拿不到 resolveCodeDir，codeDir 判据没跑')
+	}
+
 	// ── [6] 反空转：什么都不配 → 必须明确报错 ─────────────────────────────
 	//
 	// ⚠️ 2026-09-22 查清的一个坑（别删这段注释）：这条判据原来**隐含假设"环境里没有 DSH_WHALE_PACK"**。

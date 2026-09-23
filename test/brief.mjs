@@ -139,7 +139,25 @@ try {
   // 把摸底补上 → 才轮到"开下一课"
   const intakeFile = path.join(tmp, 'learning-records', 'intake.jsonl')
   fs.mkdirSync(path.dirname(intakeFile), { recursive: true })
-  fs.writeFileSync(intakeFile, ['spring-boot', 'vue'].map((p) => JSON.stringify({ point: p, level: '有基础', goal: '能独立写一个' })).join('\n') + '\n', 'utf8')
+  // ⚠️ 摸底要覆盖**影副本里所有的知识点**，别写死 spring-boot / vue ——
+  // 影副本是真包拷来的，真包多一个知识点（2026-09-24 加了 math/alge）而它没摸底时，
+  // decideNext 会正确地建议 intake-course，那这条"补完摸底 → 该开下一课了"就静默失配了
+  // （失败信息看着像功能坏了，其实是测试把数据写死了）。
+  const allPoints = []
+  ;(function walkPoints(d) {
+    let entries = []
+    try { entries = fs.readdirSync(d, { withFileTypes: true }) } catch (e) { return }
+    for (const e of entries) {
+      const full = path.join(d, e.name)
+      if (e.isDirectory()) { walkPoints(full); continue }
+      if (e.name !== 'point.json') continue
+      try {
+        const j = JSON.parse(fs.readFileSync(full, 'utf8'))
+        if (j && j.point) allPoints.push(String(j.point))
+      } catch (e) { /* 读不动就当没有这个知识点 */ }
+    }
+  })(path.join(tmp, 'lessons'))
+  fs.writeFileSync(intakeFile, allPoints.map((p) => JSON.stringify({ point: p, level: '有基础', goal: '能独立写一个' })).join('\n') + '\n', 'utf8')
   const afterIntake = await tool2.execute({ root: tmp })
   ok(afterIntake.brief.next.action === 'open-next-lesson', `摸底补齐后：${afterIntake.brief.next.action}（${afterIntake.brief.next.why}）—— 建议是**推出来的**，不是写死的`)
   ok(/学情摸底/.test(afterIntake.markdown), 'brief 里有「学情摸底」一节')
