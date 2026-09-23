@@ -129,10 +129,26 @@ try {
   const target = emptyDir()
   const built = writeScaffold(target)
   ok(built.ok === true, `空目录建包成功（${built.created?.length} 个文件 / ${built.bytes} 字节）`)
-  const expectCount = TEMPLATE_FILES.length + 9 // 9 = 骨架文件（台账 / 配置 / README / .git* 等）
-  ok(built.created?.length === expectCount, `文件数 = 模板 ${TEMPLATE_FILES.length} + 骨架 9 = ${expectCount}（实得 ${built.created?.length}）`)
+  const expectCount = TEMPLATE_FILES.length + 11 // 11 = 骨架文件（台账 / 配置 / 空星图 2 件 / README / .git* 等）
+  ok(built.created?.length === expectCount, `文件数 = 模板 ${TEMPLATE_FILES.length} + 骨架 11 = ${expectCount}（实得 ${built.created?.length}）`)
   ok(fs.existsSync(path.join(target, 'assets', 'questions-data.js')) && fs.existsSync(path.join(target, 'lesson.config.json')), '骨架文件落地（questions-data.js / lesson.config.json）')
   ok(fs.existsSync(path.join(target, 'lessons', 'src')) && fs.existsSync(path.join(target, 'code')) && fs.existsSync(path.join(target, 'questions')), '目录树落地（lessons/src、code、questions）')
+
+  // —— star 工具齐全 + 空星图已生成（2026-09-24 批3：新包长出来就要有星图）——
+  const STAR_FILES = ['tools/build-starmap.js', 'tools/build-starmap-svg.js', 'tools/galaxy-shapes.cjs', 'tools/lesson-map.js', 'starmap/data-layer.js']
+  const starMissing = STAR_FILES.filter((rel) => !fs.existsSync(path.join(target, rel)))
+  ok(starMissing.length === 0, `star 工具齐全（${STAR_FILES.length} 件）${starMissing.length ? '（缺：' + starMissing.join('、') + '）' : ''}`)
+
+  ok(fs.existsSync(path.join(target, 'starmap', 'content.js')) && fs.existsSync(path.join(target, 'starmap', 'index.html')), '空星图已生成（starmap/content.js + index.html，**不等第一次建圈**）')
+  const starWin = {}
+  new Function('window', fs.readFileSync(path.join(target, 'starmap', 'content.js'), 'utf8'))(starWin)
+  const star = starWin.STARMAP_REAL || {}
+  ok(Array.isArray(star.halos) && star.halos.length === 0 && (star.lessons || []).length === 0, '空星图**纯空**（0 圈 / 0 课）—— 不许塞默认圈当地基（假进度比没有进度更伤）')
+  ok(Object.keys(star).join(',') === 'termTotal,halos,lessons,edges', `空载荷键序 = tools/build-starmap.js 的载荷（${Object.keys(star).join(',')}）`)
+  const starHtml = fs.readFileSync(path.join(target, 'starmap', 'index.html'), 'utf8')
+  ok(starHtml.includes('<!--@static-map-->') && starHtml.includes('<!--/@static-map-->'), '空星图页留了 <!--@static-map--> 标记区（build-starmap-svg.js 只认这一对）')
+  ok(/<svg\b/.test(starHtml) && /fill="#05070e"/.test(starHtml), '页面有**底图**（SVG + 深空底色）—— 打开不是白屏')
+  ok(starHtml.includes('建第一个圈'), '页面给了明确的「建第一个圈」引导')
 
   const theme = composeTheme(target)
   ok(!!theme.css && theme.css.length > 1000, `whale_style 的合成不抛且出 css（${theme.css.length} 字符，slug=${theme.slug}）`)

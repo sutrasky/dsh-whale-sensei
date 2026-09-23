@@ -15,6 +15,10 @@
  *   ③ **内容指纹算法**：`lib/fingerprint.js` ↔ 包侧 `tools/fingerprint.js`（+ 模板逐字副本）——
  *      点亮换钉子的新鲜度判据。两侧一漂 = 永远 `stale-snapshot` = 点亮全废（R13），
  *      所以除了逐案例相等，还自带**反空转**（多文件 / 改字节 / 换行编码 → 指纹必变且两边仍相等）。
+ *   ④ **星图载荷契约**：`lib/pack-scaffold.js`（建包时写的空星图骨架）↔ 包侧 `tools/build-starmap.js`
+ *      （星图数据生成器）+ **随包模板副本**（`lib/pack-template/tools/build-starmap.js` 等 4 件）——
+ *      同一个 `window.STARMAP_REAL` 契约：键序一致、空包**纯空**（0 圈，不许塞默认圈当地基）、
+ *      建第一个圈后重建圈出现在载荷与页面里，且模板副本与包侧原件**同输入 → 逐字节同产出**。
  *
  * 判据自带**反空转**：两条记录必须真的来自两个不同写入者（text 不同、id 递进），
  * 否则"同形"是白得的。
@@ -25,12 +29,13 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import net from 'node:net'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { stripBom, splitLines } from '../lib/text.js'
 import { digestTree } from '../lib/fingerprint.js'
 import { appendNote } from '../lib/notes-io.js'
+import { writeScaffold } from '../lib/pack-scaffold.js'
 import { packRoot, PLUGIN } from './_pack.mjs'
 
 const ROOT = packRoot()
@@ -192,7 +197,73 @@ try {
   }
 }
 
-/* ── ④ 真包未被改动 ────────────────────────────────────────────────────── */
+/* ── ④ 星图载荷契约：空骨架（lib/pack-scaffold.js）↔ 生成器（包侧 tools/build-starmap.js）
+   （+ **随包模板副本**的行为对拍）──────────────────────────────────────────
+   两处都在"写出 window.STARMAP_REAL"：建包时的空星图骨架 vs tools/build-starmap.js 的载荷。
+   生成器加字段而骨架没跟上 = 空包的星图形状与有内容的包静默漂；模板副本与原件一漂 =
+   新包重建出来的星图与课程包不一致。全程在临时包上跑（stdio:'ignore'，不碰管道），
+   真包一个字节都不动。 */
+{
+  const run = (dir) => spawnSync(process.execPath, ['tools/build-starmap.js'], { cwd: dir, stdio: 'ignore' })
+  const readPayload = (dir) => {
+    const win = {}
+    new Function('window', fs.readFileSync(path.join(dir, 'starmap', 'content.js'), 'utf8'))(win)
+    return win.STARMAP_REAL
+  }
+  const fx = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-star-'))
+  try {
+    const A = path.join(fx, 'a')   // 随包模板副本（从模板长出来的新包真正会跑的那套）
+    const B = path.join(fx, 'b')   // 课程包原件（行为基准）
+    fs.mkdirSync(A); fs.mkdirSync(B)
+    ok(writeScaffold(A).ok === true && writeScaffold(B).ok === true, '临时建包 ×2（A=模板副本引擎 / B=包侧原件引擎）')
+
+    // ① 建包时就有空星图，而且是**纯空**
+    const empty = readPayload(A)
+    ok(empty.halos.length === 0 && empty.lessons.length === 0, '空包的星图 = 纯空（0 圈 / 0 课）—— 不许塞默认圈当地基')
+    ok(Object.keys(empty).join(',') === 'termTotal,halos,lessons,edges', `空骨架载荷键序 = 生成器载荷（${Object.keys(empty).join(',')}）`)
+
+    // ② 反空转（硬规矩）：0 圈时生成器必须**拒绝**，而不是画个假图
+    ok(run(A).status !== 0, '0 圈时 build-starmap.js 必须拒绝生成（exit ≠ 0）—— 空骨架就是为这一刻准备的')
+
+    // B 换上课程包原件（"同源"的判词 = 同输入 → 同产出）
+    for (const rel of ['tools/build-starmap.js', 'tools/build-starmap-svg.js', 'tools/galaxy-shapes.cjs', 'starmap/data-layer.js']) {
+      fs.copyFileSync(path.join(ROOT, rel), path.join(B, rel))
+    }
+
+    // ③ 建第一个圈 → 重建 → 圈出现在星图里（两套引擎逐字节同产出）
+    const halo = JSON.stringify({ halo: 'math', name: '数学', color: '#7ec8ff', inside: [], outside: [] }, null, 2) + '\n'
+    for (const d of [A, B]) {
+      fs.mkdirSync(path.join(d, 'lessons', 'math'), { recursive: true })
+      fs.writeFileSync(path.join(d, 'lessons', 'math', 'halo.json'), halo, 'utf8')
+    }
+    const rA = run(A), rB = run(B)
+    ok(rA.status === 0 && rB.status === 0, `建第一个圈后重建：两套引擎都 exit 0（模板 ${rA.status} / 包侧 ${rB.status}）`)
+    const genA = readPayload(A)
+    ok(genA.halos.length === 1 && genA.halos[0].id === 'math', '圈出现在星图载荷里（halos[0].id = math）')
+    ok(fs.readFileSync(path.join(A, 'starmap', 'content.js'), 'utf8') === fs.readFileSync(path.join(B, 'starmap', 'content.js'), 'utf8'),
+      'content.js：模板副本与包侧原件**逐字节相同**（同输入同输出）')
+    ok(fs.readFileSync(path.join(A, 'starmap', 'static.svg'), 'utf8') === fs.readFileSync(path.join(B, 'starmap', 'static.svg'), 'utf8'),
+      'static.svg：两套引擎逐字节相同')
+    const pageA = fs.readFileSync(path.join(A, 'starmap', 'index.html'), 'utf8')
+    ok(pageA.includes('数学') && !pageA.includes('建第一个圈'), '页面：圈进了静态星图、「建第一个圈」引导随之消失（标记区被真图接管）')
+    ok(Object.keys(genA).join(',') === Object.keys(empty).join(','), '生成器载荷键序与空骨架一致（契约没漂）')
+
+    // ④ 反空转：多一个知识点 → 载荷必变，且两套引擎仍逐字节一致
+    const point = JSON.stringify({ point: 'algebra', name: '代数', fileBase: 0 }, null, 2) + '\n'
+    for (const d of [A, B]) {
+      fs.mkdirSync(path.join(d, 'lessons', 'math', 'algebra'), { recursive: true })
+      fs.writeFileSync(path.join(d, 'lessons', 'math', 'algebra', 'point.json'), point, 'utf8')
+    }
+    run(A); run(B)
+    ok(readPayload(A).halos[0].points.length === 1, '反空转：多一个知识点 → 载荷多一条（algebra）')
+    ok(fs.readFileSync(path.join(A, 'starmap', 'content.js'), 'utf8') === fs.readFileSync(path.join(B, 'starmap', 'content.js'), 'utf8'),
+      '增量之后两套引擎仍逐字节相同')
+  } finally {
+    fs.rmSync(fx, { recursive: true, force: true })
+  }
+}
+
+/* ── ⑤ 真包未被改动 ────────────────────────────────────────────────────── */
 {
   const real = path.join(ROOT, 'notes', 'notes.jsonl')
   const size = fs.existsSync(real) ? fs.statSync(real).size : -1
@@ -201,4 +272,4 @@ try {
 
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
-console.log('✅ 镜像对拍：文本助手一致、两个写入口产出同形记录（共用同一计数器与同一台账）、指纹算法逐案例一致')
+console.log('✅ 镜像对拍：文本助手一致、两个写入口产出同形记录（共用同一计数器与同一台账）、指纹算法逐案例一致、星图载荷契约一致（含随包模板副本逐字节同产出）')
