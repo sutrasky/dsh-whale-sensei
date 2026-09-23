@@ -177,6 +177,24 @@ function detectStepOrder(src) {
 	ok(r.inOrder, `[4] 三屏顺序正确：step0(${r.mark0}) → step1(${r.mark1}) → step2(${r.mark2})`)
 }
 
+/* ── [4b] 两列表单必须"缩得动"：不许再写回 '1fr 1fr' ────────────────────────
+ * 为什么要有这一条（2026-09-24 现场）：
+ *   宿主弹窗盒是 `._dialog_w1urq_22 { width: min(380px,100%); overflow: hidden }` —— **固定 380px、溢出即切**。
+ *   而 '1fr 1fr' 的 grid 轨道默认 `min-width: auto`，**缩不到 <input> 的固有宽度以下**
+ *   （UA 默认 size=20 ≈ 170px）⇒ 两列各 ~180px、共需 368px，而 box 内可用只有 308px
+ *   ⇒ 右边那个输入框被 `overflow:hidden` **一刀切掉**（用户原话："右边像是被一刀切了、输入框被截断"）。
+ *   修法：轨道写 `minmax(0, 1fr)` + 输入框带 `minWidth:0 / width:100% / boxSizing:border-box`。
+ *   这条守卫钉住修法，别再退化。 */
+{
+	const code2 = fs.readFileSync(path.join(PLUGIN, 'lib', 'client.js'), 'utf8')
+	const bad = code2.match(/gridTemplateColumns:\s*'1fr 1fr'/g) || []
+	ok(bad.length === 0, `[4b] 没有退化成 '1fr 1fr' 的轨道（实得 ${bad.length} 处）—— 它会被 380px 弹窗盒切右边`)
+	const shrinkable = code2.match(/gridTemplateColumns:\s*'minmax\(0, 1fr\) minmax\(0, 1fr\)'/g) || []
+	ok(shrinkable.length >= 3, `[4b] 三处两列表单都用 minmax(0,1fr)（实得 ${shrinkable.length} 处）`)
+	const minW = code2.match(/minWidth: 0/g) || []
+	ok(minW.length >= 6, `[4b] 行内输入框都带了 minWidth:0（实得 ${minW.length} 处，应 ≥6）`)
+}
+
 /* ── [5] 反空转哨兵：故意错序的假源码会红 ──────────────────────────────── */
 {
 	// 构造假源码：step2 的代码块排在 step0 前面（真错序，不是靠中文注释）
