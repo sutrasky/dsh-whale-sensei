@@ -129,6 +129,9 @@ try {
   const prog0 = JSON.parse(fs.readFileSync(progPath, 'utf8'))
   const learnedBefore = Array.isArray(prog0.learned) ? prog0.learned.slice() : []
   prog0.learned = learnedBefore.concat(['algebra/0001'])
+  // 「新增字段也保留」用例（2026-09-24 ①复核第二写者）：progress.json 将来会加字段，
+  // 圆圈删除只许清 learned，别的键（含没见过的）一个都不许丢
+  prog0.futureField = { _: '将来加的字段，圆圈删除不许丢' }
   fs.writeFileSync(progPath, JSON.stringify(prog0, null, 2) + '\n')
 
   // 歧义用例：两个目录都声明 halo: "twin"
@@ -237,6 +240,8 @@ try {
       `[8] 别的圆圈的进度**一条都没动**（原 ${JSON.stringify(learnedBefore)}）`)
     ok(d.progressCleaned === 1, `[8] 响应说清了 1 条（实得 ${d.progressCleaned}）`)
     ok(prog.note !== undefined && prog._ !== undefined, '[8] progress.json 的其它字段（_ / note）保留')
+    ok(prog.futureField !== undefined && prog.futureField._ === '将来加的字段，圆圈删除不许丢',
+      '[8] progress.json 的**新增字段**（futureField）也保留 —— 第二写者只清 learned')
 
     ok(fs.existsSync(path.join(codeDir, 'pom.xml')), '[9] 学生代码目录仍在（只报不删）')
     ok(d.codeDirs.includes('code/victim/algebra'), `[9] 响应对学生代码做了显式交代：${JSON.stringify(d.codeDirs)}`)

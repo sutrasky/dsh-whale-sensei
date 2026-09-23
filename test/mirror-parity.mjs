@@ -12,6 +12,9 @@
  *      与插件 `lib/notes-io.js` 的 `appendNote` —— 它们共用 `notes/notes.jsonl` 与 `notes/seq.txt`，
  *      所以记录必须**同形**、编号必须**同一计数器**、锚点必须**同样归一**。
  *      （除了这一套，别处只有"各自静态钉子"；本套是真跑两遍再比。）
+ *   ③ **内容指纹算法**：`lib/fingerprint.js` ↔ 包侧 `tools/fingerprint.js`（+ 模板逐字副本）——
+ *      点亮换钉子的新鲜度判据。两侧一漂 = 永远 `stale-snapshot` = 点亮全废（R13），
+ *      所以除了逐案例相等，还自带**反空转**（多文件 / 改字节 / 换行编码 → 指纹必变且两边仍相等）。
  *
  * 判据自带**反空转**：两条记录必须真的来自两个不同写入者（text 不同、id 递进），
  * 否则"同形"是白得的。
@@ -26,6 +29,7 @@ import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { stripBom, splitLines } from '../lib/text.js'
+import { digestTree } from '../lib/fingerprint.js'
 import { appendNote } from '../lib/notes-io.js'
 import { packRoot, PLUGIN } from './_pack.mjs'
 
@@ -138,7 +142,57 @@ try {
   fs.rmSync(tmp, { recursive: true, force: true })
 }
 
-/* ── ③ 真包未被改动 ────────────────────────────────────────────────────── */
+/* ── ③ 内容指纹：lib/fingerprint.js ↔ 包侧 tools/fingerprint.js（算法逐字同源）── */
+{
+  const packFp = require_(path.join(ROOT, 'tools', 'fingerprint.js'))
+  const fx = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-fp-'))
+  try {
+    // fixture：多层目录 + 中文文件名 + CRLF 文件 + 被排除的目录（清单必须两侧一致）
+    fs.mkdirSync(path.join(fx, 'src', 'main'), { recursive: true })
+    fs.writeFileSync(path.join(fx, 'pom.xml'), '<project/>\n', 'utf8')
+    fs.writeFileSync(path.join(fx, 'src', 'main', '甲.java'), 'class A {}\n', 'utf8')
+    fs.writeFileSync(path.join(fx, 'src', 'main', 'B.java'), 'class B {}\r\n', 'utf8')
+    fs.mkdirSync(path.join(fx, 'target'), { recursive: true })
+    fs.writeFileSync(path.join(fx, 'target', '噪音.txt'), '构建产物不进指纹\n', 'utf8')
+
+    const both = () => [digestTree(fx), packFp.digestTree(fx)]
+    const [a0, b0] = both()
+    ok(a0 === b0, `指纹两边逐字相同（${a0.slice(0, 20)}…）`)
+    ok(/^sha256:[0-9a-f]{64}$/.test(a0), '指纹形状 = sha256:<64 位十六进制>')
+    ok(digestTree(fx) === a0, '同输入再算一遍：同指纹（确定性）')
+
+    // 排除清单生效：target/ 里的变化不进指纹（与 walkFiles 同一份 SKIP_DIR）
+    fs.writeFileSync(path.join(fx, 'target', '又一个.txt'), 'x', 'utf8')
+    ok(both().every((x) => x === a0), '排除目录（target/）里的增改不进指纹（清单两侧一致才做得到）')
+
+    // 反空转：多一个文件 / 改一个字节 / 换行编码变化 → 两边指纹**都变且仍相等**
+    fs.writeFileSync(path.join(fx, 'src', 'main', 'C.java'), 'class C {}\n', 'utf8')
+    const [a1, b1] = both()
+    ok(a1 !== a0 && a1 === b1, '反空转①：多一个文件 → 指纹必变，且两边仍相等')
+    fs.writeFileSync(path.join(fx, 'src', 'main', 'B.java'), 'class B { }\r\n', 'utf8')
+    const [a2, b2] = both()
+    ok(a2 !== a1 && a2 === b2, '反空转②：改一个字节 → 指纹必变，且两边仍相等')
+    fs.writeFileSync(path.join(fx, 'src', 'main', 'B.java'), 'class B { }\n', 'utf8')
+    const [a3, b3] = both()
+    ok(a3 !== a2 && a3 === b3, '反空转③：换行编码变化（CRLF→LF）→ 指纹必变，且两边仍相等')
+
+    // BOM 归一（算法里唯一的例外）：BOM 不是内容（bom-tolerance 同一纪律）
+    fs.writeFileSync(path.join(fx, 'src', 'main', 'B.java'), '\uFEFFclass B { }\n', 'utf8')
+    const [a4, b4] = both()
+    ok(a4 === a3 && a4 === b4, 'BOM 归一：带 BOM 与不带 BOM 同指纹（PowerShell 噪音不算内容变化）')
+
+    const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-fp-empty-'))
+    try {
+      ok(digestTree(emptyDir) === packFp.digestTree(emptyDir), '空目录边界：两边同指纹')
+    } finally {
+      fs.rmSync(emptyDir, { recursive: true, force: true })
+    }
+  } finally {
+    fs.rmSync(fx, { recursive: true, force: true })
+  }
+}
+
+/* ── ④ 真包未被改动 ────────────────────────────────────────────────────── */
 {
   const real = path.join(ROOT, 'notes', 'notes.jsonl')
   const size = fs.existsSync(real) ? fs.statSync(real).size : -1
@@ -147,4 +201,4 @@ try {
 
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
-console.log('✅ 镜像对拍：文本助手一致、两个写入口产出同形记录（共用同一计数器与同一台账）')
+console.log('✅ 镜像对拍：文本助手一致、两个写入口产出同形记录（共用同一计数器与同一台账）、指纹算法逐案例一致')

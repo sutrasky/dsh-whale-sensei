@@ -42,6 +42,7 @@ export const FROM_PACK = [
   'assets/notes.js',
   'assets/notes-width.js',
   'assets/page-splitter.js',
+  'assets/adjust.js',
   'assets/check-terms.js',
   'tools/shape-render.js',
   'tools/style-adapter.js',
@@ -52,6 +53,7 @@ export const FROM_PACK = [
   'tools/ask-server.js',
   // —— 上面几个的传递依赖（**漏一个就"建完跑不动"**，实测：build-notes 缺 lesson-map 直接
   //    `Cannot find module`；闭包用 E:\Temp\closure2.mjs 那种脚本重算，别靠眼看）——
+  'tools/fingerprint.js',
   'tools/lesson-map.js',
   'tools/pack-text.js',
   'tools/title-classes.js',

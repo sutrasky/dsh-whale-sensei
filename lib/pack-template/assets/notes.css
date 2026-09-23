@@ -246,7 +246,7 @@
   /* .page-splitter / .rail-splitter 的打印隐藏随样式搬去 styles.css（笔记页也吃那条） */
 }
 /* ── 课后调整（P2 进度回写的入口）──────────────────────────────────────
-   学生写下"哪里要改"，点一下就把本课写进 progress.json，星图轮询到即点亮。
+   学生写下"哪里要改"，点一下提交作品判据；判据过了才点亮。
    只用本文件已证明存在的两个令牌（--dsw-alias-border-l2 / label-secondary），
    免得碰 style-check 的令牌存在性断言。 */
 .adjust { margin-top: 8px; }
