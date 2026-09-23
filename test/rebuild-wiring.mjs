@@ -32,7 +32,7 @@ const ok = (c, m) => { if (c) { pass++; console.log('ok   ' + m) } else { fails.
 const eq = (a, b, m) => ok(JSON.stringify(a) === JSON.stringify(b), `${m}（期望 ${JSON.stringify(b)}，实得 ${JSON.stringify(a)}）`)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-const CIRCLE = ['tools/circle-bands.js', 'tools/build-lessons.js', 'tools/build-starmap.js', 'assets/build-glossary.js', 'tools/build-notes.js']
+const CIRCLE = ['tools/circle-bands.js', 'tools/build-lessons.js', 'tools/build-starmap.js', 'assets/build-glossary.js', 'tools/build-glossary-tree.js', 'tools/build-notes.js']
 const LESSON = ['tools/build-lessons.js', 'tools/build-starmap.js']
 const RAN = 'ran.txt'
 
@@ -101,7 +101,8 @@ console.log('== ③ 查询口 ==')
 const q1 = await (await call(byPath['/api/whale/rebuild'], `/api/whale/rebuild?id=${r1.rebuild.jobId}`)).json()
 ok(q1.ok === true && q1.job && q1.job.done === true, '按 id 查得到，且已跑完')
 ok(!('root' in q1.job), '作业形状里**没有 root**（本机绝对路径不该出现在响应里）')
-ok(q1.job.total === 5 && q1.job.scripts.length === 5, '总数与清单都在')
+// 从链推导，不写死数字：加删脚本（如 2026-09-24 补的 build-glossary-tree）不必再改这条
+ok(q1.job.total === CIRCLE.length && q1.job.scripts.length === CIRCLE.length, `总数与清单都在（${CIRCLE.length} 条）`)
 const q2 = await (await call(byPath['/api/whale/rebuild'], '/api/whale/rebuild?id=rb-does-not-exist')).json()
 ok(q2.ok === true && q2.job === null, '查不到的 id → ok:true + job:null（不是错误状态）')
 const q3 = await (await call(byPath['/api/whale/rebuild'], '/api/whale/rebuild')).json()
