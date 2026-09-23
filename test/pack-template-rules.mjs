@@ -63,6 +63,11 @@ export const FROM_PACK = [
   'tools/build-starmap-svg.js',
   'tools/galaxy-shapes.cjs',
   'starmap/data-layer.js',
+  // —— 建圈三件（2026-09-24 主人选 a 方案）：缺了它们，新包**连第一个圈都建不出来**
+  //    （没有冻结表 → 取色被拒），而且建圈五条链的第 1、4 条在包里不存在 ——
+  'assets/circle-bands-data.js',
+  'tools/circle-bands.js',
+  'assets/build-glossary.js',
 ]
 
 /** 取自课程包侧 `skill-draft/`（技能包）的件：**空台账骨架** —— 一个名词都没有 */
