@@ -195,6 +195,29 @@ function detectStepOrder(src) {
 	ok(minW.length >= 6, `[4b] 行内输入框都带了 minWidth:0（实得 ${minW.length} 处，应 ≥6）`)
 }
 
+/* ── [4c] 组件边界：CourseDialog 不许引用**别的组件**的状态 ──────────────────
+ * 为什么要有这一条（2026-09-24 现场）：
+ *   弹窗（`function CourseDialog()`）与设置卡是**两个组件**，各自有自己的 useState。
+ *   给「新建圆圈」加重建横幅时，误用了设置卡那套 `setNotice(...)` / `setTick(...)` ——
+ *   在 CourseDialog 作用域里它们**根本不存在**，于是用户点「创建」当场
+ *   `setNotice is not defined`，整个建圈流程炸掉。
+ *   渲染型测试抓不到它（异常发生在 fetch 的 .then 里，成了未处理拒绝），所以这里用源码边界钉住：
+ *   CourseDialog 函数体里**只许**出现它自己的 setState / setRebuild。 */
+{
+	const srcC = fs.readFileSync(path.join(PLUGIN, 'lib', 'client.js'), 'utf8')
+	const a = srcC.indexOf('function CourseDialog()')
+	const b = srcC.indexOf('function applyCourseDialog(', a)
+	const rawBody = a >= 0 && b > a ? srcC.slice(a, b) : ''
+	// 剥注释再判：守卫看的是**代码**，注释里写反例（"别写成 setNotice(...)"）不该算数
+	const body = rawBody
+		.replace(/^[ \t]*\/\/.*$/gm, '')
+		.replace(/\/\*[\s\S]*?\*\//g, '')
+	ok(body.length > 0, `[4c] 切出 CourseDialog 的函数体（剥注释后 ${body.length} 字符）`)
+	ok(!/\bsetNotice\s*\(/.test(body), '[4c] CourseDialog 里不许调 setNotice —— 那是另一个组件的状态，会当场 ReferenceError')
+	ok(!/\bsetTick\s*\(/.test(body), '[4c] CourseDialog 里不许调 setTick —— 同上')
+	ok(/\bsetRebuild\s*\(/.test(body), '[4c] 重建横幅走本组件自己的 setRebuild')
+}
+
 /* ── [5] 反空转哨兵：故意错序的假源码会红 ──────────────────────────────── */
 {
 	// 构造假源码：step2 的代码块排在 step0 前面（真错序，不是靠中文注释）
