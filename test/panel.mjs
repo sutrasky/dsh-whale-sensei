@@ -23,10 +23,12 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { plugin as statusPlugin } from '../lib/mods/status.js'
 import { plugin as starterPlugin } from '../lib/mods/starter.js'
 import { STARTER_LABEL } from '../lib/starter.js'
+import { goalsPath } from '../lib/goal-io.js'
 import { packRoot, PLUGIN } from './_pack.mjs'
 import { readPack } from '../lib/pack-model.js'
 
@@ -106,8 +108,10 @@ console.log(`\n[panel] 课程包：${ROOT}`)
 }
 
 /* ── A2. 宿主半边：开课入口的两条路由（`lib/mods/starter.js`）─────────────
- * 弹窗要的两个东西都在这里：**字段与模板**（GET）、**把答案拼成正文**（POST）。
+ * 弹窗要的两个东西都在这里：**字段与模板**（GET）、**把答案拼成正文 + 把终点契约落盘**（POST）。
  * 判据放在这一层而不是浏览器半边 —— 话术只有宿主一份，所以"问了什么、拼成什么"可以离线判。
+ * ⚠️ R8：POST 现在会写 `learning-records/goals.jsonl` —— 写盘用例一律打**影副本**（mkdtemp，
+ *    照 test/intake.mjs 的惯例），收尾断言**真包 goals.jsonl 逐字节未被改动**。
  */
 {
   const mount = (root) => {
@@ -120,6 +124,11 @@ console.log(`\n[panel] 课程包：${ROOT}`)
     })
     return cap
   }
+  // 真包守卫：POST 前后比 goals.jsonl 字节（不存在 = null，也一样要比）
+  const readOrNull = (f) => { try { return fs.readFileSync(f) } catch { return null } }
+  const realGoalsBefore = readOrNull(goalsPath(ROOT))
+  const sameBytes = (a, b) => (a === null && b === null) || (!!a && !!b && Buffer.compare(a, b) === 0)
+
   const route = mount(ROOT).find((r) => r.path === '/api/whale/starter')
   ok(!!route, '挂了 /api/whale/starter')
   ok(route?.methods?.join(',') === 'GET,POST', `一条路由两种方法（${route?.methods?.join(',')}）—— 同路径拆两条会撞`)
@@ -127,10 +136,13 @@ console.log(`\n[panel] 课程包：${ROOT}`)
   ok(starterPlugin.tools.length === 0, '这一节不进工具面（tools 为空）')
 
   const get = (root) => mount(root)[0].fetch(new Request('http://127.0.0.1:3090/api/whale/starter', { method: 'GET' }))
-  const post = (values) => route.fetch(new Request('http://127.0.0.1:3090/api/whale/starter', {
+  // POST 一律打**影副本**（R8）：终点落盘不许污染真包
+  const shadow = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-panel-starter-'))
+  const shadowRoute = mount(shadow).find((r) => r.path === '/api/whale/starter')
+  const post = (values, extra = {}) => shadowRoute.fetch(new Request('http://127.0.0.1:3090/api/whale/starter', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ values }),
+    body: JSON.stringify({ values, ...extra }),
   }))
 
   const g = await get(ROOT)
@@ -138,25 +150,61 @@ console.log(`\n[panel] 课程包：${ROOT}`)
   const form = gb.entry?.form || {}
   ok(g.status === 200 && gb.configured === true, `GET → ${g.status} configured=${gb.configured}`)
   ok(gb.entry?.label === STARTER_LABEL, `按钮/弹窗标题与宿主常量一致（${gb.entry?.label}）`)
-  ok(Array.isArray(form.fields) && form.fields.length === 5, `弹窗 ${(form.fields || []).length} 个字段`)
-  ok((form.fields || []).filter((f) => f.required).map((f) => f.id).join(',') === 'topic,goal', '必填只有「要学什么 / 学完要能做出什么」')
+  ok(Array.isArray(form.fields) && form.fields.length === 8, `弹窗 ${(form.fields || []).length} 个字段`)
+  ok((form.fields || []).filter((f) => f.required).map((f) => f.id).join(',') === 'topic,goal,tier,acceptance', '必填 = 要学什么 / 学完要能做出什么 / 学到哪一层 / 验收判据')
   ok(/掌握程度/.test(form.intro || ''), '弹窗说明里写明后面会问掌握程度（摸底在发出去之后）')
   ok(!/掌握程度|学过什么|基础如何/.test(JSON.stringify(form.fields)), '**弹窗字段里不问摸底**')
   ok(/whale_intake/.test(gb.entry.prompt || '') && /RESOURCES\.md/.test(gb.entry.prompt || ''), '协议全文齐（查资料 + 摸底的机械闸门都在）')
   ok((form.template || '').includes('{{protocol}}'), '模板带 {{protocol}} 占位')
 
-  const p = await post({ topic: 'Vue 3 组合式 API', goal: '能独立写一个小型前端应用' })
+  const p = await post(
+    { topic: 'Vue 3 组合式 API', goal: '能独立写一个小型前端应用', tier: '3', acceptance: '能独立写出一个待办列表页' },
+    { circle: '编程', point: 'Vue', pointId: 'programming/vue' },
+  )
   const pb = await p.json()
   ok(p.status === 200 && pb.ok === true && pb.text.startsWith('【开课请求】'), `POST 合法 → ${p.status}，正文以「【开课请求】」开头`)
   ok(pb.text.includes('Vue 3 组合式 API') && pb.text.includes('（未填，你来定）'), '答案进正文，没填的字段写成「（未填，你来定）」')
   ok(!/\{\{[a-z]+\}\}/.test(pb.text), '正文里没有没替换的占位符')
+
+  // 终点契约落进**影副本**：goals.jsonl 第 1 版（v=1，replaces=null，artifact.what = goal 原文）
+  const shadowGoals = goalsPath(shadow)
+  ok(pb.goalSaved === true && pb.goalVersion === 1, `终点落盘：goalSaved=${pb.goalSaved} v=${pb.goalVersion}`)
+  const v1Lines = fs.readFileSync(shadowGoals, 'utf8').trim().split('\n')
+  const v1Line = v1Lines[0]
+  const rec1 = JSON.parse(v1Line)
+  ok(rec1.v === 1 && rec1.replaces === null && rec1.source === 'wizard', `第 1 版：v=${rec1.v} replaces=${rec1.replaces}`)
+  ok(rec1.artifact?.what === '能独立写一个小型前端应用', 'artifact.what = wizard goal 原文逐字')
+  ok(rec1.point === 'vue' && rec1.pointPath === 'programming/vue', 'point 取 pointId 最后一段（Q10）')
+
+  // 换终点（B5）：第 2 版 append、第 1 版逐字节不动、replaces 指向第 1 版
+  const p2 = await post(
+    { topic: 'Vue 3 组合式 API', goal: '改成：能部署上线的待办应用', tier: '4', acceptance: '能部署上线' },
+    { pointId: 'programming/vue' },
+  )
+  const b2 = await p2.json()
+  const v2Lines = fs.readFileSync(shadowGoals, 'utf8').trim().split('\n')
+  ok(p2.status === 200 && b2.goalSaved === true && b2.goalVersion === 2, `换终点 → 第 2 版（v=${b2.goalVersion}）`)
+  ok(v2Lines.length === 2 && v2Lines[0] === v1Line, '第 2 版是 append 且第 1 版逐字节不动')
+  const rec2 = JSON.parse(v2Lines[1])
+  ok(rec2.v === 2 && rec2.replaces === 1, `replaces=${rec2.replaces} 指向第 1 版`)
+  ok(!/\d{4}-\d{2}-\d{2}T/.test(fs.readFileSync(shadowGoals, 'utf8')), 'goals.jsonl 全篇无 ISO 时间戳（可对拍）')
+
   const missing = await post({ goal: 'x' })
   const mb = await missing.json()
-  ok(missing.status === 400 && mb.missing?.join(',') === '要学什么', `缺必填 → ${missing.status} ${mb.error}`)
+  ok(missing.status === 400 && mb.missing?.join(',') === '要学什么,学到哪一层,验收判据', `缺必填 → ${missing.status} ${mb.error}`)
+
+  // 没归属（没 pointId）→ 不落盘、不报错，只提示（B6 / Q10）
+  const nb = await (await post({ topic: 'A', goal: 'B', tier: '1', acceptance: 'C' })).json()
+  ok(nb.ok === true && nb.goalSaved === false && /终点还没结构化/.test(nb.goalHint || ''), `没归属 → 只拼文本 +「终点还没结构化」提示（${nb.goalHint}）`)
+  ok(fs.readFileSync(shadowGoals, 'utf8').trim().split('\n').length === 2, '没归属 → 影副本台账没多行')
 
   const g2 = await get(undefined)
   const gb2 = await g2.json()
   ok(g2.status === 200 && gb2.configured === false && !!gb2.entry?.form, '没配 packRoot 也发 entry（弹窗不该静默消失）')
+
+  fs.rmSync(shadow, { recursive: true, force: true })
+  // R8 收尾：真包 goals.jsonl 逐字节未被改动
+  ok(sameBytes(readOrNull(goalsPath(ROOT)), realGoalsBefore), `真包 goals.jsonl 未被改动（${ROOT}）`)
 }
 
 /* ── B0. 浏览器半边：**真加载一遍**（不是 grep） ─────────────────────────

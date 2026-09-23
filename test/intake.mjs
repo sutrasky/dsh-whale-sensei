@@ -6,6 +6,7 @@
  *   ② recordIntake 落盘 → 文件多一行、回读一致；再记一次 → readIntake().latest[point] 是后一条
  *   ③ point 缺失 → 不写盘（文件行数不变）
  *   ④ 台账里混一行坏 JSON → readIntake().problems 有它且不抛
+ *   ④b ③(b) 起点台阶：三问落盘 / 键序钉死 / 同一 validateStage 拒坏 tier / B6 老记录活样本（不拦开课）
  *   ⑤ whale_author 闸门：commit:true（无摸底）→ ok:false、needsIntake:true、目标文件不存在；
  *      whale_intake op=record 之后再 commit:true → 文件存在；
  *      另建一例 force:true → 文件存在
@@ -18,6 +19,8 @@ import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { buildQuestions, recordIntake, readIntake, intakeStatus } from '../lib/intake.js'
 import { decideNext, buildBrief, NEXT_ACTIONS } from '../lib/brief.js'
+import { buildIntakeSummary } from '../lib/brief-io.js'
+import { validateStage } from '../lib/goal-io.js'
 import { plugin as authorPlugin } from '../lib/mods/author.js'
 import { plugin as intakePlugin } from '../lib/mods/intake.js'
 
@@ -107,6 +110,74 @@ const read4 = readIntake(tmp)
 ok(read4.problems.length === 1, '坏 JSON 行进了 problems')
 ok(read4.problems[0].includes('第'), 'problems 里有行号信息')
 ok(read4.entries.length === 2, '好行仍正常读出（不因坏行抛错）')
+
+// ── ④b ③(b) 起点台阶：三问落盘 / 键序钉死 / 同一 validateStage / B6 活样本 ──
+{
+	const stageTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-intake-stage-'))
+	let stageTool = null
+	intakePlugin.install({ paths: { packRoot: stageTmp }, log: { info: () => {}, warn: () => {}, error: () => {} }, registerTool: (d) => { stageTool = d } })
+
+	// ① 三问（原文）+ startTier → entry.start（StageSpec）
+	const sr = await stageTool.execute({
+		op: 'record', point: 'spring-boot', topic: 'Spring Boot', level: '有基础', background: '写过 Java',
+		goal: '能独立做', time: '每周 5 小时', unknowns: '不懂自动配置',
+		prior: '用过 Spring MVC', can: '能写 Controller', stuck: '事务边界搞不清', startTier: 3,
+		answers: [{ q: 'q', a: 'a' }],
+	})
+	ok(sr.ok === true, '三问 + startTier 落盘成功')
+	const sEntry = readIntake(stageTmp).latest['spring-boot']
+	ok(sEntry.prior === '用过 Spring MVC' && sEntry.can === '能写 Controller' && sEntry.stuck === '事务边界搞不清', '三问原文落盘可回读')
+	ok(!!sEntry.start && sEntry.start.tier === 3, `entry.start = 起点台阶（tier ${sEntry.start?.tier}）`)
+	ok((sEntry.start.focus || []).join('、') === '事务边界搞不清', '起点台阶的 focus = stuck（痛点 = 教学重点）')
+	ok(Object.keys(sEntry).join(',') === 'point,topic,level,background,goal,time,unknowns,prior,can,stuck,start,answers,at',
+		`键序钉死（${Object.keys(sEntry).join(',')}）`)
+	ok(!!validateStage(sEntry.start), '同一个 validateStage() 认这份 start（②③b 共用 schema，防「各定一套」）')
+
+	// intakeStatus 只加法（B6）：done/missing 判据一字未改，start / structured 是新字段
+	const st = intakeStatus(stageTmp, 'spring-boot')
+	ok(st.done === true && st.missing.length === 0, 'done 判据一字未改（= level && goal）')
+	ok(st.structured === true && st.start?.tier === 3, 'intakeStatus 带出 start / structured（只加法）')
+
+	// ② 同一套校验：坏 tier 拒写（拒在 append 之前）
+	const stageFile = path.join(stageTmp, 'learning-records', 'intake.jsonl')
+	const linesBefore2 = fs.readFileSync(stageFile, 'utf8').trim().split('\n').length
+	const badTool = await stageTool.execute({ op: 'record', point: 'vue', level: '零基础', startTier: 5 })
+	ok(badTool.ok === false && /startTier|tier/.test(badTool.error || ''), `startTier=5 → 拒写（${badTool.error}）`)
+	const badDirect = recordIntake(stageTmp, { point: 'vue', level: '零基础', start: { tier: 9, artifact: { what: 'x', where: null }, acceptance: [], focus: null } })
+	ok(badDirect.ok === false && /起点台阶/.test(badDirect.error || ''), `recordIntake 层坏 start 也拒写（${badDirect.error}）`)
+	ok(fs.readFileSync(stageFile, 'utf8').trim().split('\n').length === linesBefore2, '拒写在 append 之前（台账没多行）')
+
+	// 渲染：op=read 印「起点台阶：tier N · 卡点：<stuck>」
+	const rendered = stageTool.output.render({}, await stageTool.execute({ op: 'read' }))[0].text
+	ok(/起点台阶：tier 3/.test(rendered) && /卡点：事务边界搞不清/.test(rendered),
+		`op=read 渲染起点台阶（${rendered.split('\n').find((l) => l.includes('起点台阶'))}）`)
+
+	// ③ B6 活样本：只有 {point,level,goal} 的老行 —— 绝不判「没摸底」、绝不拦开课（老包缺新字段同理）
+	const oldTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-intake-old-'))
+	fs.mkdirSync(path.join(oldTmp, 'learning-records'), { recursive: true })
+	fs.writeFileSync(path.join(oldTmp, 'learning-records', 'intake.jsonl'),
+		JSON.stringify({ point: 'vue', level: '有基础', goal: '能独立写一个' }) + '\n', 'utf8')
+	const oldStatus = intakeStatus(oldTmp, 'vue')
+	ok(oldStatus.done === true && oldStatus.missing.length === 0, '老记录 {point,level,goal} → done=true（B6：绝不判「没摸底」）')
+	ok(oldStatus.start === null && oldStatus.structured === false, '老记录无 start → start=null / structured=false（只提示，不判缺失）')
+	const oldSummary = buildIntakeSummary(oldTmp, { points: [{ id: 'vue' }], circles: [], lessons: [] })
+	ok(oldSummary.have === 1 && oldSummary.missing.length === 0, 'buildIntakeSummary 判据一字未改（e?.level && e?.goal）')
+	const oldProjects = [{ lessons: [{ id: 'vue/0001', title: '第1课', done: true, satisfied: [], missing: [] }] }]
+	const oldNext = decideNext({ pending: 0, projects: oldProjects, lessonTotal: 1, intake: oldSummary })
+	ok(oldNext.action === 'open-next-lesson', `老记录不拦开课（decideNext=${oldNext.action}，不是 intake-course）`)
+	const oldBrief = buildBrief({
+		pack: { circles: 1, points: 1, lessons: 1, learned: 0 },
+		projects: [], pending: [], processed: 0, ledger: { count: 0, latest: null },
+		glossary: { count: 0, categories: 0 }, records: [], recordCount: 0, notes: [], intake: oldSummary,
+	})
+	const oldSec = oldBrief.sections.find((s) => s.title === '学情摸底')
+	ok(oldSec.lines.some((l) => l.includes('已摸底（有基础）') && !l.includes('起点台阶')), '老记录 → brief 不出「起点台阶」（照旧一行）')
+	const oldGoalSec = oldBrief.sections.find((s) => s.title === '终点契约')
+	ok(/终点还没结构化/.test(oldGoalSec.lines.join('')), '没有 goals.jsonl → 只提示「终点还没结构化」')
+
+	fs.rmSync(stageTmp, { recursive: true, force: true })
+	fs.rmSync(oldTmp, { recursive: true, force: true })
+}
 
 // ── ⑤ whale_author 闸门 ──
 const authorTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-author-gate-'))

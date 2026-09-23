@@ -14,6 +14,7 @@
  *   ⑥ 默认不写盘；write=true → learning-records/brief.md == 渲染结果；再写不重写
  *   ⑦ 真包未被改动
  *   ⑧ 学生笔记：空台账 → 这段在、写「还没有笔记」、不崩；有笔记时总条数正确、正文出现、课次显示名、截断、无时间戳
+ *   ⑨ ② 终点契约 / ③(a) 课后调整 / ③(c) 学习记录读内容（影副本：空态、验收 k/n 随数据变、截断、时间戳剥离、上限不静默丢）
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -24,6 +25,7 @@ import { readPack } from '../lib/pack.js'
 import { readQueue, askPaths } from '../lib/ask-io.js'
 import { loadGlossaryLedger, glossarySummary } from '../lib/glossary-io.js'
 import { listLearningRecords } from '../lib/brief-io.js'
+import { recordGoal } from '../lib/goal-io.js'
 import { assertLosslessJson } from '../lib/state.js'
 import { plugin as briefPlugin } from '../lib/mods/brief.js'
 import { readNotes } from '../lib/notes-io.js'
@@ -201,6 +203,103 @@ try {
   ok(capSec.lines[0] === '共 24 条', `条数超过上限时总数仍准确（${capSec.lines[0]}）`)
   ok(capSec.lines.includes('另有 4 条未列'), '超过 20 条上限时写出未列条数（另有 4 条未列）')
   ok(!capSec.lines.some((l) => l.includes('第24条')), '被截掉的笔记不出现（第24条不在展示里）')
+
+  // ── ⑨ ② 终点契约 + ③(a) 课后调整 + ③(c) 学习记录读内容（影副本）──
+  const lrDir = path.join(tmp, 'learning-records')
+  // ④ 删过 EXPECT.json、⑧ 只放回了简版（没有 required）→ 这里放回**原件**，
+  // 好验「why 尾注带终点摘要」（尾注按 §3.2 只挂在 open-next-lesson 那条 why 上）
+  fs.copyFileSync(path.join(ROOT, 'code', '_hello-spring-boot', 'EXPECT.json'), path.join(tmp, 'code', '_hello-spring-boot', 'EXPECT.json'))
+  fs.rmSync(path.join(lrDir, 'goals.jsonl'), { force: true })
+  fs.rmSync(path.join(lrDir, 'adjustments.jsonl'), { force: true })
+
+  // ② 空态：没有 goals.jsonl → 「终点还没结构化」；③(a) 空态：文件不存在 = 正常空态（不是错误）
+  const noGoal1 = await tool2.execute({ root: tmp })
+  const noGoal2 = await tool2.execute({ root: tmp })
+  const goalSec0 = noGoal1.brief.sections.find((s) => s.title === '终点契约')
+  ok(!!goalSec0 && /终点还没结构化/.test(goalSec0.lines.join('\n')), '没有 goals.jsonl → 终点契约段写「终点还没结构化」')
+  const adjSec0 = noGoal1.brief.sections.find((s) => s.title === '课后调整')
+  ok(!!adjSec0 && adjSec0.lines.includes('还没有课后调整'), '没有 adjustments.jsonl → 「还没有课后调整」（空态不是错误、不崩）')
+  ok(noGoal1.markdown === noGoal2.markdown, '空态两次渲染逐字节相同')
+
+  // ② 有终点：验收 k/n 随数据变（表单形态 auto:false → 升级成 checks 形态 → k 增加）
+  const g1 = recordGoal(tmp, {
+    pointId: 'programming/spring-boot',
+    tier: 3,
+    artifact: { what: '一个能独立跑的 REST 待办服务', where: 'code/_hello-spring-boot' },
+    acceptance: [
+      { no: 1, deliverable: '能列出待办', auto: false, hint: '机器判不了（表单形态）' },
+      { no: 2, deliverable: '能讲清分层', auto: false, hint: '机器判不了（表单形态）' },
+    ],
+    source: 'wizard',
+  })
+  ok(g1.ok === true, '影副本里落第 1 版终点（recordGoal）')
+  const goalBrief1 = await tool2.execute({ root: tmp })
+  const goalSec1 = goalBrief1.brief.sections.find((s) => s.title === '终点契约')
+  ok(/spring-boot：终点 tier 3/.test(goalSec1.lines.join('\n')), `终点契约段带档位（${goalSec1.lines[0]}）`)
+  ok(/一个能独立跑的 REST 待办服务（code\/_hello-spring-boot）/.test(goalSec1.lines.join('\n')), '作品一句话 + 作品放哪进了段落')
+  ok(/验收 0\/0（另有 2 项需老师确认）/.test(goalSec1.lines.join('\n')), '表单形态：验收 0/0 + 2 项需老师确认')
+  const g2 = recordGoal(tmp, {
+    pointId: 'programming/spring-boot',
+    tier: 3,
+    artifact: { what: '一个能独立跑的 REST 待办服务', where: 'code/_hello-spring-boot' },
+    acceptance: [
+      { no: 1, deliverable: '有构建文件', checks: [{ id: 'c1', kind: 'file', value: 'pom.xml' }] },
+      { no: 2, deliverable: '有那个不存在的文件', checks: [{ id: 'c2', kind: 'file', value: 'NoSuchFile.java' }] },
+    ],
+    source: 'agent',
+  })
+  ok(g2.ok === true && g2.record.v === 2 && g2.record.replaces === 1, '换终点 = 第 2 版 append（replaces=1）')
+  const goalBrief2 = await tool2.execute({ root: tmp })
+  const goalSec2 = goalBrief2.brief.sections.find((s) => s.title === '终点契约')
+  ok(/验收 1\/2/.test(goalSec2.lines.join('\n')), `补上 checks → k 随数据变（${goalSec2.lines[0]}）`)
+  ok(/→ 缺：第2题（产出：有那个不存在的文件）/.test(goalSec2.lines.join('\n')), '缺哪题点名（产出原文）')
+  ok(/v2，接替 v1/.test(goalSec2.lines.join('\n')), '换终点留痕显示在段落里（v2，接替 v1）')
+  ok(/终点已定：spring-boot tier 3（验收 1\/2）/.test(goalBrief2.markdown), 'decideNext 的 why 尾注带终点摘要')
+
+  // ③(a) 有记录：正文出现、ts 不出现在 markdown、lit:false 带「✗ 未点亮」、gaps 跟在后面
+  const adjFile = path.join(lrDir, 'adjustments.jsonl')
+  fs.writeFileSync(adjFile, [
+    JSON.stringify({ ts: '2026-09-24T10:00:00.000Z', lesson: 'spring-boot/0001', title: '第1课', adjust: '节奏太快，希望每节多一个例子', lit: true, gaps: [] }),
+    JSON.stringify({ ts: '2026-09-24T11:00:00.000Z', lesson: 'spring-boot/0002', title: '第2课', adjust: '分层没讲透', lit: false, gaps: ['第3题：分层（缺：要有 service 目录）'] }),
+    JSON.stringify({ ts: '2026-09-24T12:00:00.000Z', lesson: 'spring-boot/0003', title: '第3课', adjust: '老行形态没有 lit/gaps', }),
+  ].join('\n') + '\n', 'utf8')
+  const withAdj = await tool2.execute({ root: tmp })
+  const adjSec = withAdj.brief.sections.find((s) => s.title === '课后调整')
+  ok(adjSec.lines.some((l) => l.includes('spring-boot/0001') && l.includes('节奏太快，希望每节多一个例子')), '课后调整正文出现在 brief')
+  ok(adjSec.lines.some((l) => /✗ 未点亮：/.test(l) && l.includes('分层没讲透') && l.includes('缺：要有 service 目录')), 'lit:false →「✗ 未点亮」前缀 + gaps 跟在后面')
+  ok(adjSec.lines.some((l) => l.includes('spring-boot/0003') && !/✗ 未点亮/.test(l)), '老行（无 lit/gaps）读侧容错：不打 ✗、不崩')
+  ok(!/\d{4}-\d{2}-\d{2}T/.test(withAdj.markdown), 'ts 与 ISO 时间戳样式都不出现在 markdown')
+
+  // ③(a) 20 条 → 只列最近 10 条 + 「另有 10 条未列」（不静默丢）
+  fs.writeFileSync(adjFile, Array.from({ length: 20 }, (_, i) =>
+    JSON.stringify({ ts: `t${i}`, lesson: `spring-boot/${String(i + 1).padStart(4, '0')}`, adjust: `第${i + 1}号调整`, lit: true, gaps: [] }),
+  ).join('\n') + '\n', 'utf8')
+  const adjCap = (await tool2.execute({ root: tmp })).brief.sections.find((s) => s.title === '课后调整')
+  ok(adjCap.lines.includes('另有 10 条未列'), '20 条 → 「另有 10 条未列」')
+  ok(adjCap.lines.some((l) => l.includes('第20号调整')) && !adjCap.lines.some((l) => l.includes('第5号调整')), '只列最近 10 条（第20号在、第5号不在）')
+
+  // ③(a) 坏行（非 JSON）→ 报 problems 不崩
+  fs.appendFileSync(adjFile, '这不是合法的JSON{{{]\n', 'utf8')
+  const adjBad = (await tool2.execute({ root: tmp })).brief.sections.find((s) => s.title === '课后调整')
+  ok(adjBad.lines.some((l) => /^⚠️ 第 \d+ 行解析失败/.test(l)), `坏行进 ⚠️ 提示不崩（${adjBad.lines[adjBad.lines.length - 1]}）`)
+
+  // ③(c) 学习记录读内容：正文出现 / 截断有 … / 完整超长文本不出现 / 时间戳剥成 […] / 超 3 份显式报
+  const longRec = '这是一段超长的学习记录正文，用来验证每份 200 字的截断上限。'.repeat(12)
+  fs.writeFileSync(path.join(lrDir, 'zz-1.md'), '# 记录\n\n第一份新记录的正文内容\n', 'utf8')
+  fs.writeFileSync(path.join(lrDir, 'zz-2.md'), '2026-09-24T10:00 动手时间：今天把 X 做完了\n', 'utf8')
+  fs.writeFileSync(path.join(lrDir, 'zz-3.md'), longRec + '\n', 'utf8')
+  const withRec = await tool2.execute({ root: tmp })
+  const recSec = withRec.brief.sections.find((s) => s.title === '学习记录')
+  ok(recSec.lines.some((l) => l.includes('zz-1.md') && l.includes('第一份新记录的正文内容')), '记录正文出现在 brief（不再只列文件名）')
+  ok(recSec.lines.some((l) => l.includes('zz-2.md') && l.includes('[…]') && l.includes('动手时间')), 'ISO 时间戳样式剥成 […]，正文还在')
+  ok(recSec.lines.some((l) => l.includes('zz-3.md') && l.includes('…')), '超长记录被截断且有可见标记（…）')
+  ok(!withRec.markdown.includes(longRec), '完整超长文本不出现在 brief 里（被截断了）')
+  ok(!/\d{4}-\d{2}-\d{2}T/.test(withRec.markdown), '含 ISO 时间戳的记录也不红（无时间戳硬断言保住）')
+  const totalRec = listLearningRecords(tmp).length
+  ok(recSec.lines[0].startsWith(`${totalRec} 份，最新：zz-3.md`), `份数口径不变（${recSec.lines[0]}）`)
+  ok(recSec.lines.includes(`另有 ${totalRec - 3} 份未列`), `超过 3 份显式报未列（另有 ${totalRec - 3} 份未列）`)
+  const withRec2 = await tool2.execute({ root: tmp })
+  ok(withRec.markdown === withRec2.markdown, '有记录/调整/终点时两次渲染逐字节相同')
 
   // ── ⑥ 落盘 ──
   ok(!fs.existsSync(path.join(tmp, 'learning-records', 'brief.md')), '默认不写盘')

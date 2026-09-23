@@ -3,7 +3,7 @@
  * test/new-course-wizard.mjs — 新课程向导判据
  * ------------------------------------------------------------------
  * 断言：
- *   1. starter.js 的字段定义：5 个 id 齐全、两个必填、label 与 hint 逐字等于既有文本
+ *   1. starter.js 的字段定义：8 个 id 齐全、四个必填（topic / goal / tier / acceptance）、label 与 hint 逐字等于既有文本
  *   2. 正文组装：给 circle/point 时含 `- 归属：…（programming/spring-boot）`；不给时不含
  *   3. catalog 客户端契约：canCreate === false、nextFileBase 存在且对 programming 为 2000（max fileBase + 1000）
  *   4. 客户端源码里三屏的顺序正确
@@ -20,7 +20,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { packRoot, PLUGIN } from './_pack.mjs'
-import { FORM_FIELDS, FORM_EMPTY_TEXT, composeRequest, buildStarter } from '../lib/starter.js'
+import { FORM_FIELDS, FORM_EMPTY_TEXT, composeRequest, buildStarter, goalFromForm } from '../lib/starter.js'
 
 const ROOT = packRoot()
 let pass = 0
@@ -31,18 +31,21 @@ console.log(`\n[new-course-wizard] 课程包：${ROOT}`)
 
 /* ── [1] starter.js 字段定义 ───────────────────────────────────────────── */
 {
-	ok(FORM_FIELDS.length === 5, `[1] 字段数量：${FORM_FIELDS.length}（期望 5）`)
+	ok(FORM_FIELDS.length === 8, `[1] 字段数量：${FORM_FIELDS.length}（期望 8）`)
 
 	const ids = FORM_FIELDS.map((f) => f.id)
-	ok(ids.join(',') === 'topic,goal,scope,refs,notes', `[1] 字段 id 齐全且顺序正确（${ids.join(',')}）`)
+	ok(ids.join(',') === 'topic,goal,work,tier,acceptance,scope,refs,notes', `[1] 字段 id 齐全且顺序正确（${ids.join(',')}）`)
 
 	const required = FORM_FIELDS.filter((f) => f.required)
-	ok(required.length === 2 && required.map((f) => f.id).join(',') === 'topic,goal', `[1] 必填字段：${required.map((f) => f.id).join(',')}（期望 topic,goal）`)
+	ok(required.length === 4 && required.map((f) => f.id).join(',') === 'topic,goal,tier,acceptance', `[1] 必填字段：${required.map((f) => f.id).join(',')}（期望 topic,goal,tier,acceptance）`)
 
 	// 逐字校验 label（这是"问什么没变"的判据）
 	const expectedLabels = {
 		topic: '要学什么',
 		goal: '学完要能做出什么',
+		work: '作品放哪',
+		tier: '学到哪一层',
+		acceptance: '验收判据',
 		scope: '期望篇幅与深度',
 		refs: '指定资料 / 参考',
 		notes: '其它要求',
@@ -55,6 +58,9 @@ console.log(`\n[new-course-wizard] 课程包：${ROOT}`)
 	const expectedHints = {
 		topic: '知识点 / 主题，例如「Vue 3 组合式 API」',
 		goal: '一句话就够，用来定验收标准',
+		work: '作品仓 / 路径，例如「code/_hello-spring-boot」；不填就是还没定',
+		tier: '1 认得 / 2 会照做 / 3 能独立做 / 4 能改能讲（填一个数字）',
+		acceptance: '一行一条，写清「做成什么样就算过」',
 		scope: '例如「3 节，能上手写 CRUD」',
 		refs: '官方链接、书名、仓库地址；不填我自己找',
 		notes: '风格、语言 / 版本、时间安排',
@@ -88,6 +94,30 @@ console.log(`\n[new-course-wizard] 课程包：${ROOT}`)
 	ok(!textWithoutBelong.includes('- 归属：'), '[2] 不给 circle/point 时不含归属行（反空转）')
 	// 不给归属时，正文开头应该是【开课请求】后直接跟字段，没有空行
 	ok(textWithoutBelong.startsWith('【开课请求】\n- 要学什么：'), '[2] 不给归属时正文开头保持老行为（无空行）')
+}
+
+/* ── [2b] goalFromForm：终点契约入参（纯函数）────────────────────────────
+ * 硬约束（主线程裁定）：终点必须来自 wizard 的显式输入 —— `artifact.what` = goal 原文逐字，
+ * 绝不拿摸底的 can / prior / level 回落顶替（那条回落只属于「起点台阶」）。
+ * 归属只认 pointId（Q10）；值合不合法归 `validateStage()`（单点真源，不在这里另定一套）。
+ */
+{
+	const gi = goalFromForm({
+		goal: '一个能独立跑的 REST 待办服务', work: 'code/_hello-spring-boot', tier: '3',
+		acceptance: 'GET /api/tasks 能列出待办\n能新增一条待办',
+	}, 'programming/spring-boot')
+	ok(gi.point === 'spring-boot' && gi.pointPath === 'programming/spring-boot', `[2b] point 取 pointId 最后一段、pointPath 原样（${gi.point} / ${gi.pointPath}）`)
+	ok(gi.artifact.what === '一个能独立跑的 REST 待办服务', '[2b] artifact.what = wizard goal 原文逐字')
+	ok(gi.artifact.where === 'code/_hello-spring-boot', '[2b] artifact.where = 作品放哪')
+	ok(gi.tier === 3, `[2b] tier 归一成数值（${gi.tier}）`)
+	ok(gi.acceptance.length === 2 && gi.acceptance.map((a) => a.no).join(',') === '1,2', '[2b] 验收判据一行一条、序号连续')
+	ok(gi.acceptance.every((a) => a.auto === false && a.hint === a.deliverable), '[2b] 表单行 → auto:false 形态（机器判不了就老实标）')
+	ok(gi.source === 'wizard' && gi.focus === null, '[2b] source=wizard、focus=null（终点侧不装卡点）')
+	ok(goalFromForm({ goal: 'x', tier: '2', acceptance: 'y' }, 'programming/vue').artifact.what === 'x', '[2b] 终点只来自显式输入（函数签名里根本没有 level/prior/can 可回落）')
+	ok(goalFromForm({ goal: 'x', tier: '1', acceptance: 'y' }) === null, '[2b] 没有 pointId → null（不落盘，只提示「终点还没结构化」）')
+	ok(goalFromForm({ goal: 'x', tier: '1', acceptance: 'y' }, '   ') === null, '[2b] pointId 空白 → 同样 null')
+	ok(goalFromForm({ goal: 'x', tier: '三', acceptance: 'y' }, 'programming/vue').tier === '三', '[2b] 坏 tier 原样带出（值校验归 validateStage）')
+	ok(goalFromForm({ goal: 'x', tier: '1', acceptance: 'y' }, 'programming/vue').artifact.where === null, '[2b] 作品放哪不填 → where=null')
 }
 
 /* ── [3] catalog 客户端契约 ─────────────────────────────────────────────── */
