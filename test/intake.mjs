@@ -45,6 +45,22 @@ ok(q1.research.some((r) => r.includes('RESOURCES.md')), 'research 里含 RESOURC
 const q2 = buildQuestions({ point: 'spring-boot' })
 ok(q2.questions[0].q.includes('spring-boot'), '没有 topic 时用 point 作为问题文本')
 
+// ── ①b 前置没学完 → 第 1 条问题就是前置闸（2026-09-23 用户裁定）──
+const q3 = buildQuestions({
+	point: 'vue',
+	pack: {
+		points: [
+			{ id: 'spring-boot', circle: 'programming', requires: [] },
+			{ id: 'vue', circle: 'programming', requires: ['spring-boot'] },
+		],
+		lessons: [{ id: 'spring-boot/0001', point: 'spring-boot', number: 1, label: '第1课', title: 'Hello', learned: false }],
+	},
+})
+ok(q3.questions.length === 6 && q3.questions[0].id === 'prereq',
+	`前置没学完 → 多问一条前置，且排在第一条（实得 ${q3.questions.length} 条，首条 ${q3.questions[0].id}）`)
+ok(q3.gaps && q3.gaps.ok === false && q3.gaps.missing.length === 1, 'buildQuestions 把前置体检结果一并带出来（给调用方用）')
+ok(buildQuestions({ point: 'vue' }).questions.length === 5, '不传 pack 就只有原来 5 条 —— 读不到就不猜（老调用方不受影响）')
+
 // ── ② recordIntake 落盘 + 回读一致 ──
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-intake-'))
 const file = path.join(tmp, 'learning-records', 'intake.jsonl')
@@ -140,6 +156,47 @@ const forceArgs = {
 }
 const g3 = await authorTool2.execute({ ...forceArgs, commit: true, force: true })
 ok(g3.ok === true && g3.wrote === true, 'force:true 无摸底也能写')
+
+// ── ⑤b 前置闸（2026-09-23 用户裁定）：「前置没学完 → 建议去学那门课，而不是继续生成新课」──
+// 空目录测不出这条闸：readPack 读不到知识点 → prerequisiteGaps 走 unknown-point → **不拦**
+// （拿"不知道"当"不合格"会误拦正在新建的第一课）。所以要手搓一个**最小课程包**。
+const gateTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-author-prereq-'))
+const writeJson = (rel, obj) => {
+	const f = path.join(gateTmp, rel)
+	fs.mkdirSync(path.dirname(f), { recursive: true })
+	fs.writeFileSync(f, JSON.stringify(obj, null, 2) + '\n', 'utf8')
+}
+writeJson('lessons/programming/halo.json', { halo: 'programming', name: '编程' })
+writeJson('lessons/programming/spring-boot/point.json', { point: 'spring-boot', name: 'Spring Boot', label: '', fileBase: 0 })
+writeJson('lessons/programming/vue/point.json', { point: 'vue', name: 'Vue', label: 'Vue', fileBase: 1000, requires: ['spring-boot'] })
+// 前置点下必须**真有课**，否则走的是 emptyPoints 那条分支（也拦，但理由不同）
+const sbSrc = path.join(gateTmp, 'lessons', 'src', 'programming', 'spring-boot')
+fs.mkdirSync(sbSrc, { recursive: true })
+fs.writeFileSync(path.join(sbSrc, '0001-hello.html'),
+	'<script type="application/json" data-lesson-meta>\n'
+	+ JSON.stringify({ title: '第1课', number: 1, navTitle: '第1课', hintTerm: 'x', terms: {}, source: { label: 'x', url: 'https://example.com/' } }, null, 2)
+	+ '\n</script>\n', 'utf8')
+const vueTarget = path.join(gateTmp, 'lessons', 'src', 'programming', 'vue', '1001-vue-intro.html')
+const vueArgs = { point: 'vue', number: 1001, title: 'Vue 入门', slug: 'vue-intro', hintTerm: '响应式', source: { label: 'x', url: 'https://example.com/' }, commit: true }
+const gateTool = installAuthor(gateTmp)
+
+fs.writeFileSync(path.join(gateTmp, 'progress.json'), JSON.stringify({ learned: [] }, null, 2) + '\n', 'utf8')
+const pg1 = await gateTool.execute({ ...vueArgs })
+ok(pg1.ok === false && pg1.needsPrerequisite === true, `前置没学完 → 拒绝生成新课（实得 ok=${pg1.ok} needsPrerequisite=${pg1.needsPrerequisite}）`)
+ok(String(pg1.error).includes('spring-boot') && (pg1.missing || []).includes('spring-boot/0001'),
+	`拒绝理由点名缺的是哪一课（实得 ${JSON.stringify(pg1.missing)}）`)
+ok(!fs.existsSync(vueTarget), '被前置闸拦住后，目标文件不存在')
+
+// 点亮前置课 → 前置闸放行，接着由摸底闸接手
+fs.writeFileSync(path.join(gateTmp, 'progress.json'), JSON.stringify({ learned: ['spring-boot/0001'] }, null, 2) + '\n', 'utf8')
+const pg2 = await gateTool.execute({ ...vueArgs })
+ok(pg2.needsPrerequisite !== true && pg2.needsIntake === true, '前置点亮后放行，改由摸底闸接手')
+
+// force 留痕：描述承诺过"会留痕"，此前是空头支票 —— 要如实报出绕过了哪几道闸
+const pg3 = await gateTool.execute({ ...vueArgs, force: true })
+ok(pg3.ok === true && pg3.wrote === true, 'force:true 能落盘')
+ok(Array.isArray(pg3.forced?.bypassed) && pg3.forced.bypassed.some((s) => /学情摸底/.test(s)),
+	`force 留痕：列出被跳过的闸（实得 ${JSON.stringify(pg3.forced)}）`)
 
 // 非 commit 模式带出摸底状态
 const g4 = await authorTool.execute({ ...authorArgs })

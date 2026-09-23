@@ -113,9 +113,26 @@ try {
   const pom = path.join(proj, 'pom.xml')
   fs.writeFileSync(pom, fs.readFileSync(pom, 'utf8').replace('</dependencies>', '  <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-validation</artifactId></dependency>\n  </dependencies>'), 'utf8')
   const after = await tool2.execute({ root: tmp })
-  // 新优先级（2026-09-21）：学生现状没缺口了，但还有知识点**没做学情摸底** → 先摸底，再谈开新课
-  ok(after.brief.next.action === 'intake-course' && /摸底/.test(after.brief.next.why), `补齐后先要摸底：${after.brief.next.action}（${after.brief.next.why}）`)
+  // ── 前置闸（2026-09-23 用户裁定）──
+  // 学生代码里第2课的**形状缺口**补上了（探针说 ✓），但 `progress.json` 还没点亮它，
+  // 而 vue 的 requires 是 spring-boot —— 所以此时**不许开新课**，建议必须指向那门没学完的课。
+  // 这里刻意用"没点亮"而不是"探针说 ✓"当掌握判据：EXPECT 是形状判据，占位文件也能过；
+  // 真源是 progress.json 的 learned（星图点亮、whale_state 报的"已点亮 N/M"都读它）。
+  ok(after.brief.next.action === 'learn-prerequisite', `前置没点亮：${after.brief.next.action}（${after.brief.next.why}）`)
+  ok(after.brief.next.point === 'vue' && (after.brief.next.missing || []).includes('spring-boot/0002'),
+    `前置闸点名缺的是 spring-boot/0002（实得 ${after.brief.next.point} / ${JSON.stringify(after.brief.next.missing)}）`)
+  ok(/别开新课/.test(after.brief.next.why), '前置闸的话说清了「别开新课」')
   ok(/✓ spring-boot\/0002/.test(after.markdown), '学生现状里第2课已变成达成 ✓')
+  ok(/前置体检/.test(after.markdown) && /✗ vue/.test(after.markdown) && /✓ spring-boot/.test(after.markdown),
+    'brief 里有「前置体检」一节：vue 判 ✗、spring-boot 判 ✓')
+
+  // 把第2课点亮（学生真的学完了）→ 前置闸放行，才轮到"先摸底"
+  fs.writeFileSync(path.join(tmp, 'progress.json'),
+    JSON.stringify({ learned: ['spring-boot/0001', 'spring-boot/0002'] }, null, 2) + '\n', 'utf8')
+  const lit = await tool2.execute({ root: tmp })
+  ok(lit.brief.next.action === 'intake-course' && /摸底/.test(lit.brief.next.why),
+    `前置点亮后先要摸底：${lit.brief.next.action}（${lit.brief.next.why}）`)
+  ok(/✓ vue/.test(lit.markdown), '前置体检：vue 的前置都学过了 → ✓')
 
   // 把摸底补上 → 才轮到"开下一课"
   const intakeFile = path.join(tmp, 'learning-records', 'intake.jsonl')

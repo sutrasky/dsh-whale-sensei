@@ -131,13 +131,11 @@ export const SANITIZE = [
     must: 1,
     why: '同上',
   },
-  {
-    path: 'assets/_frame.html',
-    find: /Spring Boot 教学课程/g,
-    replace: '教学课程',
-    must: 1,
-    why: '页脚写着作者那门课的名字 —— 新用户的课不是那门课（课程领域知识不该进随包文件）',
-  },
+  // 2026-09-23 删掉一条：原规则是 `assets/_frame.html` 里的 `Spring Boot 教学课程` → `教学课程`
+  // （「页脚写着作者那门课的名字」）。现在**结构上不需要了** —— 页脚改用 `{{CIRCLE_NAME}}` 槽位
+  // （值来自 `halo.json` 的 name），随包模板与课程包原件在这一行已经**逐字节相同**。
+  // 「页脚不许写死某个知识点的名字」这条规矩没有丢：改由课程包侧 `tools/check-lesson-content.js`
+  // 的 R4 判据守着（它在真页面上比对页脚文本 vs 圆圈名/知识点名）。
 ]
 
 /**
