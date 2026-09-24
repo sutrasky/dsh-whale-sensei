@@ -259,6 +259,39 @@ try {
     ok(readPayload(A).halos[0].points.length === 1, '反空转：多一个知识点 → 载荷多一条（algebra）')
     ok(fs.readFileSync(path.join(A, 'starmap', 'content.js'), 'utf8') === fs.readFileSync(path.join(B, 'starmap', 'content.js'), 'utf8'),
       '增量之后两套引擎仍逐字节相同')
+
+    // ⑤ **从模板长出来的新包也要能画"规划中暗星"**（01:394 的验收：新建知识点 → 星图出现规划中暗星）。
+    //    这条同时是 `tools/plan-map.js` 进模板清单的判据。漏了它会怎样：生成器是**硬 require**
+    //    `./plan-map.js` —— 缺文件就当场炸（禁静默降级），而不是"跳过暗星继续生成"。
+    //    所以"新包永远没有暗星却没人知道"这种状态**不可能悄悄发生**；下面这几条则证明
+    //    模板长出来的包**真的画得出**暗星（不是"清单里有文件"就算数）。
+    const withPlan = JSON.stringify({
+      point: 'algebra', name: '代数', fileBase: 0,
+      plan: {
+        goal: '把代数式变形成能看出结构的样子',
+        nodes: [
+          { no: 1, title: '第1课 因式分解', deliverable: '一页四件套手册', criteria: '每步写得出依据',
+            why: '不会变形就谈不上化简', sources: [{ label: '教材', url: 'https://example.com/a' }] },
+          { no: 2, title: '第2课 配方法', deliverable: '配方例题集', criteria: '能独立配方',
+            why: '配方是求极值的唯一入口', sources: [{ label: '教材', url: 'https://example.com/b' }] },
+        ],
+      },
+    }, null, 2) + '\n'
+    for (const d of [A, B]) fs.writeFileSync(path.join(d, 'lessons', 'math', 'algebra', 'point.json'), withPlan, 'utf8')
+    const rpA = run(A), rpB = run(B)
+    ok(rpA.status === 0 && rpB.status === 0, `有地图后重建：两套引擎都 exit 0（模板 ${rpA.status} / 包侧 ${rpB.status}）`)
+    const plA = (readPayload(A).halos[0].points[0] || {}).planned
+    ok(Array.isArray(plA) && plA.length === 1 && plA[0].no === 1 && /因式分解/.test(plA[0].title || ''),
+      `**模板长出来的新包**也有规划中暗星（实得 ${JSON.stringify((plA || []).map((n) => n.no))}，期望 [1] = 一节没建时的前沿）`)
+    ok(typeof plA?.[0]?.deliverable === 'string' && typeof plA?.[0]?.criteria === 'string',
+      '暗星带着悬停要用的三样（title / deliverable / criteria）')
+    ok(fs.readFileSync(path.join(A, 'starmap', 'content.js'), 'utf8') === fs.readFileSync(path.join(B, 'starmap', 'content.js'), 'utf8'),
+      '有暗星之后，模板副本与包侧原件仍逐字节同产出')
+    // 反空转：把地图删掉 → 暗星必须消失（不是画个假的顶上）
+    for (const d of [A, B]) fs.writeFileSync(path.join(d, 'lessons', 'math', 'algebra', 'point.json'), point, 'utf8')
+    run(A); run(B)
+    ok(((readPayload(A).halos[0].points[0] || {}).planned || []).length === 0,
+      '反空转：把地图删掉 → 暗星消失（不猜、不画假的）')
   } finally {
     fs.rmSync(fx, { recursive: true, force: true })
   }

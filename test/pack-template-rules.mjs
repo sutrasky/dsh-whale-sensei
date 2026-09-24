@@ -60,6 +60,7 @@ export const FROM_PACK = [
   // —— 星图引擎（2026-09-24 批3：新包长出来就要有星图）；data-layer.js 是 build-starmap-svg
   //    的直接依赖（它 import starmap/data-layer.js 的 layout()），漏了重建链就断 ——
   'tools/build-starmap.js',
+  'tools/plan-map.js',
   'tools/build-starmap-svg.js',
   'tools/galaxy-shapes.cjs',
   'starmap/data-layer.js',
