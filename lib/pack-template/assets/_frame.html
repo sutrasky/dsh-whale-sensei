@@ -37,7 +37,11 @@
     <script src="{{PAGE_UP}}assets/theme-boot.js"></script>
     <a class="skip-link" href="#main">跳到正文</a>
 
-    <aside class="notes-card" id="dsh-notes" aria-label="DSH 笔记">
+    <!-- data-qa-count = 本课已答条数（构建期由 build-lessons.js 的 countQA 烘进来）。
+         为什么挂在卡片上而不是那个数字 <span> 上：notes-card.test.mjs 用 `/<<span>/g`
+         数「三个裸 span」，给 span 加属性会把那条闸门数成 2（实测踩过）。
+         角标（.ask-badge）要用的就是这个数。 -->
+    <aside class="notes-card" id="dsh-notes" aria-label="DSH 笔记" data-qa-count="{{COVER_QA_COUNT}}">
       <div class="notes-card__inner">
         <header class="notes-card__head">
           <h2 class="notes-card__title">DSH 笔记</h2>
@@ -47,16 +51,21 @@
           <span>答疑 {{COVER_QA_COUNT}}</span>
           <span>笔记 {{COVER_NOTE_COUNT}}</span>
         </div>
-        <a class="notes-card__link" href="{{PAGE_UP}}reference/NOTES.html#{{LESSON_LABEL}}">打开完整笔记 →</a>
+        <!-- 2026-09-24 主人定：这五条入口一律**不带箭头**（「→」在卡片里太多余）——
+             卡片的可点性由 hover 底色表达（照 DSH .panelRow），不靠尾缀符号。 -->
+        <a class="notes-card__link" href="{{PAGE_UP}}reference/NOTES.html#{{LESSON_LABEL}}">打开完整笔记</a>
         <!-- 名词解释与疑问**分开**：名词不再进笔记页，改住名词地图（glossary/index.html）。
              这条是课程页去地图的唯一入口，别删。 -->
-        <a class="notes-card__link" href="{{PAGE_UP}}glossary/">名词地图 →</a>
-        <a class="notes-card__link" href="{{STARMAP_HREF}}#{{LESSON_ID}}" target="starmap">在星图中查看这一课 →</a>
-        <!-- 疑问入口（§1：旧的右下角漂浮胶囊已撤销，改成卡片里的按钮 + 居中弹层；由 ask.js 绑定） -->
-        <button type="button" class="notes-card__ask" data-ask-open aria-haspopup="dialog">我有疑问 →</button>
+        <a class="notes-card__link" href="{{PAGE_UP}}glossary/">名词地图</a>
+        <a class="notes-card__link" href="{{STARMAP_HREF}}#{{LESSON_ID}}" target="starmap">在星图中查看这一课</a>
+        <!-- 疑问入口（§1：旧的右下角漂浮胶囊已撤销，改成卡片里的按钮 + 居中弹层；由 ask.js 绑定）
+             角标 .ask-badge（2026-09-24 主人定）：答疑有新增时在这里露一个数字，不必另开一页才看得见。
+             数字由 ask.js 从上面那个 data-qa-count 推出来（构建期烘进去的已答条数）；
+             没有新答复时带 [hidden] —— 不占位、不改卡片高度。 -->
+        <button type="button" class="notes-card__ask" data-ask-open aria-haspopup="dialog">我有疑问<span class="ask-badge" data-ask-badge hidden></span></button>
         <!-- 课后调整 → 进度回写：记录调整 + 点亮本课（星图那边轮询到就同步点亮） -->
         <details class="adjust" data-lesson="{{LESSON_ID}}">
-          <summary class="notes-card__link">课后调整 / 学完了 →</summary>
+          <summary class="notes-card__link">课后调整 / 学完了</summary>
           <div class="adjust__body">
             <label class="adjust__label" for="adjust-text">这一课哪里要改？（可以空着）</label>
             <textarea class="adjust__text" id="adjust-text" rows="3"

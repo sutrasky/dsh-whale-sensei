@@ -81,6 +81,31 @@
 
 /* 解答框里的名词标记沿用 glossary 的颜色即可，不额外覆盖 */
 
+/* ---------- 入口角标：本课「新答复」未读数（2026-09-24 主人定）----------
+   挂在卡片里的疑问入口（.notes-card__ask）**内部**，数字由 assets/ask.js 写。
+   为什么是角标而不是多一行文字：卡片上已经有三条入口，再加一行会把卡撑高；
+   没有新答复时元素带 [hidden] —— 不占位、不加高，卡片与以前逐像素一样。
+   胶囊口径照上面 .ask-guide__btn（同一套青紫 + 999px + corner-shape），不新造语言。 */
+.ask-badge {
+  margin-left: auto;
+  flex: none;
+  padding: .08rem .45rem;
+  border-radius: 999px;
+  corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  background: var(--lesson-qa-accent);
+  color: var(--lesson-qa-on-accent);
+  font-size: .74rem;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+/* ⚠️ 必须显式写这条：入口是 display:flex，[hidden] 的 UA 默认样式在 flex 容器里
+   不如显式规则稳（同 .ask-layer[hidden] 的写法，见上）。 */
+.ask-badge[hidden] {
+  display: none;
+}
+
 /* ---------- 疑问箱：居中弹层（入口是课程页卡片里的 .notes-card__ask） ---------- */
 .ask-layer {
   position: fixed;
