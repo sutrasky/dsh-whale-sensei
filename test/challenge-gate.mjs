@@ -127,6 +127,23 @@ ok(first.allowed === true && first.code === 'first-lesson', '首课（没有上�
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-gate-'))
 try {
   fs.cpSync(ROOT, tmp, { recursive: true })
+  // ⚠️ 2026-09-24 F2：`whale_author` 多了**大纲闸**（禁 force 绕），会在挑战闸之前把课拦住。
+  //    这一段验的是"挑战闸接线"，所以先给副本里的 alge 注入一张**合法地图**，
+  //    免得判据被大纲闸抢在前面（那测的就不是这一段了）。夹具自带前置条件，不依赖真包有没有。
+  {
+    const pf = path.join(tmp, 'lessons', 'math', 'alge', 'point.json')
+    const doc = JSON.parse(fs.readFileSync(pf, 'utf8'))
+    doc.plan = {
+      goal: '把代数变形写成每步都有依据、别人看得懂的过程',
+      nodes: [{
+        no: 1, title: '第1课 代数运算与因式分解', deliverable: '0001-分解.md / 0001-极限.md / 0001-重写.md',
+        criteria: '三个产物文件都在，且每步都写依据',
+        why: '终点是"能讲清每一步为什么成立"，这一课是它的起点',
+        sources: [{ label: '《高等数学》第七版（上册）', url: 'https://xuanshu.hep.com.cn/front/h5Mobile/bookDetails?bookId=59cfa123ba9eb884cf8241de' }],
+      }],
+    }
+    fs.writeFileSync(pf, JSON.stringify(doc, null, 2) + '\n', 'utf8')
+  }
   const tools = []
   authorPlugin.install({ paths: { packRoot: tmp }, log: { info: () => {}, warn: () => {}, error: () => {} }, registerTool: (d) => tools.push(d) })
   const author = tools.find((t) => t.name === 'whale_author')

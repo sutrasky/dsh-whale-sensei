@@ -238,8 +238,18 @@ const writeJson = (rel, obj) => {
 	fs.writeFileSync(f, JSON.stringify(obj, null, 2) + '\n', 'utf8')
 }
 writeJson('lessons/programming/halo.json', { halo: 'programming', name: '编程' })
-writeJson('lessons/programming/spring-boot/point.json', { point: 'spring-boot', name: 'Spring Boot', label: '', fileBase: 0 })
-writeJson('lessons/programming/vue/point.json', { point: 'vue', name: 'Vue', label: 'Vue', fileBase: 1000, requires: ['spring-boot'] })
+// ⚠️ 这两个点还要带上**合法地图**（2026-09-24 F2 起 `whale_author` 有大纲闸，且**禁 force**）：
+//    不给地图的话，这两段测的「前置闸 / 放行」会被大纲闸抢在前面拦掉 —— 判据就测不到该测的东西。
+const SMOKE_PLAN = {
+	goal: '交付一个能跑起来、能访问接口的服务',
+	nodes: [{
+		no: 1, title: '第1课 起步', deliverable: '一个能跑起来、访问得到 /hello 的应用',
+		criteria: '访问 /hello 有响应', why: '终点是交付服务 —— 先得让它跑起来',
+		sources: [{ label: '官方指南', url: 'https://spring.io/guides/gs/spring-boot/' }],
+	}],
+}
+writeJson('lessons/programming/spring-boot/point.json', { point: 'spring-boot', name: 'Spring Boot', label: '', fileBase: 0, plan: SMOKE_PLAN })
+writeJson('lessons/programming/vue/point.json', { point: 'vue', name: 'Vue', label: 'Vue', fileBase: 1000, requires: ['spring-boot'], plan: SMOKE_PLAN })
 // 前置点下必须**真有课**，否则走的是 emptyPoints 那条分支（也拦，但理由不同）
 const sbSrc = path.join(gateTmp, 'lessons', 'src', 'programming', 'spring-boot')
 fs.mkdirSync(sbSrc, { recursive: true })
