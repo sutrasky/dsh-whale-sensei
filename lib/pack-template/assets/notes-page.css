@@ -1,0 +1,622 @@
+/* assets/notes-page.css — DSH 笔记文档页（reference/NOTES.html）样式
+ *
+ * MS Learn / Stripe 式文档：顶栏 + 左导航树 + 右内容区。
+ * 全部颜色走令牌，不写裸色值。
+ */
+
+/* ── 重置 & 基础 ────────────────────────────────────────────────────── */
+[data-notes-page] {
+  /* 文档页不跟课程页一起限宽 1120px：主题切换浮层是相对**视口** fixed 的
+     （right 1.25rem），顶栏若止于 1120，右边界就和浮层差 115px，
+     搜索列无论怎么摆都对不齐（实测 |row.r - sw.r| = 115）。 */
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-base);
+  min-height: 100vh;
+}
+
+/* ── 顶栏：左标题 / 右搜索列（正对主题切换浮层） ─────────────────────
+   主题切换是 position:fixed 的浮层（theme.css:227，top 1rem / right 1.25rem），
+   不参与布局，所以两件事都得自己安排：
+   ① 左侧标题要预留它的宽度，否则文字被它压住（顶栏右内边距取 1.25rem
+      与浮层的 right 对齐）；
+   ② 搜索放在浮层**下面**（margin-top 让开那一条），右边界与它对齐，
+      宽度由 notes.js 把浮层的实测宽度写进内联 style（≤900 时清掉改整行）。 */
+.notes-top {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem 0.75rem 1.5rem;
+  background: var(--dsw-alias-bg-layer-1);
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  box-shadow: var(--lesson-shadow-soft, 0 2px 8px rgba(0, 0, 0, .08));
+}
+
+/* 16rem=256px = 浮层实测宽度 243px 加余量。写成字面量而不是自定义属性：
+   style-check 的 R2 只认已声明令牌（新造令牌会让闸门红）。 */
+.notes-top__left {
+  min-width: 0;
+  padding-right: 16rem;
+}
+
+/* 3rem = 顶栏上内边距 .75rem + 浮层高 2.25rem + 余量，让搜索落在浮层下方 */
+.notes-top__search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 3rem;
+  min-width: 0;
+}
+
+.notes-search__status {
+  flex: 1 1 100%;
+  font-size: 0.75rem;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.notes-search__go {
+  flex: 0 0 auto;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.notes-search__go:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.notes-top__title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin: 0;
+  color: var(--dsw-alias-label-primary);
+}
+
+.notes-top__sub {
+  font-size: 0.75rem;
+  color: var(--dsw-alias-label-secondary);
+  margin: 0.125rem 0 0;
+}
+
+/* 「名词解释不在这里 · 去名词地图 →」：页头唯一一条外链。
+   疑问与名词解释**分开**之后，这条链接是两页之间唯一的正向入口 —— 所以它不是装饰，
+   别顺手删掉（`tools/glossary-map.test.mjs` 会断言它在）。 */
+.notes-top__map {
+  display: inline-block;
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--dsw-alias-link);
+  text-decoration: none;
+}
+
+.notes-top__map:hover {
+  text-decoration: underline;
+}
+
+.notes-top__map:focus-visible {
+  outline: 2px solid var(--dsw-alias-link);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+.notes-search {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.8125rem;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  flex: 1 1 6rem;
+  min-width: 0;
+}
+
+.notes-search::placeholder {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.notes-search:focus {
+  outline: 2px solid var(--dsw-alias-link);
+  outline-offset: 2px;
+}
+
+/* ── 壳体：左导航 + 右内容 ────────────────────────────────────────── */
+.notes-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: calc(100vh - 56px);
+}
+
+/* grid item 默认 min-width:auto：内容里一行不可断的长代码会把整列撑到
+   min-content，导航跟着一起撑开（实测 530 视口被撑到 629，页面右侧被裁） */
+.notes-shell > * {
+  min-width: 0;
+}
+
+/* ── 宽屏 ≥900px：网格从 .notes-shell 提升到 body ────────────────────────
+   为什么必须这样：`page-splitter.js` 的 gridArea() 读的是 **document.body** 的
+   `gridTemplateColumns`（要 ≥2 个 px 列）才能算出可用区（areaLeft / gap）。
+   网格留在 .notes-shell 上的话，手柄的算式拿不到可用区 → 拖不动或夹错。
+   这是照抄课程页的同一套契约（notes.css 的 `@media (min-width: 900px) { body {…} }`）：
+   第 1 列 = 侧栏、第 2 列 = 正文列、column-gap = 2.5rem（= 引擎的 RAIL_GAP 40px，故 minLeft = 0）。
+   .notes-shell 用 display:contents 让 nav/main 直接成为 body 的网格项（DOM 不动，
+   `> *` 的 min-width:0 仍然命中）。 */
+@media (min-width: 900px) {
+  [data-notes-page] {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    column-gap: 2.5rem;
+    row-gap: 0;
+    align-items: start;
+  }
+
+  .notes-top {
+    grid-column: 1 / -1;
+  }
+
+  .notes-shell {
+    display: contents;
+  }
+
+  .notes-nav {
+    grid-column: 1;
+  }
+
+  .notes-main {
+    grid-column: 2;
+  }
+}
+
+/* ── 左导航 ─────────────────────────────────────────────────────────── */
+.notes-nav {
+  padding: 1rem 0;
+  border-right: 1px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-layer-1);
+  overflow-y: auto;
+  max-height: calc(100vh - 56px);
+  position: sticky;
+  top: 56px;
+}
+
+.notes-nav details {
+  margin: 0;
+}
+
+.notes-nav summary {
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  list-style: none;
+}
+
+.notes-nav summary::-webkit-details-marker {
+  display: none;
+}
+
+.notes-nav summary::before {
+  content: '';
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 4px solid currentColor;
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+  margin-right: 0.5rem;
+  transition: transform 0.15s ease;
+}
+
+.notes-nav details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.notes-nav ul {
+  list-style: none;
+  padding: 0 0 0 1.5rem;
+  margin: 0;
+}
+
+.notes-nav li {
+  margin: 0;
+}
+
+.notes-nav a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem 1rem 0.25rem 0;
+  font-size: 0.8125rem;
+  color: var(--dsw-alias-link);
+  text-decoration: none;
+  border-radius: 0.25rem;
+  transition: background-color 0.15s ease;
+}
+
+.notes-nav a:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.notes-count {
+  font-size: 0.6875rem;
+  padding: 0.125rem 0.375rem;
+  background: var(--dsw-alias-bg-layer-2);
+  border-radius: 999px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* ── 右内容区 ───────────────────────────────────────────────────────── */
+.notes-main {
+  /* 正文宽度契约 —— 逐条照抄课程页 .page（notes.css:13-33）：
+     --content-w 由拖动手柄写内联值；--content-left: auto 时居中，拖过左缘就变成位移。
+     默认 640px 与引擎的 DEFAULT 一致（复位也回这里），所以不再用 max-width: 780px。 */
+  --content-w: 640px;
+  --content-min: 370px;
+  --content-max: 8192px;
+  --content-left: auto;
+  width: clamp(var(--content-min), var(--content-w), var(--content-max));
+  max-width: none;
+  margin-left: var(--content-left, auto);
+  margin-right: auto;
+  position: relative;   /* 手柄的绝对定位包含块 —— 手柄必须挂在它里面 */
+  padding: 1.5rem 2rem 4rem;
+}
+
+.notes-main h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+  color: var(--dsw-alias-label-primary);
+}
+
+.notes-main h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 1.5rem 0 0.5rem;
+  color: var(--dsw-alias-label-primary);
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  padding-bottom: 0.375rem;
+}
+
+/* ── 每课章节（<details>） ──────────────────────────────────────────── */
+.notes-doc {
+  margin-bottom: 2rem;
+  border-bottom: 2px solid var(--dsw-alias-border-l2);
+  padding-bottom: 1rem;
+}
+
+.notes-doc:last-of-type {
+  border-bottom: none;
+}
+
+.notes-doc > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.5rem 0;
+}
+
+.notes-doc > summary::-webkit-details-marker {
+  display: none;
+}
+
+.notes-doc > summary::before {
+  content: '';
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  margin-right: 0.75rem;
+  transition: transform 0.15s ease;
+}
+
+.notes-doc[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.notes-doc > summary h2 {
+  display: inline;
+  margin: 0;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+/* ── 提示条 ──────────────────────────────────────────────────────────── */
+.is-note {
+  font-size: 0.8125rem;
+  color: var(--dsw-alias-label-secondary);
+  background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 0.375rem;
+  padding: 0.625rem 0.875rem;
+  margin-bottom: 1.5rem;
+}
+
+.is-note code {
+  background: var(--dsw-alias-markdown-inline-code);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.8125rem;
+}
+
+/* ── 名词条目 ────────────────────────────────────────────────────────── */
+.notes-term {
+  margin-bottom: 1.25rem;
+  padding: 0.75rem;
+  background: var(--dsw-alias-bg-layer-1);
+  border-radius: 0.375rem;
+  border: 1px solid var(--dsw-alias-border-l1);
+}
+
+.notes-term dt {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  margin-bottom: 0.375rem;
+  color: var(--dsw-alias-label-primary);
+}
+
+.notes-term dd {
+  margin: 0;
+  padding: 0;
+}
+
+.notes-term dd p {
+  margin: 0.25rem 0;
+}
+
+.notes-term dd code {
+  background: var(--dsw-alias-markdown-inline-code);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.8125rem;
+}
+
+/* ── 答疑条目 ────────────────────────────────────────────────────────── */
+.notes-qa {
+  margin-bottom: 1.5rem;
+}
+
+.notes-qa article {
+  margin-bottom: 1.25rem;
+  padding: 0.75rem;
+  background: var(--dsw-alias-bg-layer-1);
+  border-radius: 0.375rem;
+  border: 1px solid var(--dsw-alias-border-l1);
+}
+
+.notes-qa .notes-qa-q {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--dsw-alias-label-primary);
+}
+
+.notes-qa .notes-qa-a {
+  color: var(--dsw-alias-label-primary);
+}
+
+.notes-qa .notes-qa-a p {
+  margin: 0.375rem 0;
+}
+
+/* 名词板块里的代码块原先没有任何规则：长行会顶出容器。
+   与答疑里的 pre 同一策略 —— 容器内横向滚动，不撑宽页面 */
+.notes-main pre {
+  max-width: 100%;
+  overflow-x: auto;
+  background: var(--dsw-alias-markdown-code-block);
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+}
+
+.notes-qa .notes-qa-a pre {
+  font-size: 0.8125rem;
+  overflow-x: auto;
+  background: var(--dsw-alias-markdown-code-block);
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.375rem;
+  line-height: 1.5;
+}
+
+.notes-qa .notes-qa-a code {
+  background: var(--dsw-alias-markdown-inline-code);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.8125rem;
+}
+
+.notes-qa .notes-qa-a pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.notes-qa .notes-qa-a ul,
+.notes-qa .notes-qa-a ol {
+  padding-left: 1.5rem;
+  margin: 0.375rem 0;
+}
+
+.notes-qa .notes-qa-a li {
+  margin: 0.25rem 0;
+}
+
+/* ── 笔记表单与列表 ──────────────────────────────────────────────────── */
+.notes-mynotes form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.notes-mynotes textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 0.375rem;
+  padding: 0.5rem;
+  font: inherit;
+  font-size: 0.875rem;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  box-sizing: border-box;
+}
+
+.notes-mynotes textarea::placeholder {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.notes-mynotes button[type="submit"] {
+  align-self: flex-end;
+  padding: 0.375rem 1rem;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 0.375rem;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.notes-mynotes button[type="submit"]:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.notes-mynotes ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.notes-mynotes li {
+  padding: 0.375rem 0;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  font-size: 0.875rem;
+  color: var(--dsw-alias-label-primary);
+}
+
+.notes-mynotes li:last-child {
+  border-bottom: none;
+}
+
+.notes-mynotes li time {
+  font-size: 0.75rem;
+  color: var(--dsw-alias-label-tertiary);
+  margin-right: 0.375rem;
+}
+
+.notes-mynotes [data-note-status] {
+  font-size: 0.75rem;
+  color: var(--dsw-alias-label-secondary);
+  margin: 0;
+  min-height: 1.2em;
+}
+
+.notes-mynotes [data-note-status][data-status="error"] {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+/* ── 回到顶部 ───────────────────────────────────────────────────────── */
+.notes-to-top {
+  display: inline-block;
+  margin-top: 2rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  color: var(--dsw-alias-link);
+  text-decoration: none;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 0.375rem;
+  transition: background-color 0.15s ease;
+}
+
+.notes-to-top:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+/* ── 响应式：窄屏收起左栏 ───────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .notes-shell {
+    grid-template-columns: 1fr;
+  }
+
+  /* 窄屏：浮层只占顶栏最上面那一条，搜索独占下面整行 ——
+     不用再为浮层让位，宽度也回到整行（notes.js 会清掉内联宽度） */
+  .notes-top {
+    grid-template-columns: minmax(0, 1fr);
+    padding-right: 1.5rem;
+  }
+
+  .notes-top__search {
+    margin-top: 0.5rem;
+  }
+
+  /* 窄屏**不要**把导航做成 fixed + translateX(-100%)：
+     那样只有 JS 才能打开，而页面里没有汉堡按钮（无 JS 时导航直接不可达）✗
+     改成正文上方的普通块 —— <details> 原生可折叠，零 JS 也能到达 */
+  .notes-nav {
+    position: static;
+    width: auto;
+    transform: none;
+    box-shadow: none;
+    max-height: 60vh;
+    margin-bottom: 1rem;
+    border-right: none;
+    border-bottom: 1px solid var(--dsw-alias-border-l2);
+  }
+
+  .notes-nav.is-open {
+    transform: none;
+  }
+
+  .notes-main {
+    padding: 1rem 1rem 3rem;
+    /* 窄屏防长标识符（com.sutrasky.hello_spring_boot 这类）把行撑出容器 */
+    overflow-wrap: anywhere;
+  }
+}
+
+/* ── 打印 ───────────────────────────────────────────────────────────── */
+@media print {
+  .notes-top,
+  .notes-nav,
+  .notes-to-top,
+  .theme-switch {
+    display: none !important;
+  }
+
+  [data-notes-page] {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .notes-main {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .notes-doc,
+  .notes-term,
+  .notes-qa article {
+    break-inside: avoid;
+  }
+
+  .notes-doc[open] > summary::before,
+  .notes-nav details[open] > summary::before {
+    display: none;
+  }
+}

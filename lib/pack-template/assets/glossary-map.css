@@ -1,0 +1,444 @@
+/* glossary-map.css — 名词地图（六边形知识地图）
+ * ==================================================================
+ * 契约（tools/style-check.js）：
+ *   R1  组件层**禁裸色值** —— 本文件一个 hex / rgb() / hsl() 都不许写；
+ *   R1b 也**不许写色值兜底**（写一个带色值兜底的 var() 当例子，会被令牌审计连注释一起扫到）；
+ *   R2  引用的令牌必须已声明（住在 presets/whale-sensei.css → assets/theme.css）；
+ *   R4  不重复定义别的文件已有的选择器 → 本文件只用 .gm-* 与 body[data-glossary-map] 派生选择器。
+ *
+ * 形态（用户 2026-09-22 改版）：圆点 → **简约六边形**，统一**淡蓝细线**描边 + 极淡填充，
+ * 跟着站点主题走（浅/深两档）。层级只靠"尺寸 + 描边亮度"两级表达，不再靠一堆颜色。
+ * 几何量（--gm-d / --gm-size / --gm-1over）是**组件级常量**，按契约不进 theme.css。
+ *
+ * 动效纪律：只对 transform / opacity 做动画，绝不动 width/height/top/left。
+ * 状态一律走 data-* 属性，不走 .is-* 词汇（避开 R4 的跨文件状态词汇表）。
+ */
+
+/* ---------- 舞台：左栏之外的整块可用区 ---------- */
+
+.gm-stage {
+  position: relative;
+  height: calc(100vh - 2.5rem);
+  min-height: 320px;
+}
+
+/* 课程页那套外壳把 .page 限成了正文宽度（--content-w 640px），地图要的是**铺满** */
+body[data-glossary-map] .page {
+  width: auto;
+  max-width: none;
+  margin-inline: 0;
+}
+
+.gm-viewport {
+  --gm-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --gm-d: 144px;                       /* 最近邻距（= 六边形的宽），由 JS 按可用区宽覆写 */
+  --gm-1over: 1;                       /* 1/scale，由 JS 覆写 —— 标签字号抗缩放用 */
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  /* 中心那点几乎察觉不到的提亮（跟着主题走，不再固定黑底） */
+  background-image: radial-gradient(circle at 50% 46%, var(--lesson-hex-veil) 0%, transparent 62%);
+  font-family: var(--dsw-font-family);
+}
+
+.gm-viewport[data-drag="1"] { cursor: grabbing; }
+
+/* 世界层：唯一带 will-change 的元素（每节点都加会爆显存） */
+.gm-world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* 连线层：viewBox 与世界坐标同构（±5000），所以 <line> 直接用圆心坐标 */
+.gm-edges {
+  position: absolute;
+  left: -5000px;
+  top: -5000px;
+  width: 10000px;
+  height: 10000px;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* 连线：**只在悬停/聚焦时出现**（用户 2026-09-22 裁定：线不常亮）。
+   走的是两个六边形之间那道缝 —— 两端已经按方向裁到六边形边界（见 glossary-map.js 的 boundaryAt），
+   所以不会插进六边形内部盖住文字。颜色用链接蓝，与六边形描边（极浅蓝灰）分得开。 */
+.gm-edge {
+  stroke: var(--dsw-alias-link);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.gm-edge[data-on="1"] { opacity: 0.9; }
+
+/* ---------- 节点（六边形） ---------- */
+
+.gm-node {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* JS 逐节点写在 style 上的三个自定义属性；这里给**缺省值**：JS 还没跑到时不散架，
+     静态审计（tools/check-terms.js 的令牌审计）也才看得见"已声明"。别删。 */
+  --gm-x: 0;
+  --gm-y: 0;
+  --gm-delay: 0ms;
+  --gm-size: calc(var(--gm-d) * 0.86);
+  --gm-fill: var(--lesson-hex-fill);
+  --gm-edge: var(--lesson-hex-edge);
+  width: var(--gm-size);
+  /* pointy-top 正六边形：高 = 宽 × 2/√3 */
+  height: calc(var(--gm-size) * 1.1547);
+  margin-left: calc(var(--gm-size) / -2);
+  margin-top: calc(var(--gm-size) * 1.1547 / -2);
+  transform: translate3d(calc(var(--gm-x) * 1px), calc(var(--gm-y) * 1px), 0);
+  cursor: pointer;
+}
+
+/* 尺寸层级：中心 > 一级 > 二级（间隙 = D×(1-ratio) → 4% / 10% / 14%，蜂窝是密的） */
+.gm-node[data-level="0"] {
+  --gm-size: calc(var(--gm-d) * 0.96);
+  --gm-fill: var(--lesson-hex-fill-strong);
+  --gm-edge: var(--lesson-hex-edge-strong);
+}
+
+.gm-node[data-level="1"] {
+  --gm-size: calc(var(--gm-d) * 0.90);
+  --gm-edge: var(--lesson-hex-edge-strong);
+}
+
+/* 六边形本体：一个 <svg> 里的 <polygon>。用 SVG 而不是 clip-path，
+   因为 clip-path 会把 border 一起裁掉 —— 而"淡蓝细线"正是这一版的主角。 */
+.gm-hex {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform: scale(0);
+  opacity: 0;
+}
+
+.gm-hex__shape {
+  fill: var(--gm-fill);
+  stroke: var(--gm-edge);
+  stroke-width: 1;
+  /* 细线**不随缩放变粗**：世界被 scale 缩过，不加这条 1px 会变成 0.4px 糊掉或 3px 变粗 */
+  vector-effect: non-scaling-stroke;
+  transition: fill 160ms ease, stroke 160ms ease;
+}
+
+/* 入场：从中心向外一圈圈扩散，柔带回弹 */
+.gm-node[data-in="1"] .gm-hex {
+  transform: scale(1);
+  opacity: 1;
+  transition:
+    transform 460ms var(--gm-ease-spring) var(--gm-delay, 0ms),
+    opacity 340ms ease var(--gm-delay, 0ms);
+}
+
+/* 涟漪结束后把延迟归零，否则 hover 也会被延迟 */
+.gm-node[data-settled="1"] .gm-hex { transition-delay: 0ms; }
+
+/* 焦点：浮起 + 光晕（其余节点由 JS 打 data-state="dim" 后退） */
+.gm-node[data-state="focus"] { z-index: 100; }
+
+.gm-node[data-state="focus"] .gm-hex {
+  transform: scale(1.06);
+  filter: drop-shadow(0 0 7px var(--lesson-hex-glow));
+  transition: transform 160ms var(--gm-ease-spring), filter 160ms ease;
+}
+
+.gm-node[data-state="focus"] .gm-hex__shape {
+  fill: var(--lesson-hex-fill-strong);
+  stroke: var(--lesson-hex-edge-strong);
+}
+
+.gm-node[data-state="dim"] { opacity: 0.34; }
+
+/* 键盘可达：焦点环只引用令牌 */
+.gm-node:focus-visible .gm-hex__shape {
+  stroke: var(--lesson-hex-edge-strong);
+  stroke-width: 2;
+}
+
+.gm-node:focus-visible {
+  outline: 2px solid var(--lesson-hex-edge-strong);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+/* ---------- 标签（字号抗缩放：世界缩过一次，不补回来就等于没写） ---------- */
+
+.gm-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 14%;
+  box-sizing: border-box;
+  text-align: center;
+  color: var(--dsw-alias-label-primary);
+  line-height: 1.2;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+
+.gm-label__main {
+  font-weight: 600;
+  font-size: calc(11px * var(--gm-1over));
+  /* ⚠️ `width: 100%` 不能省：父级是 flex column + align-items:center，
+     不写这一条子项就是**按内容撑开**的 —— 于是"@EnableAutoConfiguration"这种长名词
+     会横向溢出六边形、跟隔壁的标签糊成一团（2026-09-22 截图实测）。
+     撑满宽度之后 `-webkit-line-clamp: 2` 才会真的按六边形的宽度折行 + 省略。 */
+  width: 100%;
+  box-sizing: border-box;
+  /* 断行只在**词内放不下**时才断（`anywhere` 会把 "Spring Boot" 拆成 "Sprin/g/Boot"） */
+  overflow-wrap: break-word;
+  text-wrap: balance;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.gm-label__sub {
+  font-weight: 400;
+  font-size: calc(9px * var(--gm-1over));
+  color: var(--dsw-alias-label-tertiary);
+  width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.gm-node[data-level="0"] .gm-label__main { font-size: calc(16px * var(--gm-1over)); font-weight: 700; }
+.gm-node[data-level="0"] .gm-label__sub { font-size: calc(10px * var(--gm-1over)); }
+.gm-node[data-level="1"] .gm-label__main { font-size: calc(13px * var(--gm-1over)); font-weight: 600; }
+.gm-node[data-level="1"] .gm-label__sub { font-size: calc(9px * var(--gm-1over)); }
+/* 二级（课程 / 名词）：字号再小一档 —— 名词是地图上最多的一层，10px 才装得下 4 个字 */
+.gm-node[data-level="2"] .gm-label__main { font-size: calc(10px * var(--gm-1over)); font-weight: 500; }
+
+/* 二级（课程 / 名词）只有屏幕尺寸够大时才出标签（由 JS 决定 data-shown） */
+.gm-label[data-shown="0"] {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* ---------- 悬停小窗（跟着主题走，不再是黑玻璃） ---------- */
+
+.gm-tip {
+  position: fixed;
+  z-index: 9999;
+  box-sizing: border-box;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background-color: var(--dsw-alias-bg-layer-2);
+  border: 1px solid var(--dsw-alias-border-l2);
+  box-shadow: var(--lesson-shadow);
+  color: var(--dsw-alias-label-primary);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 160ms ease;
+}
+
+.gm-tip[data-state="open"] {
+  opacity: 1;
+  visibility: visible;
+}
+
+.gm-tip__group {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.gm-tip__title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.gm-tip__row {
+  margin: 0 0 6px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.gm-tip__key {
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+}
+
+.gm-tip__code {
+  margin: 0 0 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background-color: var(--dsw-alias-markdown-code-block);
+  font-family: var(--dsw-font-family-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.gm-tip__go {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dsw-alias-link);
+  text-decoration: none;
+}
+
+.gm-tip__go:hover { text-decoration: underline; }
+
+/* ---------- 提示条 / 无脚本降级 ---------- */
+
+.gm-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background-color: var(--dsw-alias-bg-layer-2);
+  border: 1px solid var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 300ms ease;
+}
+
+.gm-hint[data-state="open"] {
+  opacity: 1;
+  visibility: visible;
+}
+
+.gm-noscript {
+  margin: 1rem;
+  padding: 12px 16px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  font-size: 0.875rem;
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* ---------- 卡片里的圆圈切换器 / 面包屑 ---------- */
+
+.gm-circles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+}
+
+.gm-circle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.gm-circle:hover {
+  background-color: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.gm-circle[aria-pressed="true"] {
+  border-color: var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-primary);
+  font-weight: 600;
+}
+
+.gm-circle:focus-visible {
+  outline: 2px solid var(--dsw-alias-link);
+  outline-offset: 1px;
+}
+
+/* 圆圈身份色的小六边形（不用方块 —— 方块看着像复选框）。
+   身份色是给星图那片深色画布配的粉彩，压在浅色底上几乎看不见，所以描边一律吃淡蓝细线令牌。 */
+.gm-circle__hex {
+  --gm-circle-color: var(--dsw-alias-link);
+  flex: 0 0 auto;
+  width: 11px;
+  height: 13px;
+}
+
+.gm-circle__hex polygon {
+  fill: var(--gm-circle-color);
+  stroke: var(--lesson-hex-edge);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.gm-circle__name { flex: 1 1 auto; }
+
+.gm-circle__n {
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.gm-crumb {
+  min-height: 1.2em;
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.gm-crumb a {
+  color: var(--dsw-alias-link);
+  text-decoration: none;
+}
+
+.gm-crumb a:hover { text-decoration: underline; }
+
+/* ---------- 减少动效 ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .gm-node .gm-hex,
+  .gm-node[data-in="1"] .gm-hex,
+  .gm-node[data-state="focus"] .gm-hex,
+  .gm-edge,
+  .gm-tip,
+  .gm-hint {
+    transition-duration: 1ms;
+    transition-delay: 0ms;
+  }
+}

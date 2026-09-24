@@ -68,6 +68,21 @@ export const FROM_PACK = [
   'assets/circle-bands-data.js',
   'tools/circle-bands.js',
   'assets/build-glossary.js',
+  // —— 2026-09-24 主人定：课程包在别人电脑上新建、每个人独立 → 框架的构建器全随包。
+  //    这批原先只活在作者那台机器的包里（新包会 404 / 跑不动），四份**没有** SANITIZE 规则
+  //    → 判据就是与课程包原件逐字节相等（所以别在原件里写机器路径，静态守卫会红）——
+  'glossary/index.html',
+  'assets/glossary-map.js',
+  'assets/glossary-map.css',
+  'assets/glossary-map-layout.js',
+  'tools/build-glossary-tree.js',
+  'assets/lesson-fs.js',
+  'assets/practice.js',
+  'assets/notes-page.css',
+  'assets/build-questions.js',
+  'tools/build-public.js',
+  'tools/app-server.js',
+  'tools/serve-static.js',
 ]
 
 /** 取自课程包侧 `skill-draft/`（技能包）的件：**空台账骨架** —— 一个名词都没有 */

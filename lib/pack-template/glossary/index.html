@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>名词地图 · DSH 笔记</title>
+  <link rel="stylesheet" href="../assets/theme.css">
+  <link rel="stylesheet" href="../assets/styles.css">
+  <link rel="stylesheet" href="../assets/notes.css">
+  <link rel="stylesheet" href="../assets/a11y-print.css">
+  <link rel="stylesheet" href="../assets/glossary-map.css">
+</head>
+<body data-glossary-map="1">
+  <script src="../assets/theme-boot.js"></script>
+  <a class="skip-link" href="#gm-viewport">跳到名词地图</a>
+
+  <!-- 左栏 + 左上角卡片：**与课程页同一套外壳**（.notes-card / .notes-card__inner /
+       .rail-splitter 全在 notes.css 与 styles.css 里，这里一个样式都不重写）。
+       卡片在这页的职责是"在哪一圈"的开关（用户 2026-09-22 裁定）。 -->
+  <aside class="notes-card" id="dsh-notes" aria-label="名词地图">
+    <div class="notes-card__inner">
+      <header class="notes-card__head">
+        <h2 class="notes-card__title">名词地图</h2>
+      </header>
+      <div class="notes-card__counts">
+        <span>圆圈 <b data-gm-count="halos">–</b></span>
+        <span>知识点 <b data-gm-count="points">–</b></span>
+        <span>课程 <b data-gm-count="lessons">–</b></span>
+      </div>
+      <!-- 圆圈切换器：按钮由 glossary-map.js 按 glossary-tree.js 生成（圆圈数量会变，别写死） -->
+      <nav class="gm-circles" data-gm-circles aria-label="知识圆圈"></nav>
+      <!-- 面包屑：圆圈视图显示圆圈名；钻进知识点后显示「圆圈 / 知识点」，点圆圈名回上一层 -->
+      <p class="gm-crumb" data-gm-crumb></p>
+      <a class="notes-card__link" href="../reference/NOTES.html">答疑与我的笔记 →</a>
+    </div>
+    <button class="rail-splitter" role="separator" aria-orientation="vertical"
+            aria-label="拖动调整左栏宽度" title="拖动调整左栏宽度" tabindex="0"></button>
+  </aside>
+
+  <div class="page" data-content id="main">
+    <div class="gm-stage">
+      <div id="gm-viewport" class="gm-viewport">
+        <div id="gm-world" class="gm-world">
+          <!-- 连线层必须在所有节点之下；viewBox 与世界坐标同构，所以 <line> 直接用圆心坐标 -->
+          <svg id="gm-edges" class="gm-edges" viewBox="-5000 -5000 10000 10000" aria-hidden="true"></svg>
+        </div>
+      </div>
+      <p id="gm-hint" class="gm-hint">滚轮缩放 · 拖动平移 · 双击空白复位</p>
+      <div id="gm-tip" class="gm-tip" role="tooltip"></div>
+    </div>
+  </div>
+
+  <noscript>
+    <div class="gm-noscript">
+      名词地图需要 JavaScript 才能排布。纯文本版在
+      <a href="../GLOSSARY.md">GLOSSARY.md</a>，答疑与我的笔记在
+      <a href="../reference/NOTES.html">DSH 笔记</a>。
+    </div>
+  </noscript>
+
+  <script src="../assets/glossary-data.js"></script>
+  <!-- 顺序不能反：map 一开就跑 GMLayout.build(DATA, TREE, …)，前两个不在就是空屏 -->
+  <script src="../assets/glossary-tree.js"></script>
+  <script src="../assets/glossary-map-layout.js"></script>
+  <script src="../assets/glossary-map.js"></script>
+</body>
+</html>
