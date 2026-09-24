@@ -20,7 +20,7 @@ import os from 'node:os'
 import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { readPack } from '../lib/pack.js'
-import { probeState, writeState, scanWorkspace } from '../lib/state-scan.js'
+import { probeState, writeState, scanWorkspace, scanProject } from '../lib/state-scan.js'
 import { validateExpect, computeGaps, assertLosslessJson } from '../lib/state.js'
 import { summarizeState } from '../lib/state.js'
 import { packRoot } from './_pack.mjs'
@@ -85,25 +85,72 @@ ok(state.projects.every((p) => !path.isAbsolute(p.dir) && !p.dir.startsWith('../
 ok(JSON.stringify(state.practiceRoots) === JSON.stringify(['code/_hello-spring-boot/hello-spring-boot', 'code/programming', 'code/programming/vue', 'math', 'math/alge'].sort()),
   `practiceRoots = 圈级 ∪ 点级里实际存在的（实得 ${JSON.stringify(state.practiceRoots)}）`)
 ok(P?.facts.build === 'maven', `构建方式识别为 maven（实得 ${P?.facts.build}）`)
-ok(P?.facts.endpoints.length === 3, `端点数 3（实得 ${P?.facts.endpoints.length}：${(P?.facts.endpoints || []).map((e) => e.method + ' ' + e.path).join('、')}）`)
-ok(P?.facts.annotations.includes('RestController') && P?.facts.annotations.includes('GetMapping'), `注解含 @RestController 与 @GetMapping（现有 ${(P?.facts.annotations || []).map((a) => '@' + a).join(' ')}）`)
-ok(P?.facts.configKeys.includes('server.port'), `配置键含 server.port（现有 ${(P?.facts.configKeys || []).join('、')}）`)
-ok(P?.facts.pomArtifacts.includes('spring-boot-starter-webmvc'), 'pom 依赖里认出 spring-boot-starter-webmvc')
+ok(P?.facts.endpoints.length >= 1, `至少认得出一个端点（实得 ${P?.facts.endpoints.length}：${(P?.facts.endpoints || []).slice(0, 4).map((e) => e.method + ' ' + e.path).join('、')}${(P?.facts.endpoints || []).length > 4 ? ' …' : ''}）`)
+// ⚠️ 真包是**学生正在用**的包（2026-09-24 实测：他当天就在做第 2 课），所以这一段只验**结构与性质**
+//    —— 具体端点 / 注解 / 主源数会随他写代码而变。**精确判据**搬到下面那个合成工程（确定性）。
+ok(Array.isArray(P?.facts.annotations) && P.facts.annotations.every((a) => typeof a === 'string' && a),
+  `注解列表形状对（${(P?.facts.annotations || []).length} 个）`)
+ok(Array.isArray(P?.facts.endpoints) && P.facts.endpoints.every((e) => typeof e.method === 'string' && typeof e.path === 'string'),
+  `端点列表形状对（${(P?.facts.endpoints || []).length} 个）`)
 ok(!P?.facts.files.some((f) => /(^|\/)(target|\.mvn)(\/|$)/.test(f)), 'target/ 与 .mvn/ 没被当成学生文件')
 ok(!P?.facts.files.some((f) => /\.LCK|~$/.test(f)), '编辑器锁文件没被算进事实')
-// ⚠️ 这两条是实际输出暴露的漏判：主源/测试数被数成 0，pack 计数打成了 [object Object]
-ok(P?.facts.java.main.length === 2 && P?.facts.java.test.length === 1, `主源 2 / 测试 1（实得 ${P?.facts.java.main.length}/${P?.facts.java.test.length}）`)
-ok(typeof state.pack.learned === 'number' && typeof state.pack.lessons === 'number', `pack 计数是数字（learned=${typeof state.pack.learned}、lessons=${typeof state.pack.lessons}）`)
-// 4 门课 = spring-boot 0001/0002 + vue 1001 + **math/alge 0001**（2026-09-24 新增的高数第 1 节）
-ok(state.pack.lessons === 4 && state.pack.learned === 1, `pack 计数正确：4 门课 / 点亮 1（实得 ${state.pack.lessons}/${state.pack.learned}）`)
+ok(typeof state.pack.learned === 'number' && typeof state.pack.lessons === 'number',
+  `pack 计数是数字（learned=${typeof state.pack.learned}、lessons=${typeof state.pack.lessons}）`)
+// 计数与**包自己**对账（不写死数字）：state 是 pack 的投影
+ok(state.pack.lessons === pack.lessons.length, `课数与包一致（${state.pack.lessons} / ${pack.lessons.length}）`)
+ok(state.pack.learned === pack.learned.length, `点亮数与包一致（${state.pack.learned} / ${pack.learned.length}）`)
+ok(!JSON.stringify(summarizeState(state)).includes('[object Object]'), '摘要里没有 [object Object]（渲染出来的每一行都是给人看的）')
+
+// ── ①b 合成工程：**精确**判据（真包会随学生变，写死在那儿等于给自己埋雷）──
+{
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-facts-'))
+  try {
+    const root = path.join(d, 'proj')
+    fs.mkdirSync(path.join(root, 'src', 'main', 'java', 'com', 'x'), { recursive: true })
+    fs.mkdirSync(path.join(root, 'src', 'main', 'resources'), { recursive: true })
+    fs.mkdirSync(path.join(root, 'src', 'test', 'java', 'com', 'x'), { recursive: true })
+    fs.writeFileSync(path.join(root, 'pom.xml'),
+      '<project><dependencies><dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency></dependencies></project>\n', 'utf8')
+    fs.writeFileSync(path.join(root, 'src', 'main', 'resources', 'application.properties'), 'server.port=8099\n', 'utf8')
+    fs.writeFileSync(path.join(root, 'src', 'main', 'java', 'com', 'x', 'App.java'),
+      'package com.x;\nimport org.springframework.boot.autoconfigure.SpringBootApplication;\n@SpringBootApplication\npublic class App {\n  public static void main(String[] a) {}\n}\n', 'utf8')
+    fs.writeFileSync(path.join(root, 'src', 'main', 'java', 'com', 'x', 'HelloController.java'),
+      'package com.x;\nimport org.springframework.web.bind.annotation.*;\n@RestController\npublic class HelloController {\n  @GetMapping("/hello/{name}")\n  public String hello(@PathVariable String name) { return name; }\n}\n', 'utf8')
+    fs.writeFileSync(path.join(root, 'src', 'test', 'java', 'com', 'x', 'AppTest.java'), 'package com.x;\npublic class AppTest {}\n', 'utf8')
+
+    const { facts } = scanProject(root, 'proj')
+    ok(facts.build === 'maven', `构建方式认得出（${facts.build}）`)
+    ok(facts.endpoints.length === 1 && facts.endpoints[0].method === 'GET' && facts.endpoints[0].path === '/hello/{name}',
+      `端点抽得准（${JSON.stringify(facts.endpoints)}）`)
+    ok(facts.annotations.includes('RestController') && facts.annotations.includes('SpringBootApplication'),
+      `注解抽得准（${facts.annotations.map((a) => '@' + a).join(' ')}）`)
+    ok(facts.configKeys.includes('server.port'), `配置键抽得准（${facts.configKeys.join('、')}）`)
+    ok(facts.pomArtifacts.length >= 1, `pom 依赖抽得出来（${facts.pomArtifacts.join('、')}）`)
+    ok(facts.java.main.length === 2 && facts.java.test.length === 1, `主源 2 / 测试 1（实得 ${facts.java.main.length}/${facts.java.test.length}）`)
+
+    // 锁文件与构建产物不算学生文件（自造一个，别靠"刚好没文件"空转）
+    fs.writeFileSync(path.join(root, 'src', 'main', 'java', 'com', 'x', '.LCKApp.java~'), 'x', 'utf8')
+    fs.mkdirSync(path.join(root, 'target'), { recursive: true })
+    fs.writeFileSync(path.join(root, 'target', 'App.class'), 'x', 'utf8')
+    const { facts: f2 } = scanProject(root, 'proj')
+    ok(!f2.files.some((f) => /\.LCK|~$/.test(f)), '合成的锁文件被排除（不是空转）')
+    ok(!f2.files.some((f) => /(^|\/)target(\/|$)/.test(f)), '合成的 target/ 被排除')
+  } finally {
+    fs.rmSync(d, { recursive: true, force: true })
+  }
+}
 ok(!JSON.stringify(summarizeState(state)).includes('[object Object]'), '摘要里没有 [object Object]（渲染出来的每一行都是给人看的）')
 
 // ── ② 与人工记录对齐（外部锚）──
 const l1 = P?.lessons.find((l) => l.id === 'spring-boot/0001')
 const l2 = P?.lessons.find((l) => l.id === 'spring-boot/0002')
 ok(l1?.done === true && l1.missing.length === 0, `第1课判定为**已达成**（缺 ${l1?.missing.length ?? '?'} 项）—— 与 learning-records/0004 一致`)
-ok(l2?.done === false && l2.missing.length === l2.satisfied.length + l2.missing.length, `第2课判定为**未开始**（满足 ${l2?.satisfied.length} / 缺 ${l2?.missing.length}）—— 与 learning-records/0004 一致`)
-ok(l2?.missing.some((m) => m.id === 'validation') && l2.missing.some((m) => m.id === 'service-pkg'), '第2课缺的项点名到具体条目（含 validation、service 包）')
+// ⚠️ 第2课那条**不能再拿 0004 当锚**：那份人工记录写的是"当时"的状态（第2课未开始），
+//    而学生随时会开始做它（2026-09-24 当天就发生了）。所以只验**结构性**：
+ok(!!l2, `第2课在探针结果里（${l2?.id}）`)
+ok(typeof l2?.done === 'boolean' && Array.isArray(l2?.missing) && Array.isArray(l2?.satisfied),
+  `第2课的判定形状对（done=${l2?.done} 满足 ${l2?.satisfied?.length} 缺 ${l2?.missing?.length}）`)
+ok((l2?.missing || []).every((m) => !!m.id && !!m.kind), '缺的项都点名到具体条目（id + kind），没有空条目')
 
 // ── ⑥ 无时间戳 + 确定性 ──
 const json1 = JSON.stringify(probeState(ROOT, pack).state)
@@ -121,10 +168,21 @@ try {
   //    所以直接 join(tmp, dir)。旧写法 `join(tmp, 'code', dir)` 会拼成 tmp/code/code/…，
   //    rmSync 因 force 不报错，于是**坏样本根本没造出来、判据却在报"功能坏了"**（静默空转）
   const projDir = path.join(tmp, P.facts.dir)
-  const ctrl = path.join(projDir, 'src', 'main', 'java', 'com', 'sutrasky', 'hello_spring_boot', 'HelloController.java')
-
-  // ③ 删掉控制器 → 第1课必须变红
-  fs.rmSync(ctrl, { force: true })
+  // ③ 删掉**所有**控制器 → 第1课必须变红
+  //    ⚠️ 不许写死一个路径（`.../HelloController.java`）：学生会重构 / 改名（2026-09-24 实测踩到：
+  //    文件已经不叫那个名字了，rmSync 因 force 不报错，于是**坏样本没造出来、判据却在报"功能坏了"**）
+  const ctrls = []
+  ;(function walkC(d) {
+    let es = []
+    try { es = fs.readdirSync(d, { withFileTypes: true }) } catch { return }
+    for (const e of es) {
+      const p = path.join(d, e.name)
+      if (e.isDirectory()) { walkC(p); continue }
+      if (/Controller\.java$/.test(e.name)) ctrls.push(p)
+    }
+  })(projDir)
+  ok(ctrls.length > 0, `影子副本里找得到控制器文件（${ctrls.length} 个）—— 找不到这条判据就是空转`)
+  for (const c of ctrls) fs.rmSync(c, { force: true })
   const broken = probeState(tmp, STUB_PACK).state.projects[0]
   const b1 = broken.lessons.find((l) => l.id === 'spring-boot/0001')
   ok(b1.done === false, '坏样本（删掉控制器）→ 第1课判定为未达成')
@@ -150,18 +208,41 @@ try {
   const w2 = writeState(tmp, probeState(tmp, STUB_PACK).state)
   ok(w2.changed === false && fs.readFileSync(path.join(tmp, 'learning-records', 'state.json'), 'utf8') === body1, '同样的工作区再写一次：内容逐字节相同且不重写')
 
-  // ⑧ 挑战级完成度：**随数据变**（先恢复期望文件，再补一个带 @NotNull 的 Task 类）
+  // ⑧ 挑战级完成度：**随数据变**
+  // ⚠️ 判据是**增量**不是绝对值：学生随时可能已经把挑战1 做掉（2026-09-24 实测就是这么红的 ——
+  //    写死"补之前 = 0"，而他当天已经写了带 @NotNull 的 Task）。所以先把它**移走**，再补回来。
   const realExpect = path.join(ROOT, 'code', '_hello-spring-boot', 'EXPECT.json')
   fs.copyFileSync(realExpect, path.join(tmp, 'code', '_hello-spring-boot', 'EXPECT.json'))
-  const beforeCh = probeState(tmp, STUB_PACK).state.projects[0].lessons.find((l) => l.id === 'spring-boot/0002')
-  ok(beforeCh.challengeSummary.achieved === 0, `补之前：第2课挑战达成 ${beforeCh.challengeSummary.achieved} / 共 ${beforeCh.challengeSummary.total}`)
-  // ⚠️ 同上：`P.facts.dir` 是**包根相对**，`tmp` 下拷的就是包根 → 直接 join(tmp, dir)
+  const lessonOf = (r) => probeState(r, STUB_PACK).state.projects[0].lessons.find((l) => l.id === 'spring-boot/0002')
+  const beforeCh = lessonOf(tmp)
+  const achBefore = beforeCh.challengeSummary.achieved
+  ok(Number.isSafeInteger(achBefore) && achBefore <= beforeCh.challengeSummary.total,
+    `补之前：第2课挑战达成 ${achBefore} / 共 ${beforeCh.challengeSummary.total}`)
+
+  // 把影副本里**已有的** Task 类全部移走（学生可能已经写过；没有就是 no-op）
+  const taskFiles = []
+  ;(function walkT(d) {
+    let es = []
+    try { es = fs.readdirSync(d, { withFileTypes: true }) } catch { return }
+    for (const e of es) {
+      const p = path.join(d, e.name)
+      if (e.isDirectory()) { walkT(p); continue }
+      if (/^Task.*\.java$/.test(e.name)) taskFiles.push(p)
+    }
+  })(path.join(tmp, P.facts.dir))
+  for (const f of taskFiles) fs.rmSync(f, { force: true })
+  const midCh = lessonOf(tmp)
+  ok(midCh.challenges[0].done === false, `把 Task 类移走（${taskFiles.length} 个）⇒ 挑战1 变未达成（判据真的在读数据）`)
+
+  // 补上规范的 Task + @NotNull
+  // ⚠️ `P.facts.dir` 是**包根相对**，`tmp` 下拷的就是包根 → 直接 join(tmp, dir)
   const taskDir = path.join(tmp, P.facts.dir, 'src', 'main', 'java', 'com', 'sutrasky', 'hello_spring_boot', 'model')
   fs.mkdirSync(taskDir, { recursive: true })
   fs.writeFileSync(path.join(taskDir, 'Task.java'), 'package x;\nimport jakarta.validation.constraints.NotNull;\npublic class Task {\n  @NotNull private String title;\n}\n', 'utf8')
-  const afterCh = probeState(tmp, STUB_PACK).state.projects[0].lessons.find((l) => l.id === 'spring-boot/0002')
-  ok(afterCh.challengeSummary.achieved === 1, `补上 Task + @NotNull 之后：达成 ${afterCh.challengeSummary.achieved}（**随数据变**）`)
-  ok(afterCh.challenges[0].done === true && afterCh.challenges[1].done === false, '第1题变达成、第2题仍未达成（逐题判，不是整课一刀切）')
+  const afterCh = lessonOf(tmp)
+  ok(afterCh.challengeSummary.achieved === midCh.challengeSummary.achieved + 1,
+    `补回 Task + @NotNull ⇒ 达成 +1（${midCh.challengeSummary.achieved} → ${afterCh.challengeSummary.achieved}）—— **随数据变**`)
+  ok(afterCh.challenges[0].done === true, '刚补的那一题（挑战1：Task + @NotNull）变达成')
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true })
 }

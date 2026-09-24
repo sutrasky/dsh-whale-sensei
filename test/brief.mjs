@@ -28,6 +28,7 @@ import { listLearningRecords } from '../lib/brief-io.js'
 import { recordGoal } from '../lib/goal-io.js'
 import { assertLosslessJson } from '../lib/state.js'
 import { plugin as briefPlugin } from '../lib/mods/brief.js'
+import { NEXT_ACTIONS } from '../lib/brief.js'
 import { readNotes } from '../lib/notes-io.js'
 import { packRoot } from './_pack.mjs'
 
@@ -81,8 +82,10 @@ ok(v1.brief.counts.pending === (q.body.pending || []).length, `待答数与队�
 const g = glossarySummary(loadGlossaryLedger(ROOT))
 ok(v1.markdown.includes(`${g.count} 个名词`) && v1.markdown.includes(`${g.categories} 类`), `术语数与台账一致（${g.count} / ${g.categories}）`)
 ok(v1.markdown.includes(`${listLearningRecords(ROOT).length} 份`), `学习记录份数与目录一致（${listLearningRecords(ROOT).length}）`)
-ok(v1.brief.next.action === 'continue-lesson' && /第2课/.test(v1.brief.next.why), `真包上的建议：${v1.brief.next.action} —— ${v1.brief.next.why}`)
-ok(/还缺 5 项/.test(v1.brief.next.why) && !/spring-boot\/0002 还缺/.test(v1.brief.next.why), '建议里说的是**课标题**（给教师看的一页），不是内部 id')
+// ⚠️ 这两条**不许把数字/动作写死**（2026-09-24 实测）：真包是学生**正在用**的包，
+//    "还缺 5 项"这种快照会在学生做题的当天就过期。这里只验**结构**与**措辞**。
+ok(NEXT_ACTIONS.includes(v1.brief.next.action) && !!v1.brief.next.why, `真包上的建议：${v1.brief.next.action} —— ${v1.brief.next.why}`)
+ok(/第\d+课/.test(v1.brief.next.why) && !/\/\d{4}\b/.test(v1.brief.next.why), '建议里说的是**课标题**（给教师看的一页），不是内部 id')
 
 // ── ⑧ 学生笔记（真包上）──
 const realNotes = readNotes(ROOT)
@@ -134,6 +137,21 @@ try {
   }
   const pom = path.join(proj, 'pom.xml')
   fs.writeFileSync(pom, fs.readFileSync(pom, 'utf8').replace('</dependencies>', '  <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-validation</artifactId></dependency>\n  </dependencies>'), 'utf8')
+  // ⚠️ 2026-09-24：`decideNext` 的真源改成**挑战级**（与开新课的门禁同源）—— 只补 required 形状
+  //    不够了：第2课的挑战还要 Task + @NotNull（挑战1）与那两个端点（挑战2/3）。
+  //    不补的话 `gaps` 不为空，`continue-lesson` 会一直压在前面，前置闸那条分支根本走不到。
+  fs.writeFileSync(
+    path.join(pkg, 'model', 'Task.java'),
+    'package x;\nimport jakarta.validation.constraints.NotNull;\npublic class Task {\n  @NotNull private String title;\n}\n',
+    'utf8'
+  )
+  fs.writeFileSync(
+    path.join(pkg, 'controller', 'TaskController.java'),
+    'package x;\nimport org.springframework.web.bind.annotation.*;\n@RestController\npublic class TaskController {\n'
+      + '  @GetMapping("/api/tasks")\n  public String list() { return "[]"; }\n'
+      + '  @PatchMapping("/api/tasks/{id}/complete")\n  public String complete(@PathVariable String id) { return id; }\n}\n',
+    'utf8'
+  )
   const after = await tool2.execute({ root: tmp })
   // ── 前置闸（2026-09-23 用户裁定）──
   // 学生代码里第2课的**形状缺口**补上了（探针说 ✓），但 `progress.json` 还没点亮它，

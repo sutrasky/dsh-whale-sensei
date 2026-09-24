@@ -58,10 +58,24 @@ ok(
 )
 const l1 = data.lessons['spring-boot/0001']
 const l2 = data.lessons['spring-boot/0002']
-ok(l1.summary.achieved === 3 && l1.summary.total === 3 && l1.summary.needsReview === 1, `第1课：达成 ${l1.summary.achieved} / 共 ${l1.summary.total}（另有 ${l1.summary.needsReview} 项需人工确认）`)
-ok(l2.summary.achieved === 0 && l2.summary.total === 3 && l2.summary.needsReview === 1, `第2课：达成 ${l2.summary.achieved} / 共 ${l2.summary.total}（另有 ${l2.summary.needsReview} 项需人工确认）`)
-ok(l1.challenges[0].state === 'done' && l2.challenges[0].state === 'todo', '逐题状态对（第1课第1题 done、第2课第1题 todo）')
-ok(l1.challenges[3].state === 'review' && !!l1.challenges[3].why, '需人工确认的那题带 why（说明为什么机器判不了）')
+// ⚠️ 这几条**不许写死数字**：真包是学生**正在用**的包（2026-09-24 实测：他当天就把第2课做到 2/3，
+//    写死"第2课 0/3"当场就红）。判据改成"页面拿到的数 = 探针算的数"—— 这才是这套真正要验的。
+const byId = new Map((state.projects || []).flatMap((p) => (p.lessons || []).map((l) => [l.id, l])))
+let mismatched = 0
+for (const [key, d] of Object.entries(data.lessons)) {
+  const l = byId.get(key)
+  if (!l || d.summary.achieved !== l.challengeSummary.achieved
+    || d.summary.total !== l.challengeSummary.total
+    || d.summary.needsReview !== l.challengeSummary.needsReview) mismatched++
+}
+ok(mismatched === 0, `每一课的 k/n 与探针快照**逐课相等**（不等 ${mismatched} 课）`)
+ok(Object.keys(data.lessons).length === byId.size, `实践区课数 = 有判据的课数（${Object.keys(data.lessons).length} / ${byId.size}）`)
+ok(
+  Object.values(data.lessons).every((d) => (d.challenges || []).every((c) => ['done', 'todo', 'review'].includes(c.state))),
+  '逐题状态都在三态集合里（done / todo / review）'
+)
+const reviewOnes = Object.values(data.lessons).flatMap((d) => (d.challenges || []).filter((c) => c.state === 'review'))
+ok(reviewOnes.every((c) => !!c.why), `需人工确认的题都带 why（${reviewOnes.length} 条）`)
 ok(
   [...l1.challenges, ...l2.challenges].every((c) => typeof c.deliverable === 'string' && c.deliverable.trim()),
   '**每道挑战都有明确的产出**（deliverable）—— 这是"检查变容易"的前提'
