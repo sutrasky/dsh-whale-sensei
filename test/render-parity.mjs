@@ -139,6 +139,89 @@ try {
   fs.rmSync(tmp, { recursive: true, force: true })
 }
 
+// ── ⑥ E 条：死代码三个符号（清单渲染函数 / 名词链接 / 它的 slug helper）不许回来 ──
+// 为什么这组判据是**源码级**：这三个符号零调用，删与不删产物逐字节不变 —— 只有盯源码才盯得住。
+// 三处源一起盯：包侧原件 / 随包模板副本 / 插件侧同源实现（登记表第 1 对）。
+// 为什么先剥注释：下面每个符号都得在注释里解释"为什么删"——注释里提到名字不算"回来了"，
+// 判据只看**代码**。剥注释这件事本身也有反空转与"别剥多了"的钉子（见下）。
+/**
+ * 把 JS 的块注释与行注释换成空格（判据只看代码；`http://` 里的 `//` 不算注释开头）。
+ * @param {string} src
+ * @returns {string}
+ */
+export function stripJsComments(src) {
+  return String(src)
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:\\])\/\/[^\n]*/g, '$1 ')
+}
+
+/** 三个已删符号 + 它们各自"回来"意味着什么 */
+const DEAD_SYMBOLS = [
+  ['renderTermList', '名词清单渲染函数还在（两处定义零调用的死代码，笔记卡改版时就该删）'],
+  ['termHref', '名词页链接函数又回来了（清单函数删掉后它零调用；真要恢复就先恢复调用方）'],
+  ['slug', '名词页锚点的 slug helper 又回来了（它的唯一调用方是上面那个链接函数）'],
+]
+
+/**
+ * @param {Record<string,string>} sources 文件名 → 源码
+ * @returns {string[]} 问题（空 = 全过）
+ */
+export function checkTermListDead(sources) {
+  const problems = []
+  for (const [name, raw] of Object.entries(sources)) {
+    const src = stripJsComments(raw)
+    for (const [sym, why] of DEAD_SYMBOLS) {
+      if (new RegExp(`\\b${sym}\\b`).test(src)) problems.push(`${name}: ${why}`)
+    }
+    if (/\{\{\s*TERM_LIST/.test(src)) {
+      problems.push(`${name}: 又出现清单槽位（现行产物禁止正文出现 .term-list）`)
+    }
+    if (src.includes('../GLOSSARY.md#')) {
+      problems.push(`${name}: 又把 ../GLOSSARY.md 写死（分层布局下 lessons/<圈>/<点>/ 会解析到 lessons/<圈>/GLOSSARY.md，不存在；活链接只有外壳的 {{PAGE_UP}}GLOSSARY.md）`)
+    }
+  }
+  return problems
+}
+
+{
+  const PLUGIN_DIR = path.join(HERE, '..')
+  const sources = {
+    '包侧 tools/build-lessons.js': fs.readFileSync(path.join(ROOT, 'tools', 'build-lessons.js'), 'utf8'),
+    '随包模板副本 lib/pack-template/tools/build-lessons.js': fs.readFileSync(path.join(PLUGIN_DIR, 'lib', 'pack-template', 'tools', 'build-lessons.js'), 'utf8'),
+    '插件侧 lib/render.js': srcText,
+  }
+  const probs = checkTermListDead(sources)
+  ok(probs.length === 0, `E：三处源里清单渲染函数 / 名词链接 / slug helper 零残留、清单槽位零残留、没有写死的 ../GLOSSARY.md${probs.length ? '（' + probs.join('；') + '）' : ''}`)
+
+  // 剥注释本身：代码留住、注释丢掉；URL 里的 // 不算注释
+  ok(stripJsComments('const a = 1 /* renderTermList */\n// termHref\n').trim() === 'const a = 1',
+    '剥注释：块注释与行注释都不进判据，代码留着')
+  ok(stripJsComments('const u = "http://x/slug"').includes('slug'),
+    '剥注释：字符串里的 // 不当注释开头（URL 不会被吃掉后半截）')
+  // 剥多了会让上面那条**假绿** —— 钉住"活代码还在"
+  ok(/export function renderPage/.test(stripJsComments(sources['插件侧 lib/render.js'])),
+    '剥注释：插件侧 render.js 的活代码（renderPage）还在（没被剥多）')
+  ok(/function parseSource/.test(stripJsComments(sources['包侧 tools/build-lessons.js'])),
+    '剥注释：包侧 build-lessons.js 的活代码（parseSource）还在（没被剥多）')
+
+  // 反空转：把每个已删符号塞回去 → 判据必须报出来，否则上面那条是空转
+  const back = checkTermListDead({ '伪造·清单函数回来了': 'export function renderTermList(terms, gi, file) { return "" }' })
+  ok(back.some((p) => /清单渲染函数还在/.test(p)), '反空转①：把清单渲染函数塞回去 → 判据红')
+
+  const href = checkTermListDead({ '伪造·链接函数回来了': 'export const termHref = (key, pageUp) => `${pageUp}GLOSSARY.md#${slug(k)}`' })
+  ok(href.some((p) => /链接函数又回来/.test(p)), '反空转②：把名词页链接函数塞回去 → 判据红')
+
+  const sg = checkTermListDead({ '伪造·slug 回来了': 'function slug(label) { return String(label) }' })
+  ok(sg.some((p) => /slug helper 又回来/.test(p)), '反空转③：把 slug helper 塞回去 → 判据红')
+
+  const hard = checkTermListDead({ '伪造·硬编码回来了': 'const u = `../GLOSSARY.md#${x}`;' })
+  ok(hard.some((p) => /写死/.test(p)), '反空转④：把 ../GLOSSARY.md 写死回去 → 判据红')
+
+  // 反空转的对偶：**只在注释里**提到这些名字 → 不许红（证明判据看的是代码，不是文本）
+  const onlyComment = checkTermListDead({ '伪造·只在注释里提': '/* 这里曾经有 renderTermList / termHref / slug */\nconst a = 1' })
+  ok(onlyComment.length === 0, '反空转⑤：只在注释里提到这三个符号 → 不红（判据看代码，不看注释）')
+}
+
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
 console.log('✅ 同样的输入 → 同样的页面（插件与 CLI 逐字节等价）')
