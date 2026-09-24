@@ -48,7 +48,7 @@ function hashTree(root) {
 
 console.log(`\n[challenge-gate] 课程包：${ROOT}`)
 const pack = readPack(ROOT)
-const realBefore = hashTree(path.join(ROOT, 'lessons')) + '|' + hashTree(path.join(ROOT, 'code')) + '|' + hashTree(path.join(ROOT, 'math'))
+const realBefore = hashTree(path.join(ROOT, 'lessons')) + '|' + hashTree(path.join(ROOT, 'code')) + '|' + hashTree(path.join(ROOT, 'math')) + '|' + hashTree(path.join(ROOT, 'learning-records'))
 
 // ── ① 「上一课」的确定 ──
 ok(previousLesson(pack, 'spring-boot')?.id === 'spring-boot/0002', 'spring-boot 的上一课 = 0002（该知识点现有的最后一课）')
@@ -75,12 +75,43 @@ const bad = judgeSnapshot(mkDoc([DONE, TODO], realDigest), ROOT, 'pt/0001')
 ok(bad.code === 'criteria-not-met' && bad.gaps.length === 1 && bad.gaps[0].no === 2,
   '有 missing → criteria-not-met，且点名题号（' + JSON.stringify(bad.gapText) + '）')
 
-// ── ③ 真包现状：三课都没做完 ⇒ 都该被拦 ──
-for (const p of ['spring-boot', 'vue', 'alge']) {
-  const g = challengeGate({ root: ROOT, pack, point: p })
-  ok(g.allowed === false && g.code === 'criteria-not-met', `${p}：上一课挑战没过 → 拦住（${g.lesson}）`)
-  ok(Array.isArray(g.missing) && g.missing.length > 0 && g.missing.every((m) => Number.isSafeInteger(m.no) && m.no > 0),
-    `${p}：逐条列了缺哪几题（${(g.missing || []).map((m) => '#' + m.no).join(' ')}）`)
+// ── ③ 与真包同构的影子副本：门禁跑得通，且**自动重判**这条按 v3 §4.1 真的触发 ──
+// ⚠️ 为什么用副本而不是真包：`challengeGate` 的 `probe:true` 在快照过期时会**重研判据快照并写回**
+//    （那是 v3 §4.1 的既定行为，生产里是对的）。但在测试里对**真包**这么做有两个后果：
+//    ① 别的套同时读真包的 `state.json` → 互相干扰（2026-08-24 实测：全量跑时 bom-tolerance /
+//       brief / practice 集体转红，单独跑全绿）；
+//    ② 本套自己那句"真包一字未动"就成了假话。所以门禁一律在副本上跑，真包只读。
+const KNOWN_CODES = ['no-snapshot', 'no-criteria', 'stale-snapshot', 'criteria-not-met', 'ok', 'first-lesson']
+const tmp3 = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-gate3-'))
+try {
+  fs.cpSync(ROOT, tmp3, { recursive: true })
+  const snapPath = path.join(tmp3, 'learning-records', 'state.json')
+  const dirOfLesson = (lessonId) => {
+    const doc = JSON.parse(fs.readFileSync(snapPath, 'utf8'))
+    const pr = (doc.projects || []).find((x) => (x.lessons || []).some((l) => l.id === lessonId))
+    return pr ? String(pr.dir || '') : ''
+  }
+  for (const p of ['spring-boot', 'vue', 'alge']) {
+    // 逐点把**各自的实践区**弄脏（不是只弄脏一个）—— 新鲜度是按项目算的，
+    // 只动 vue 的话 spring-boot / alge 的快照对它们自己而言仍然是新鲜的，重判那条路根本不会走
+    const lessonId = previousLesson(readPack(tmp3), p)?.id
+    const dir = lessonId ? dirOfLesson(lessonId) : ''
+    if (dir) {
+      const abs = path.join(tmp3, dir)
+      fs.mkdirSync(abs, { recursive: true })
+      fs.writeFileSync(path.join(abs, 'gate-probe.md'), 'x\n', 'utf8')
+    }
+    const g = challengeGate({ root: tmp3, pack: readPack(tmp3), point: p })
+    ok(KNOWN_CODES.includes(g.code), `${p}：判词落在已知词汇表里（${g.code}${dir ? '，脏的是 ' + dir : ''}）`)
+    ok(g.rejudged === true, `${p}：快照过期 → **自动重判了一次**（v3 §4.1，不是直接放弃）`)
+    if (g.code === 'criteria-not-met') {
+      ok(Array.isArray(g.missing) && g.missing.length > 0
+        && g.missing.every((m) => Number.isSafeInteger(m.no) && m.no > 0 && typeof m.deliverable === 'string'),
+        `${p}：判为没过时，逐条列了 #编号 + 产出（${(g.missing || []).map((m) => '#' + m.no).join(' ')}）`)
+    }
+  }
+} finally {
+  fs.rmSync(tmp3, { recursive: true, force: true })
 }
 
 // ── ④ 无判据课 → 放行 + 显式告警（防死锁，绝不静默降级）──
@@ -101,15 +132,25 @@ try {
   ok(!!author, 'whale_author 装得上')
   const base = { point: 'alge', number: 2, title: '代数 第2课 门禁探针', slug: 'gate-probe', hintTerm: 'factorization', source: { label: 'x', url: 'https://example.com' }, root: tmp }
 
+  // ⚠️ ⑤ 验的是**接线**（判词本身在 ② 验）—— 期望值从同一个副本的 `challengeGate` 现算，不写死。
+  //    写死就绑在"学生今天做到哪"上了：学生把 alge 做完，这条就会假红（2026-09-24 实测）。
+  const gExpect = challengeGate({ root: tmp, pack: readPack(tmp), point: 'alge' })
   const blocked = await author.execute({ ...base, commit: true })
-  ok(blocked.ok === false && blocked.needsChallenge === true, 'commit 时被门禁拦住（needsChallenge=true）')
-  ok(!!blocked.challenge && blocked.challenge.code === 'criteria-not-met', '回执里带着判词与课次（' + (blocked.challenge && blocked.challenge.lesson) + '）')
-  ok(/拒绝生成新课/.test(blocked.error || ''), '错误文案是"拒绝生成新课：…"（与前置闸合并成一条）')
-  ok(!fs.existsSync(path.join(tmp, 'lessons', 'src', 'math', 'alge', '0002-gate-probe.html')), '被拦时**一个文件都没写**')
+  if (gExpect.allowed === false) {
+    ok(blocked.ok === false && blocked.needsChallenge === true, `commit 时被门禁拦住（needsChallenge=true，判词 ${gExpect.code}）`)
+    ok(!!blocked.challenge && blocked.challenge.code === gExpect.code, '回执里的判词与门禁**同源一致**（' + (blocked.challenge && blocked.challenge.code) + '）')
+    ok(/拒绝生成新课/.test(blocked.error || ''), '错误文案是"拒绝生成新课：…"（与前置闸合并成一条）')
+    ok(!fs.existsSync(path.join(tmp, 'lessons', 'src', 'math', 'alge', '0002-gate-probe.html')), '被拦时**一个文件都没写**')
+  } else {
+    ok(blocked.needsChallenge !== true, `门禁放行（${gExpect.code}）时 author 不该拿挑战当理由拦人`)
+  }
 
   const forced = await author.execute({ ...base, commit: true, force: true })
-  ok(!!forced.forced && forced.forced.bypassed.some((s) => /上一课挑战/.test(s)),
-    'force 放行但**留痕**说清绕过了哪道闸（' + JSON.stringify(forced.forced?.bypassed) + '）')
+  ok(!!forced.forced, 'force 走完时带着留痕')
+  if (gExpect.allowed === false) {
+    ok(forced.forced.bypassed.some((s) => /上一课挑战/.test(s)),
+      'force 放行时**留痕**说清绕过了"上一课挑战"这道闸（' + JSON.stringify(forced.forced?.bypassed) + '）')
+  }
   // ⚠️ force 那条会**起异步重建作业**（它自己 spawn node 进程）—— 不等它跑完就删临时目录会 EPERM。
   //    而且留痕必须算在写盘**之前**：写盘后 `previousLesson()` 会变成刚建的新课（它还没判据）。
   if (forced.rebuild?.jobId) {
@@ -121,9 +162,9 @@ try {
   fs.rmSync(tmp, { recursive: true, force: true })
 }
 
-// ── ⑥ 真包一字未动 ──
-ok(hashTree(path.join(ROOT, 'lessons')) + '|' + hashTree(path.join(ROOT, 'code')) + '|' + hashTree(path.join(ROOT, 'math')) === realBefore,
-  '真包一字未动（lessons/ + code/ + math/ 全树哈希相同）')
+// ── ⑥ 真包一字未动（**含 learning-records/** —— 漏了它就抓不住"门禁顺手刷了真快照"这种事）──
+ok(hashTree(path.join(ROOT, 'lessons')) + '|' + hashTree(path.join(ROOT, 'code')) + '|' + hashTree(path.join(ROOT, 'math')) + '|' + hashTree(path.join(ROOT, 'learning-records')) === realBefore,
+  '真包一字未动（lessons/ + code/ + math/ + learning-records/ 全树哈希相同）')
 
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
