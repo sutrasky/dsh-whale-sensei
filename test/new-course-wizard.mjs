@@ -18,9 +18,11 @@
  */
 
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { packRoot, PLUGIN } from './_pack.mjs'
-import { FORM_EMPTY_TEXT, composeRequest, buildStarter, goalFromForm } from '../lib/starter.js'
+import { FORM_EMPTY_TEXT, composeRequest, buildStarter, goalFromForm, composeMapPrompt } from '../lib/starter.js'
 
 const ROOT = packRoot()
 let pass = 0
@@ -424,7 +426,7 @@ function renderAndAct(initialState, fetchResponseQueue, srcOverride) {
 		return { tree, texts }
 	}
 
-	return { render, fetchCalls, setStateCalls, slots }
+	return { render, fetchCalls, setStateCalls, slots, regs, responseQueue }
 }
 
 /* ── [6] 不许出现死按钮：canCreate false/true 各验一遍 ──────────────────── */
@@ -743,6 +745,222 @@ function renderAndAct(initialState, fetchResponseQueue, srcOverride) {
 	ok(!postCall, '[15] 反空转：doCreateCircle 换成空函数 → POST 未发出（证明 [11] 不是摆设）')
 }
 
+/* ══════ 判据 1–4：建点成功 → 「为它生成知识点地图（大纲）」的指令 ══════════════
+ * 依据 `01-鲸师.md:204 / :394` + 主人 2026-09-24 拍板（建点成功后自动送一条"生成这张地图"的指令）。
+ * 链路：`lib/starter.js` 的 composeMapPrompt（话术唯一家）→ `lib/mods/create.js` 的
+ * `POST /api/whale/point` 成功回执 `mapPrompt` → `lib/client.js` 的 pushToComposer（composer 通道）。
+ *   [16] 判据 1：话术内容要素齐全
+ *   [17] 判据 3：反空转 —— 话术函数换成返回空串，判据必须报出来
+ *   [18] 判据 2：只有成功回执带 mapPrompt（坏 id / 重名 / 缺参数 → 没有）
+ *   [19] 判据 4：客户端真的会送（成功恰好一次且逐字相同；失败 / 缺 mapPrompt 一次都不送）
+ */
+const MAP_SAMPLE = { circleId: 'programming', circleName: '编程', pointId: 'spring-boot', pointName: 'Spring Boot' }
+
+/**
+ * 地图话术的**内容判据**（[16] 的逐条断言与它同源；[17] 拿它跑变异）。
+ * @returns {string[]} 问题列表，空 = 过
+ */
+function mapPromptProblems(text, exp = { id: 'programming/spring-boot', names: ['编程', 'Spring Boot'] }) {
+	const t = String(text ?? '')
+	const p = []
+	if (!t.trim()) p.push('正文是空的（话术函数返回了空串）')
+	if (!t.includes(exp.id)) p.push(`缺点名 圆圈/知识点 规范 id（${exp.id}）`)
+	for (const n of exp.names) if (!t.includes(n)) p.push(`缺点名显示名（${n}）`)
+	if (!t.includes('whale_plan')) p.push('缺 whale_plan')
+	if (!t.includes('op=record')) p.push('缺 op=record')
+	if (!t.includes('point') || !t.includes('goal') || !t.includes('nodes')) p.push('缺落盘三件 point + goal + nodes[]')
+	for (const f of ['no', 'title', 'deliverable', 'criteria', 'why', 'sources']) {
+		if (!t.includes(f)) p.push(`缺节点字段名 ${f}`)
+	}
+	if (!t.includes('砍')) p.push('缺「why 写不出就砍掉这个节点」的意思')
+	if (!t.includes('http')) p.push('缺 sources = http(s) 官方文档/规范')
+	if (!t.includes('大纲')) p.push('缺「地图是大纲」')
+	if (!t.includes('正文细节')) p.push('缺「不写正文细节」')
+	if (!t.includes('学完') || !t.includes('交付')) p.push('缺 goal = 学完能交付什么（终点本体）')
+	if (!t.includes('建不了课') || !t.includes('force')) p.push('缺「没地图就建不了课 / 禁 force 绕」')
+	return p
+}
+
+/* ── [16] 判据 1：lib/starter.js 拼出的正文要素齐全 ─────────────────── */
+{
+	const text = composeMapPrompt(MAP_SAMPLE)
+	ok(text.includes('whale_plan'), '[16] 话术含 whale_plan')
+	ok(text.includes('op=record'), '[16] 话术含 op=record')
+	ok(text.includes('point') && text.includes('goal') && text.includes('nodes'), '[16] 写明落盘三件：whale_plan op=record（point + goal + nodes[]）')
+	ok(text.includes('no'), '[16] 节点六样 · no')
+	ok(text.includes('title'), '[16] 节点六样 · title')
+	ok(text.includes('deliverable'), '[16] 节点六样 · deliverable')
+	ok(text.includes('criteria'), '[16] 节点六样 · criteria')
+	ok(text.includes('why'), '[16] 节点六样 · why')
+	ok(text.includes('sources'), '[16] 节点六样 · sources')
+	ok(text.includes('why') && text.includes('砍'), '[16] why 与「写不出 why 就把这个节点砍掉」的意思')
+	ok(text.includes('http'), '[16] sources 必须是 http(s) 官方文档/规范')
+	ok(text.includes('大纲') && text.includes('正文细节'), '[16] 「地图是大纲 / 不写正文细节」的意思')
+	ok(text.includes('programming/spring-boot') && text.includes('编程') && text.includes('Spring Boot'), '[16] 点名知识点（圆圈/知识点 与显示名）')
+	ok(text.includes('学完') && text.includes('交付'), '[16] goal = 终点本体（学完能交付什么，一句话）')
+	ok(text.includes('建不了课') && text.includes('force'), '[16] 提醒：没地图就建不了课（大纲闸，禁 force 绕）')
+	const problems = mapPromptProblems(text)
+	ok(problems.length === 0, `[16] 统一内容判据全过（${problems.join('；') || '干净'}）`)
+}
+
+/* ── [17] 判据 3：反空转 —— 话术函数换成返回空串，判据必须报出来 ────── */
+{
+	const libDir = path.join(PLUGIN, 'lib')
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-map-prompt-'))
+	for (const f of fs.readdirSync(libDir)) {
+		if (f.endsWith('.js')) fs.copyFileSync(path.join(libDir, f), path.join(tmp, f))
+	}
+	const src = fs.readFileSync(path.join(libDir, 'starter.js'), 'utf8')
+	const mutated = src.replace(/export function composeMapPrompt\([\s\S]*?\n}/, "export function composeMapPrompt() {\n\treturn ''\n}")
+	ok(mutated !== src && /return ''/.test(mutated), '[17] 变异真的发生了：composeMapPrompt 整个换成 return ""')
+	fs.writeFileSync(path.join(tmp, 'starter.js'), mutated, 'utf8')
+	const broken = await import(pathToFileURL(path.join(tmp, 'starter.js')).href)
+	ok(broken.composeMapPrompt(MAP_SAMPLE) === '', '[17] 变异后的函数真的返回空串')
+	const problems = mapPromptProblems(broken.composeMapPrompt(MAP_SAMPLE))
+	ok(problems.length > 0, `[17] 反空转：返回空串 → 判据必须报出来（实报 ${problems.length} 条，如「${problems[0] || '无'}」）`)
+	ok(mapPromptProblems(composeMapPrompt(MAP_SAMPLE)).length === 0, '[17] 同一判据在真话术上是过的（不是永远报错的假判据）')
+	fs.rmSync(tmp, { recursive: true, force: true })
+}
+
+/* ── [18] 判据 2：只有建点成功回执带 mapPrompt（失败一个字都不带）───── */
+{
+	// 合成最小课程包（临时目录，绝不碰真包）：一个圆圈 + 一个已有点（用它测「重名拒覆盖」）
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-map-route-'))
+	fs.mkdirSync(path.join(tmp, 'lessons', 'math', 'algebra'), { recursive: true })
+	fs.writeFileSync(path.join(tmp, 'lessons', 'math', 'halo.json'), JSON.stringify({ halo: 'math', name: '数学' }, null, 2) + '\n')
+	fs.writeFileSync(path.join(tmp, 'lessons', 'math', 'algebra', 'point.json'), JSON.stringify({ point: 'algebra', name: '代数', fileBase: 0 }, null, 2) + '\n')
+	const routes = []
+	const hctx = {
+		paths: { packRoot: tmp, dataDir: tmp },
+		log: { info() {}, warn() {}, error() {} },
+		registerTool: () => {},
+		inject: (names, cb) => cb({ get: () => ({ fetch: { register: (r) => routes.push(r) } }) }),
+	}
+	const { plugin } = await import(pathToFileURL(path.join(PLUGIN, 'lib', 'mods', 'create.js')).href)
+	plugin.install(hctx)
+	const pointR = routes.find((r) => r.path === '/api/whale/point')
+	const call = (body) => pointR.fetch({ method: 'POST', url: 'http://127.0.0.1/api/whale/point', json: async () => body })
+
+	const good = await (await call({ circle: 'math', name: '几何', id: 'geometry' })).json()
+	ok(good.ok === true, '[18] 建点成功（math/geometry）')
+	ok(typeof good.mapPrompt === 'string' && good.mapPrompt.trim().length > 0, '[18] 成功回执带非空 mapPrompt')
+	ok(mapPromptProblems(good.mapPrompt, { id: 'math/geometry', names: ['数学', '几何'] }).length === 0,
+		`[18] 回执里的 mapPrompt 过内容判据（${mapPromptProblems(good.mapPrompt, { id: 'math/geometry', names: ['数学', '几何'] }).join('；') || '干净'}）`)
+	ok(good.mapPrompt.includes('math/geometry') && good.mapPrompt.includes('几何') && good.mapPrompt.includes('数学'),
+		'[18] mapPrompt 点名圆圈/知识点与显示名（math/geometry · 数学 / 几何）')
+
+	const badId = await (await call({ circle: 'math', name: 'X', id: 'Bad_Id' })).json()
+	ok(badId.ok === false && !('mapPrompt' in badId), '[18] 坏 id → 失败回执里没有 mapPrompt')
+	const dup = await (await call({ circle: 'math', name: '代数2', id: 'algebra' })).json()
+	ok(dup.ok === false && !('mapPrompt' in dup), '[18] 重名（拒覆盖）→ 失败回执里没有 mapPrompt')
+	const noName = await (await call({ circle: 'math', id: 'trig' })).json()
+	ok(noName.ok === false && !('mapPrompt' in noName), '[18] 缺参数（没有 name）→ 失败回执里没有 mapPrompt')
+	fs.rmSync(tmp, { recursive: true, force: true })
+}
+
+/* ── [19] 判据 4：客户端真的会送（composer 通道与 send() 同一条）────── */
+{
+	const mapText = composeMapPrompt(MAP_SAMPLE)
+	const drafted = []
+	const submitted = []
+	const act = renderAndAct({
+		phase: 'ready', entry: { form: { fields: [], title: '新课程', intro: '', submitLabel: '发送', cancelLabel: '取消' } },
+		values: {}, why: null, step: 1,
+		catalog: { ok: true, canCreate: true, circles: [] },
+		selectedCircle: { id: 'programming', name: '编程', points: [] },
+		selectedPoint: null, catalogWhy: null,
+		newCircle: { open: false, name: '', id: '', saving: false, error: null },
+		newPoint: { open: true, name: '代数', id: 'algebra', saving: false, error: null },
+	}, [
+		// ① POST /api/whale/point 成功回执（mapPrompt 就是 [18] 钉的那个字段）
+		{ ok: true, id: 'programming/algebra', mapPrompt: mapText },
+		// ② reloadCatalog 的 GET /api/whale/catalog
+		{ ok: true, configured: true, canCreate: true, circles: [{ id: 'programming', name: '编程', points: [{ id: 'algebra', name: '代数', fileBase: 0, nextNumber: 1, lessons: [] }] }] },
+	])
+	// composer 桥（宿主注入的 inputActions）—— 与 panel.mjs 那条真流程同一套缝
+	const bridge = act.regs.find((r) => r.spec.id === 'whale-bridge')
+	ok(!!bridge, '[19] composer 桥（id: whale-bridge）在假环境里注册了')
+	bridge.comp({ inputActions: { setDraft: (t) => drafted.push(t), submit: () => submitted.push(1) } })
+
+	const { tree } = act.render()
+	const buttons = []
+	findButtons(tree, buttons)
+	const createBtn = buttons.find((b) => b.text === '创建')
+	ok(!!createBtn, '[19] 找到知识点「创建」按钮')
+	createBtn.onClick()
+	await new Promise((r) => setTimeout(r, 30))
+
+	ok(drafted.length === 1, `[19] 建点成功 → composer 通道恰好被调用一次（setDraft 实得 ${drafted.length} 次）`)
+	ok(drafted.length === 1 && drafted[0] === mapText, '[19] 送出的文本 === 服务端给的 mapPrompt（逐字相同）')
+	ok(submitted.length === 1, `[19] submit 恰好一次（实得 ${submitted.length} 次）`)
+
+	// 重试同一次建点（服务端拒覆盖）→ **不许再送第二条**
+	act.responseQueue.push({ ok: false, error: '知识点 programming/algebra 已存在，拒绝覆盖' })
+	act.slots[2] = Object.assign({}, act.slots[2], { newPoint: { open: true, name: '代数', id: 'algebra', saving: false, error: null } })
+	const again = act.render()
+	const btns2 = []
+	findButtons(again.tree, btns2)
+	const retryBtn = btns2.find((b) => b.text === '创建')
+	if (retryBtn) retryBtn.onClick()
+	await new Promise((r) => setTimeout(r, 30))
+	ok(drafted.length === 1 && submitted.length === 1, `[19] 重试被拒后没有再送（setDraft 仍 ${drafted.length} 次）—— 同一次建点只送一条`)
+}
+
+/* ── [19b] 建点失败 → composer 一次都不许被调用 ─────────────────────── */
+{
+	const drafted = []
+	const submitted = []
+	const act = renderAndAct({
+		phase: 'ready', entry: { form: { fields: [], title: '新课程', intro: '', submitLabel: '发送', cancelLabel: '取消' } },
+		values: {}, why: null, step: 1,
+		catalog: { ok: true, canCreate: true, circles: [] },
+		selectedCircle: { id: 'programming', name: '编程', points: [] },
+		selectedPoint: null, catalogWhy: null,
+		newCircle: { open: false, name: '', id: '', saving: false, error: null },
+		newPoint: { open: true, name: '代数', id: 'algebra', saving: false, error: null },
+	}, [
+		{ ok: false, error: 'point id 不合法：Bad_Id —— 必须匹配 /^[a-z][a-z0-9-]*$/' },
+	])
+	const bridge = act.regs.find((r) => r.spec.id === 'whale-bridge')
+	bridge.comp({ inputActions: { setDraft: (t) => drafted.push(t), submit: () => submitted.push(1) } })
+	const { tree } = act.render()
+	const buttons = []
+	findButtons(tree, buttons)
+	const createBtn = buttons.find((b) => b.text === '创建')
+	if (createBtn) createBtn.onClick()
+	await new Promise((r) => setTimeout(r, 30))
+	ok(drafted.length === 0 && submitted.length === 0,
+		`[19b] 建点失败 → composer 一次都没被调用（setDraft ${drafted.length} / submit ${submitted.length}）`)
+}
+
+/* ── [19c] 成功但没拿到 mapPrompt（旧宿主 / 缺字段）→ 也一个字不送 ──── */
+{
+	const drafted = []
+	const submitted = []
+	const act = renderAndAct({
+		phase: 'ready', entry: { form: { fields: [], title: '新课程', intro: '', submitLabel: '发送', cancelLabel: '取消' } },
+		values: {}, why: null, step: 1,
+		catalog: { ok: true, canCreate: true, circles: [] },
+		selectedCircle: { id: 'programming', name: '编程', points: [] },
+		selectedPoint: null, catalogWhy: null,
+		newCircle: { open: false, name: '', id: '', saving: false, error: null },
+		newPoint: { open: true, name: '代数', id: 'algebra', saving: false, error: null },
+	}, [
+		{ ok: true, id: 'programming/algebra' },
+		{ ok: true, configured: true, canCreate: true, circles: [{ id: 'programming', name: '编程', points: [{ id: 'algebra', name: '代数', fileBase: 0, nextNumber: 1, lessons: [] }] }] },
+	])
+	const bridge = act.regs.find((r) => r.spec.id === 'whale-bridge')
+	bridge.comp({ inputActions: { setDraft: (t) => drafted.push(t), submit: () => submitted.push(1) } })
+	const { tree } = act.render()
+	const buttons = []
+	findButtons(tree, buttons)
+	const createBtn = buttons.find((b) => b.text === '创建')
+	if (createBtn) createBtn.onClick()
+	await new Promise((r) => setTimeout(r, 30))
+	ok(drafted.length === 0 && submitted.length === 0,
+		`[19c] 没拿到 mapPrompt → 一个字都不送（硬约束 1；setDraft ${drafted.length} / submit ${submitted.length}）`)
+}
+
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
-console.log('✅ 新课程向导：三段契约 / 字段表已删 / 归属行按需出现 / 新建流程判据')
+console.log('✅ 新课程向导：三段契约 / 字段表已删 / 归属行按需出现 / 新建流程判据 / 建点后地图指令（mapPrompt）')
