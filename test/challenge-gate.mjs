@@ -21,6 +21,7 @@ import { readPack } from '../lib/pack.js'
 import { challengeGate, judgeSnapshot, previousLesson } from '../lib/gate.js'
 import { digestTree } from '../lib/fingerprint.js'
 import { plugin as authorPlugin } from '../lib/mods/author.js'
+import { plugin as starterPlugin } from '../lib/mods/starter.js'
 import { packRoot } from './_pack.mjs'
 
 const ROOT = packRoot()
@@ -160,6 +161,67 @@ try {
   }
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true })
+}
+
+// ── ⑦ 门禁读口（`/api/whale/gate`，2026-09-24 F1c）──
+// 卡片三态要知道"每个知识点上一课的挑战过没过"，所以门禁要有读口。
+// ⚠️ **GET 只读**：`challengeGate` 的 `probe:true` 会重判并**写回快照**（v3 §4.1 的既定行为），
+//    放进 GET 就是"读接口带副作用"—— 所以这里逐条钉住：GET 一律 probe:false，重判只能 POST。
+{
+  const tmpG = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-gate-route-'))
+  try {
+    fs.cpSync(ROOT, tmpG, { recursive: true })
+    const mount = (root) => {
+      const captured = []
+      starterPlugin.install({
+        paths: { packRoot: root },
+        log: { info: () => {}, warn: () => {}, error: () => {} },
+        registerTool: () => {},
+        inject: (_deps, cb) => cb({ get: () => ({ fetch: { register: (r) => captured.push(r) } }) }),
+      })
+      return captured.find((r) => r.path === '/api/whale/gate') || null
+    }
+
+    const gate = mount(tmpG)
+    ok(!!gate && gate.methods.join(',') === 'GET,POST', '门禁读口挂得上（GET / POST）')
+    ok(gate.requestBody === 'buffered', '显式声明 requestBody=buffered（基座据此决定要不要缓冲请求体）')
+
+    const call = (root, url, init) => mount(root).fetch(new Request(`http://127.0.0.1:3090${url}`, init))
+
+    // 给 circle/point 形态也认（取最后一段）
+    const r1 = await call(tmpG, '/api/whale/gate?point=programming%2Fspring-boot', { method: 'GET' })
+    const b1 = await r1.json()
+    ok(r1.status === 200 && b1.ok === true && b1.point === 'spring-boot', `GET 认得 circle/point 形态并取最后一段（${b1.point}）`)
+    ok(b1.probe === false, '**GET 一律 probe:false**（读接口不带副作用）')
+    ok(!!b1.verdict && typeof b1.verdict.allowed === 'boolean' && !!b1.verdict.lesson, `GET 带回判词（${b1.verdict?.code} / ${b1.verdict?.lesson}）`)
+
+    // GET 绝不写盘：把副本的快照时间戳/内容记下来，GET 前后逐字节比
+    const snapBefore = fs.readFileSync(path.join(tmpG, 'learning-records', 'state.json'), 'utf8')
+    for (const p of ['spring-boot', 'vue', 'alge']) await call(tmpG, `/api/whale/gate?point=${p}`, { method: 'GET' })
+    ok(fs.readFileSync(path.join(tmpG, 'learning-records', 'state.json'), 'utf8') === snapBefore,
+      '三次 GET 之后副本快照**逐字节未变**（GET 真的没写盘）')
+
+    // 无 point → 400（不是 500）
+    const r2 = await call(tmpG, '/api/whale/gate', { method: 'GET' })
+    ok(r2.status === 400 && /point/.test((await r2.json()).error || ''), `没给 point → ${r2.status}（不是 500）`)
+
+    // 没配 packRoot → configured:false + verdict:null（卡片按「未检测」渲染，fail-closed 不猜放行）
+    const r3 = await call(undefined, '/api/whale/gate?point=vue', { method: 'GET' })
+    const b3 = await r3.json()
+    ok(r3.status === 200 && b3.configured === false && b3.verdict === null, '没配 packRoot → configured:false 且不猜判词')
+
+    // POST probe=1 才是重判（显式动作）
+    const r4 = await call(tmpG, '/api/whale/gate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ point: 'vue', probe: 1 }),
+    })
+    const b4 = await r4.json()
+    ok(r4.status === 200 && b4.probe === true, 'POST probe=1 → probe:true（重判是显式动作）')
+    ok(!!b4.verdict && typeof b4.verdict.allowed === 'boolean', `POST 也带回判词（${b4.verdict?.code}）`)
+  } finally {
+    fs.rmSync(tmpG, { recursive: true, force: true })
+  }
 }
 
 // ── ⑥ 真包一字未动（**含 learning-records/** —— 漏了它就抓不住"门禁顺手刷了真快照"这种事）──

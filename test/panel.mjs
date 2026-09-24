@@ -449,28 +449,38 @@ ok((gb.entry?.form?.fields || []).filter((f) => f.required).length === 0, '不�
         const realWindow = globalThis.window
         const drafted = []
         const submitted = []
-        const replies = [
-          {
-            ok: true,
-            configured: true,
-            entry: {
-              label: '新课程',
-              prompt: '协议全文（假）',
-              form: {
-                title: '新课程', intro: '说明（摸底在后面）', submitLabel: '发送', cancelLabel: '取消',
-                fields: [{ id: 'topic', label: '要学什么', required: true, multiline: false }],
-                template: '【开课请求】\n- 要学什么：{{topic}}\n\n{{protocol}}',
-              },
-            },
-          },
-          // catalog 响应 - 返回错误，这样会跳过 wizard 直接显示表单
-          { ok: false, error: 'catalog 不可用' },
-          { ok: true, text: '【开课请求】\n- 要学什么：Vue 3\n\n协议全文（假）' },
-        ]
+        const CATALOG = {
+          ok: true, configured: true, canCreate: false,
+          circles: [{
+            id: 'programming', name: '编程', nextFileBase: 0,
+            points: [{ id: 'programming/vue', name: 'Vue', fileBase: 0, nextNumber: 1001, lessons: [] }],
+          }],
+        }
+        const ENTRY = {
+          label: '新课程', prompt: '协议全文（假）',
+          form: { title: '新课程', intro: '点知识点卡片即开课', submitLabel: '发送', cancelLabel: '取消', fields: [], template: '【开课请求】\n{{belong}}\n\n{{protocol}}' },
+        }
         const seenUrls = []
+        // ⚠️ **按路由给回复**，不按顺序出队：一键到位多了 GET /api/whale/gate 这一步，
+        //    顺序桩会整体错位（2026-09-24 F1c）。
         globalThis.fetch = (url, init) => {
-          seenUrls.push((init && init.method ? init.method + ' ' : 'GET ') + url)
-          return Promise.resolve({ status: 200, text: () => Promise.resolve(JSON.stringify(replies.shift() || { ok: false, error: '没有更多假回复' })) })
+          const method = init && init.method ? init.method : 'GET'
+          const u = String(url)
+          seenUrls.push(method + ' ' + u)
+          let body
+          if (u.indexOf('/api/whale/gate') >= 0) {
+            // 门禁放行 → 点卡片就该**直接发**
+            body = { ok: true, configured: true, point: 'vue', probe: false, allowed: true, prereq: { ok: true, missing: [] }, verdict: { allowed: true, code: 'ok', lesson: 'vue/1001', needsReview: [] } }
+          } else if (u.indexOf('/api/whale/starter') >= 0 && method === 'POST') {
+            body = { ok: true, text: '【开课请求】\n- 归属：编程 / Vue（programming/vue）\n\n协议全文（假）' }
+          } else if (u.indexOf('/api/whale/starter') >= 0) {
+            body = { ok: true, configured: true, entry: ENTRY }
+          } else if (u.indexOf('/api/whale/catalog') >= 0) {
+            body = CATALOG
+          } else {
+            body = { ok: false, error: '没有假回复：' + method + ' ' + u }
+          }
+          return Promise.resolve({ status: 200, text: () => Promise.resolve(JSON.stringify(body)) })
         }
         globalThis.window = { setTimeout: (fn) => setTimeout(fn, 0), prompt: () => {} }
         try {
@@ -496,35 +506,56 @@ ok((gb.entry?.form?.fields || []).filter((f) => f.required).length === 0, '不�
           await new Promise((r) => setTimeout(r, 0))
           ok(tree?.props?.open === true, '点一下侧栏那行 → 弹窗打开（open=true）')
           ok(seenUrls[0] === 'GET /api/whale/starter', `弹窗打开时拉载荷（${seenUrls[0]}）`)
-          // 递归找"渲染某个字段"的那个元素（它在 body → 字段行 → FieldInput 这一层）
-          const fieldEls = []
-          const walk = (el) => {
-            if (!el || !el.children) return
-            for (const c of el.children) {
-              if (c && c.props && c.props.field) fieldEls.push(c)
-              walk(c)
+          // 2026-09-24 F1c：**没有表单屏**了 —— 不该再渲染字段，也不该有「发送」按钮
+          const collectByText = (root, needle) => {
+            const out = []
+            const textOf = (el) => {
+              if (el == null || typeof el === 'boolean') return ''
+              if (typeof el === 'string' || typeof el === 'number') return String(el)
+              if (Array.isArray(el)) return el.map(textOf).join('')
+              if (el.children) return el.children.map(textOf).join('')
+              return ''
             }
+            const walk = (el) => {
+              if (!el || !el.children) return
+              for (const c of el.children) {
+                if (c && c.props && typeof c.props.onClick === 'function' && textOf(c).indexOf(needle) >= 0) out.push(c)
+                walk(c)
+              }
+            }
+            walk(root)
+            return out
           }
-          walk(tree)
-          ok(fieldEls.length === 1, `弹窗按宿主给的字段表画出了字段（字段表来自 entry.form，实得 ${fieldEls.length} 个）`)
-          const fieldEl = fieldEls[0]
-          const inputEl = fieldEl.type(fieldEl.props) // FieldInput 是纯函数组件，直接渲染一次
-          ok(!!inputEl?.props && typeof inputEl.props.onChange === 'function', `字段渲染成 ${inputEl?.type}（${fieldEl.props.field.id}）`)
-          inputEl.props.onChange({ target: { value: 'Vue 3' } })
+          const fieldEls = []
+          const walkF = (el) => {
+            if (!el || !el.children) return
+            for (const c of el.children) { if (c && c.props && c.props.field) fieldEls.push(c); walkF(c) }
+          }
+          walkF(tree)
+          ok(fieldEls.length === 0, `字段表已删 ⇒ 弹窗不渲染任何字段（实得 ${fieldEls.length} 个）`)
+          const footer0 = tree.props.footer
+          const primary0 = (footer0.children || []).find((b) => b && b.props && b.props.variant === 'primary')
+          ok(!primary0, '底部**没有**「发送」按钮（一键到位在卡片上，不在这儿）')
+
+          // —— 屏 1：点圆圈卡片（整块可点）——
+          const circleCards = collectByText(tree, '编程')
+          ok(circleCards.length > 0, `屏 1 渲染出了圆圈卡片（${circleCards.length} 张）`)
+          circleCards[0].props.onClick()
           await new Promise((r) => setTimeout(r, 0))
-          const footer = tree.props.footer
-          const sendBtn = footer.children.find((b) => b && b.props && b.props.variant === 'primary')
-          ok(!!sendBtn && sendBtn.children.join('') === '发送', `底部有 primary「发送」（${sendBtn?.children?.join('')}）`)
-          const cancelBtn = footer.children.find((b) => b && b.props && b.props.variant === 'outline')
-          ok(!!cancelBtn, '底部有「取消」（outline）')
-          sendBtn.props.onClick()
+          await new Promise((r) => setTimeout(r, 0))
+          ok(seenUrls.some((x) => x.indexOf('GET /api/whale/gate') >= 0), '进屏 2 就把门禁拉了一遍（GET /api/whale/gate）')
+
+          // —— 屏 2：点知识点卡片 = 一键到位（放行 → 直接发）——
+          const pointCards = collectByText(tree, 'Vue')
+          ok(pointCards.length > 0, `屏 2 渲染出了知识点卡片（${pointCards.length} 张）`)
+          ok(/已 0 课 · 下一课 第 1001 课/.test(JSON.stringify(tree)), '卡片保留「已 N 课 · 下一课 第 N 课」文案')
+          pointCards[0].props.onClick()
           await new Promise((r) => setTimeout(r, 0))
           await new Promise((r) => setTimeout(r, 0))
-          // 现在有 3 个 fetch：GET starter, GET catalog, POST starter
-          ok(seenUrls[2] === 'POST /api/whale/starter', `按发送 → POST 拼装（${seenUrls[2]}）`)
-          ok(drafted.length === 1 && drafted[0].includes('Vue 3') && drafted[0].includes('协议全文（假）'), '拼好的正文交给了 inputActions.setDraft')
-          ok(submitted.length === 1, '紧接着调了 inputActions.submit —— 发送键就是启动键')
-          ok(tree?.props?.open === false, '发送后弹窗自动关上')
+          await new Promise((r) => setTimeout(r, 0))
+          ok(seenUrls.some((x) => x === 'POST /api/whale/starter'), `点卡片即发 → POST 拼装（${seenUrls.filter((x) => x.indexOf('POST') === 0).join('、') || '一次都没发'}）`)
+          ok(drafted.length === 1 && drafted[0].indexOf('归属：编程 / Vue（programming/vue）') >= 0, '拼好的正文带着**归属行**，交给了 setDraft')
+          ok(submitted.length === 1, '紧接着调了 inputActions.submit —— 一键到位 = 点卡片那一下')
         } catch (e) {
           ok(false, `点侧栏 → 弹窗 → 发送 这条流程跑不通：${e?.message ?? e}`)
         } finally {

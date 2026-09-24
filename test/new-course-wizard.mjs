@@ -136,18 +136,20 @@ console.log(`\n[new-course-wizard] 课程包：${ROOT}`)
 	ok(programming.nextFileBase === 2000, `[3] programming.nextFileBase = ${programming.nextFileBase}（期望 2000）`)
 }
 
-/* ── detectStepOrder：三屏顺序检测器（被 [4] 和 [5] 共用）────────────── */
+/* ── detectStepOrder：向导屏顺序检测器（被 [4] 和 [5] 共用）────────────── */
 /**
- * 检测已剥注释的源码里三屏条件的出现顺序。
- * 返回 { mark0, mark1, mark2, inOrder }。
- * mark* 是三个代码条件字符串在 src 中的 indexOf 位置（-1 = 没找到）。
- * inOrder = 仅当 mark0 > -1 且 mark0 < mark1 < mark2 时为 true。
+ * 检测已剥注释的源码里各屏条件的出现顺序。
+ *
+ * **2026-09-24 F1c：两屏了**（原第 3 屏「填表单」已删）。所以这里改成：
+ *   · 找第 0/1 屏，且 0 在 1 前面；
+ *   · **并断言第 2 屏真的没了**（`state.step === 2` 一处都不许剩）—— 删干净才是交付。
+ * 返回 { mark0, mark1, mark2, inOrder }；mark2 恒为 -1 才算对。
  */
 function detectStepOrder(src) {
 	const mark0 = src.indexOf('state.step === 0 && state.catalog')
 	const mark1 = src.indexOf('state.step === 1 && state.selectedCircle')
-	const mark2 = src.indexOf('state.step === 2 && form')
-	const inOrder = mark0 > -1 && mark1 > -1 && mark2 > -1 && mark0 < mark1 && mark1 < mark2
+	const mark2 = src.indexOf('state.step === 2')
+	const inOrder = mark0 > -1 && mark1 > -1 && mark0 < mark1
 	return { mark0, mark1, mark2, inOrder }
 }
 
@@ -161,8 +163,8 @@ function detectStepOrder(src) {
 	const r = detectStepOrder(code)
 	ok(r.mark0 > -1, `[4] 找到 step === 0 条件（位置 ${r.mark0}）`)
 	ok(r.mark1 > -1, `[4] 找到 step === 1 条件（位置 ${r.mark1}）`)
-	ok(r.mark2 > -1, `[4] 找到 step === 2 条件（位置 ${r.mark2}）`)
-	ok(r.inOrder, `[4] 三屏顺序正确：step0(${r.mark0}) → step1(${r.mark1}) → step2(${r.mark2})`)
+	ok(r.mark2 === -1, `[4] 第 3 屏（填表单）已经**删干净**（step === 2 出现 ${r.mark2 === -1 ? 0 : 1} 处）`)
+	ok(r.inOrder, `[4] 两屏顺序正确：step0(${r.mark0}) → step1(${r.mark1})`)
 }
 
 /* ── [4b] 两列表单必须"缩得动"：不许再写回 '1fr 1fr' ────────────────────────
@@ -463,23 +465,22 @@ function renderAndAct(initialState, fetchResponseQueue, srcOverride) {
 	ok(hasText(textsStep1, '+ 新建知识点'), `[6] canCreate=true, step=1 → 渲染了「+ 新建知识点」`)
 }
 
-/* ── [7] 退回单屏表单：catalog 拿不到时 step=2、发送按钮在、原因可见 ──── */
+/* ── [7] catalog 拿不到：留在第 1 屏 + 原因可见（**不跳表单屏** —— 那屏已删）──── */
 {
-	// catalog 拿不到 → step=2、catalog=null、catalogWhy 有值
 	const whyText = '无法读取课程包目录'
 	const textsFallback = renderWithState({
 		phase: 'ready',
-		entry: { form: { fields: [{ id: 'topic', label: '要学什么', required: true, multiline: false }], title: '新课程', intro: '', submitLabel: '发送', cancelLabel: '取消' } },
-		values: {}, why: null, step: 2,
+		entry: { form: { fields: [], title: '新课程', intro: '', emptyText: '', submitLabel: '发送', cancelLabel: '取消', template: '' } },
+		values: {}, why: null, step: 0,
 		catalog: null,
 		selectedCircle: null, selectedPoint: null,
 		catalogWhy: whyText,
+		gates: {},
 	})
-	ok(hasText(textsFallback, '要学什么'), '[7] catalog 拿不到 → step=2 → 表单字段在')
-	ok(hasText(textsFallback, '发送'), '[7] catalog 拿不到 → 发送按钮在')
+	ok(!hasText(textsFallback, '发送'), '[7] catalog 拿不到 → **没有发送按钮**（表单屏已删，一键到位在卡片上）')
+	ok(!hasText(textsFallback, '要学什么'), '[7] catalog 拿不到 → 不再渲染表单字段')
 	ok(hasText(textsFallback, whyText), `[7] catalog 拿不到 → 原因「${whyText}」可见（warning 段渲染了 catalogWhy）`)
 }
-
 /* ── [8] 反空转：故意不传原因时，warning 段不该渲染原因文本 ────────────── */
 {
 	// catalogWhy=null, why=null → 界面里不该出现任何原因相关文本
@@ -698,12 +699,13 @@ function renderAndAct(initialState, fetchResponseQueue, srcOverride) {
 
 	// 检查状态推进
 	const finalState = slots[2]
-	ok(finalState.step === 2, `[14] 成功后 step === 2（实际 ${finalState.step}）`)
-	ok(finalState.selectedPoint && finalState.selectedPoint.name === '代数', `[14] selectedPoint.name === '代数'（实际 ${(finalState.selectedPoint || {}).name}）`)
+	// 表单屏已删（2026-09-24 F1c）：建完**留在选知识点这一屏**，不跳任何地方
+	ok(finalState.step === 1, `[14] 成功后仍留在选知识点屏（step === 1，实际 ${finalState.step}）`)
+	ok(finalState.selectedPoint === null, '[14] 不预选任何点（点卡片才是开课动作）')
 
-	// 重新渲染看归属行
+	// 重新渲染：新建的点应该在**卡片列表**里（它能点了）
 	const { texts: updatedTexts } = render()
-	ok(hasText(updatedTexts, '归属：编程 / 代数'), '[14] 归属行带上了新建的知识点名「编程 / 代数」')
+	ok(hasText(updatedTexts, '代数'), '[14] 新建的知识点出现在卡片列表里（可以点了）')
 }
 
 /* ── [15] 反空转：doCreateCircle 换成空函数 → [11] 的判据必须红 ───────── */
