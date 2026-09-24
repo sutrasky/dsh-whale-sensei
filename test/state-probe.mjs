@@ -74,12 +74,15 @@ ok(!!guardWorks, `无损自检本身能变红（${guardWorks || '对 Map 没报�
 // ── ① 事实抽得对 ──
 // 2026-09-24 D1：实践区改成「按圈声明」后，**只有 EXPECT.json、没有构建文件**的
 // `code/programming/vue/` 也立成了项目 —— 所以从 1 个变成 2 个（这正是本轮修掉的那个缺陷）
-ok(state.projects.length === 2, `扫到 2 个学生项目（实得 ${state.projects.length}：${state.projects.map((p) => p.dir).join('、')}）`)
+// 2026-09-24 D2-b：高数补了 EXPECT.json ⇒ `math/alge` 成为第 3 个（数学圈的实践区也活了）
+ok(state.projects.length === 3, `扫到 3 个学生项目（实得 ${state.projects.length}：${state.projects.map((p) => p.dir).join('、')}）`)
 ok(state.projects.some((p) => p.dir === 'code/programming/vue'),
   '②层缺陷回归判据：只有 EXPECT.json 的 vue 实践区也被认成项目')
+ok(state.projects.some((p) => p.dir === 'math/alge'),
+  '数学圈的实践区也是项目（D2-b：math/alge 的 EXPECT.json 生效）')
 ok(state.projects.every((p) => !path.isAbsolute(p.dir) && !p.dir.startsWith('../')),
   '项目身份是**包根相对**路径（多根扫描下不撞名）')
-ok(JSON.stringify(state.practiceRoots) === JSON.stringify(['code/_hello-spring-boot/hello-spring-boot', 'code/programming', 'code/programming/vue', 'math'].sort()),
+ok(JSON.stringify(state.practiceRoots) === JSON.stringify(['code/_hello-spring-boot/hello-spring-boot', 'code/programming', 'code/programming/vue', 'math', 'math/alge'].sort()),
   `practiceRoots = 圈级 ∪ 点级里实际存在的（实得 ${JSON.stringify(state.practiceRoots)}）`)
 ok(P?.facts.build === 'maven', `构建方式识别为 maven（实得 ${P?.facts.build}）`)
 ok(P?.facts.endpoints.length === 3, `端点数 3（实得 ${P?.facts.endpoints.length}：${(P?.facts.endpoints || []).map((e) => e.method + ' ' + e.path).join('、')}）`)

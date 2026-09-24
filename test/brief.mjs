@@ -116,6 +116,15 @@ try {
   fs.writeFileSync(path.join(vueDir, 'app.js'), 'createApp({})\n', 'utf8')
   fs.writeFileSync(path.join(vueDir, 'api.js'), 'export const get = () => {}\n', 'utf8')
 
+  // ⚠️ 同理（2026-09-24 D2-b）：高数第1课（`alge/0001`）补了判据 ⇒ 它那三个产物不存在时
+  //    也算"没做完的课"，照样会把编程侧的分支挡掉。本文件验的是**编程侧**的前置闸，
+  //    所以把数学那边也做满（它的判据就是三个 .md）。
+  const mathDir = path.join(tmp, 'math', 'alge')
+  fs.mkdirSync(mathDir, { recursive: true })
+  for (const n of ['0001-分解.md', '0001-极限.md', '0001-重写.md']) {
+    fs.writeFileSync(path.join(mathDir, n), '# 占位（本测试不验数学内容）\n', 'utf8')
+  }
+
   // ── ② 补齐第2课的缺口 → 建议必须变 ──
   const before = await tool2.execute({ root: tmp })
   ok(before.brief.next.action === 'continue-lesson', `补齐前：${before.brief.next.action}`)
@@ -180,11 +189,14 @@ try {
   fs.writeFileSync(askPaths(tmp).pending, '', 'utf8')
 
   // ── ④ 没有 EXPECT.json → 不猜 ──
-  // D1 起 vue 也是项目、也有 EXPECT.json —— "没有期望"这个前提要求**两份都移走**
+  // D1/D2-b 起 vue 与 math 也是项目、也有 EXPECT.json —— "没有期望"这个前提要求**三份都移走**
   const vueExpect = path.join(tmp, 'code', 'programming', 'vue', 'EXPECT.json')
   const vueExpectBody = fs.readFileSync(vueExpect, 'utf8')
+  const mathExpect = path.join(tmp, 'math', 'alge', 'EXPECT.json')
+  const mathExpectBody = fs.readFileSync(mathExpect, 'utf8')
   fs.rmSync(path.join(tmp, 'code', '_hello-spring-boot', 'EXPECT.json'), { force: true })
   fs.rmSync(vueExpect, { force: true })
+  fs.rmSync(mathExpect, { force: true })
   const noExpect = await tool2.execute({ root: tmp })
   ok(noExpect.brief.next.action === 'unknown', `没有期望时：${noExpect.brief.next.action}`)
   ok(/期望|声明/.test(noExpect.brief.next.why) && !/缺 .*项/.test(noExpect.brief.next.why), `不猜缺什么（why：${noExpect.brief.next.why}）`)
@@ -195,6 +207,8 @@ try {
   fs.writeFileSync(path.join(tmp, 'code', '_hello-spring-boot', 'EXPECT.json'), JSON.stringify({ lessons: [{ id: 'spring-boot/0001', title: '第1课 REST 基础' }, { id: 'spring-boot/0002', title: '第2课 REST API 与分层' }] }), 'utf8')
   // vue 那份也按原样放回去（④ 一并移走了）
   fs.writeFileSync(vueExpect, vueExpectBody, 'utf8')
+  // math 那份同理
+  fs.writeFileSync(mathExpect, mathExpectBody, 'utf8')
   // 空台账：这段在、写「还没有笔记」
   const emptyNotes = await tool2.execute({ root: tmp })
   const noteSec0 = emptyNotes.brief.sections.find((s) => s.title === '学生笔记')

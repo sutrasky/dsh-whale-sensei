@@ -42,15 +42,20 @@ const { state } = probeState(ROOT, pack)
 const data = buildPracticeData({ state, pack })
 const text = renderPracticeDataModule(data)
 
-// 3 课 = spring-boot 第1/2课 + vue 第1课。
+// 4 课 = spring-boot 第1/2课 + vue 第1课 + **alge 第1课**（高数，2026-09-24 补的判据）。
 // 2026-09-24 D1：vue 的实践区（只有 EXPECT.json）以前立不成项目 ⇒ 它那份判据永远读不到、
 // 这里只有 2 条；修完变成 3 条 —— 这条断言就是那个缺陷的回归判据。
 // 2026-09-24 D2-a：键从「课号」改成**课 id**（`spring-boot/0001`）—— 课号跨圈会撞车（见下）
 ok(
-  data.version === 2 && data.keyScheme === 'lesson-id' && Object.keys(data.lessons).length === 3,
-  `三课都有实践数据（${Object.keys(data.lessons).join('、')}）`
+  data.version === 2 && data.keyScheme === 'lesson-id' && Object.keys(data.lessons).length === 4,
+  `四课都有实践数据（${Object.keys(data.lessons).join('、')}）`
 )
 ok(!!data.lessons['vue/1001'], 'vue 第1课的实践数据出现了（D1 修掉的那条链）')
+// 真包上的活体碰撞回归：`spring-boot/0001` 与 `alge/0001` **课号都是 1**，两条必须都在
+ok(
+  !!data.lessons['spring-boot/0001'] && !!data.lessons['alge/0001'],
+  '真包上两个「第1课」（spring-boot 与 alge）并存、没有互相覆盖'
+)
 const l1 = data.lessons['spring-boot/0001']
 const l2 = data.lessons['spring-boot/0002']
 ok(l1.summary.achieved === 3 && l1.summary.total === 3 && l1.summary.needsReview === 1, `第1课：达成 ${l1.summary.achieved} / 共 ${l1.summary.total}（另有 ${l1.summary.needsReview} 项需人工确认）`)
