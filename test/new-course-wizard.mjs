@@ -20,7 +20,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { packRoot, PLUGIN } from './_pack.mjs'
-import { FORM_FIELDS, FORM_EMPTY_TEXT, composeRequest, buildStarter, goalFromForm } from '../lib/starter.js'
+import { FORM_EMPTY_TEXT, composeRequest, buildStarter, goalFromForm } from '../lib/starter.js'
 
 const ROOT = packRoot()
 let pass = 0
@@ -29,45 +29,33 @@ const ok = (c, m) => { if (c) { pass++; console.log('ok   ' + m) } else { fails.
 
 console.log(`\n[new-course-wizard] 课程包：${ROOT}`)
 
-/* ── [1] starter.js 字段定义 ───────────────────────────────────────────── */
+/* ── [1] 流程契约：三段 + 字段表已删（2026-09-24 F1b）──────────────────── */
 {
-	ok(FORM_FIELDS.length === 8, `[1] 字段数量：${FORM_FIELDS.length}（期望 8）`)
+	const entry = buildStarter(null)
 
-	const ids = FORM_FIELDS.map((f) => f.id)
-	ok(ids.join(',') === 'topic,goal,work,tier,acceptance,scope,refs,notes', `[1] 字段 id 齐全且顺序正确（${ids.join(',')}）`)
+	// 字段表删了：v3 §1.1「点知识点卡片 = 一键到位」，那一屏整个没了
+	ok(Array.isArray(entry.form.fields) && entry.form.fields.length === 0,
+		`[1] 弹窗字段表已删 ⇒ 空数组（${(entry.form.fields || []).length} 个）`)
+	ok((entry.form.fields || []).filter((f) => f.required).length === 0, '[1] 不再有必填字段（终点改由 ②段的 whale_goal 收）')
 
-	const required = FORM_FIELDS.filter((f) => f.required)
-	ok(required.length === 4 && required.map((f) => f.id).join(',') === 'topic,goal,tier,acceptance', `[1] 必填字段：${required.map((f) => f.id).join(',')}（期望 topic,goal,tier,acceptance）`)
+	// 三段：查资料 → 看挑战（含问终点与掌握程度）→ 生成课程
+	ok(entry.steps.length === 3, `[1] 步骤三段（${entry.steps.length}）`)
+	ok(/查资料/.test(entry.steps[0]) && /看挑战/.test(entry.steps[1]) && /whale_author/.test(entry.steps[2]),
+		`[1] 三步依次是查资料 / 看挑战 / 生成课程（${entry.steps.join(' | ')}）`)
 
-	// 逐字校验 label（这是"问什么没变"的判据）
-	const expectedLabels = {
-		topic: '要学什么',
-		goal: '学完要能做出什么',
-		work: '作品放哪',
-		tier: '学到哪一层',
-		acceptance: '验收判据',
-		scope: '期望篇幅与深度',
-		refs: '指定资料 / 参考',
-		notes: '其它要求',
-	}
-	for (const f of FORM_FIELDS) {
-		ok(f.label === expectedLabels[f.id], `[1] ${f.id}.label === "${expectedLabels[f.id]}"（实际 "${f.label}"）`)
-	}
+	// 协议全文：三段齐、两个落盘口点名、「四步」这个说法不许再出现
+	const p = entry.prompt
+	ok(/查资料/.test(p) && /看挑战/.test(p) && /生成课程/.test(p), '[1] 协议正文三段齐')
+	ok(!/四步/.test(p), '[1]「四步」已经不在协议里')
+	ok(/whale_intake/.test(p) && /whale_goal/.test(p), '[1] ②段点名两个落盘工具（whale_intake / whale_goal）')
+	ok(/RESOURCES\.md/.test(p), '[1] ①段要求出处落 RESOURCES.md')
+	ok(/必须排在 c\) 之后/.test(p), '[1] 写清 whale_goal 必须排在 intake 之后（from 才带得上起点台阶）')
 
-	// 逐字校验 hint
-	const expectedHints = {
-		topic: '知识点 / 主题，例如「Vue 3 组合式 API」',
-		goal: '一句话就够，用来定验收标准',
-		work: '作品仓 / 路径，例如「code/_hello-spring-boot」；不填就是还没定',
-		tier: '1 认得 / 2 会照做 / 3 能独立做 / 4 能改能讲（填一个数字）',
-		acceptance: '一行一条，写清「做成什么样就算过」',
-		scope: '例如「3 节，能上手写 CRUD」',
-		refs: '官方链接、书名、仓库地址；不填我自己找',
-		notes: '风格、语言 / 版本、时间安排',
-	}
-	for (const f of FORM_FIELDS) {
-		ok(f.hint === expectedHints[f.id], `[1] ${f.id}.hint === "${expectedHints[f.id]}"（实际 "${f.hint}"）`)
-	}
+	// 模板只剩两个占位
+	ok(entry.form.template.includes('{{belong}}') && entry.form.template.includes('{{protocol}}'),
+		'[1] 模板带 {{belong}} 与 {{protocol}} 两个占位')
+	ok(!/\{\{(topic|goal|tier|acceptance|work|scope|refs|notes)\}\}/.test(entry.form.template),
+		'[1] 模板里不再有字段占位符')
 }
 
 /* ── [2] 正文组装：归属行按需出现 ──────────────────────────────────────── */
@@ -93,13 +81,13 @@ console.log(`\n[new-course-wizard] 课程包：${ROOT}`)
 	)
 	ok(!textWithoutBelong.includes('- 归属：'), '[2] 不给 circle/point 时不含归属行（反空转）')
 	// 不给归属时，正文开头应该是【开课请求】后直接跟字段，没有空行
-	ok(textWithoutBelong.startsWith('【开课请求】\n- 要学什么：'), '[2] 不给归属时正文开头保持老行为（无空行）')
+	ok(textWithoutBelong.startsWith('【开课请求】\n\n下面是'), '[2] 不给归属时正文开头是「【开课请求】」+ 空行（占位被摘掉，不留空行）')
 }
 
 /* ── [2b] goalFromForm：终点契约入参（纯函数）────────────────────────────
- * 硬约束（主线程裁定）：终点必须来自 wizard 的显式输入 —— `artifact.what` = goal 原文逐字，
+/* ── [2b] goalFromForm：终点契约入参（纯函数）────────────────────────────
+ * 硬约束（主线程裁定）：终点必须来自**显式输入** —— `artifact.what` = goal 原文逐字，
  * 绝不拿摸底的 can / prior / level 回落顶替（那条回落只属于「起点台阶」）。
- * 归属只认 pointId（Q10）；值合不合法归 `validateStage()`（单点真源，不在这里另定一套）。
  */
 {
 	const gi = goalFromForm({
@@ -755,4 +743,4 @@ function renderAndAct(initialState, fetchResponseQueue, srcOverride) {
 
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
-console.log('✅ 新课程向导：三屏顺序 / 字段逐字未变 / 归属行按需出现 / 新建流程判据')
+console.log('✅ 新课程向导：三段契约 / 字段表已删 / 归属行按需出现 / 新建流程判据')

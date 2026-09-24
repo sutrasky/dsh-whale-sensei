@@ -150,8 +150,8 @@ console.log(`\n[panel] 课程包：${ROOT}`)
   const form = gb.entry?.form || {}
   ok(g.status === 200 && gb.configured === true, `GET → ${g.status} configured=${gb.configured}`)
   ok(gb.entry?.label === STARTER_LABEL, `按钮/弹窗标题与宿主常量一致（${gb.entry?.label}）`)
-  ok(Array.isArray(form.fields) && form.fields.length === 8, `弹窗 ${(form.fields || []).length} 个字段`)
-  ok((form.fields || []).filter((f) => f.required).map((f) => f.id).join(',') === 'topic,goal,tier,acceptance', '必填 = 要学什么 / 学完要能做出什么 / 学到哪一层 / 验收判据')
+  ok(Array.isArray(form.fields) && form.fields.length === 0, `弹窗字段表已删 ⇒ 空数组（${(form.fields || []).length} 个）`)
+ok((gb.entry?.form?.fields || []).filter((f) => f.required).length === 0, '不再有必填字段（终点改由 ②看挑战段的 whale_goal 收）')
   ok(/掌握程度/.test(form.intro || ''), '弹窗说明里写明后面会问掌握程度（摸底在发出去之后）')
   ok(!/掌握程度|学过什么|基础如何/.test(JSON.stringify(form.fields)), '**弹窗字段里不问摸底**')
   ok(/whale_intake/.test(gb.entry.prompt || '') && /RESOURCES\.md/.test(gb.entry.prompt || ''), '协议全文齐（查资料 + 摸底的机械闸门都在）')
@@ -163,40 +163,24 @@ console.log(`\n[panel] 课程包：${ROOT}`)
   )
   const pb = await p.json()
   ok(p.status === 200 && pb.ok === true && pb.text.startsWith('【开课请求】'), `POST 合法 → ${p.status}，正文以「【开课请求】」开头`)
-  ok(pb.text.includes('Vue 3 组合式 API') && pb.text.includes('（未填，你来定）'), '答案进正文，没填的字段写成「（未填，你来定）」')
-  ok(!/\{\{[a-z]+\}\}/.test(pb.text), '正文里没有没替换的占位符')
+  ok(pb.text.includes('- 归属：编程 / Vue（programming/vue）'), '归属行进正文（点卡片时归属已定）')
+  ok(/三段/.test(pb.text) && /② 看挑战/.test(pb.text) && !/四步/.test(pb.text), '拼的是**三段**协议（四步已不在）')
 
-  // 终点契约落进**影副本**：goals.jsonl 第 1 版（v=1，replaces=null，artifact.what = goal 原文）
+  // 终点**不再从这条路落盘**（2026-09-24 F1b）：恒定 goalSaved:false + 指路到 whale_goal。
+  // 判词/落盘的逐条断言搬去了 test/goal-tool.mjs（那是新的写入口）。
   const shadowGoals = goalsPath(shadow)
-  ok(pb.goalSaved === true && pb.goalVersion === 1, `终点落盘：goalSaved=${pb.goalSaved} v=${pb.goalVersion}`)
-  const v1Lines = fs.readFileSync(shadowGoals, 'utf8').trim().split('\n')
-  const v1Line = v1Lines[0]
-  const rec1 = JSON.parse(v1Line)
-  ok(rec1.v === 1 && rec1.replaces === null && rec1.source === 'wizard', `第 1 版：v=${rec1.v} replaces=${rec1.replaces}`)
-  ok(rec1.artifact?.what === '能独立写一个小型前端应用', 'artifact.what = wizard goal 原文逐字')
-  ok(rec1.point === 'vue' && rec1.pointPath === 'programming/vue', 'point 取 pointId 最后一段（Q10）')
+  ok(pb.goalSaved === false, 'goalSaved 恒为 false（终点不在这条路上落了）')
+  ok(/whale_goal/.test(pb.goalHint || ''), `goalHint 指路到 whale_goal（${String(pb.goalHint).slice(0, 28)}…）`)
+  ok(!fs.existsSync(shadowGoals), '这条路一个字节都没写 goals.jsonl（影副本也没有）')
 
-  // 换终点（B5）：第 2 版 append、第 1 版逐字节不动、replaces 指向第 1 版
-  const p2 = await post(
-    { topic: 'Vue 3 组合式 API', goal: '改成：能部署上线的待办应用', tier: '4', acceptance: '能部署上线' },
-    { pointId: 'programming/vue' },
-  )
-  const b2 = await p2.json()
-  const v2Lines = fs.readFileSync(shadowGoals, 'utf8').trim().split('\n')
-  ok(p2.status === 200 && b2.goalSaved === true && b2.goalVersion === 2, `换终点 → 第 2 版（v=${b2.goalVersion}）`)
-  ok(v2Lines.length === 2 && v2Lines[0] === v1Line, '第 2 版是 append 且第 1 版逐字节不动')
-  const rec2 = JSON.parse(v2Lines[1])
-  ok(rec2.v === 2 && rec2.replaces === 1, `replaces=${rec2.replaces} 指向第 1 版`)
-  ok(!/\d{4}-\d{2}-\d{2}T/.test(fs.readFileSync(shadowGoals, 'utf8')), 'goals.jsonl 全篇无 ISO 时间戳（可对拍）')
+  // 字段表已删 ⇒ 空 values 也能拼（不再有"缺必填 → 400"）
+  const empty = await post({})
+  const eb = await empty.json()
+  ok(empty.status === 200 && eb.ok === true, `空 values 也能拼（${empty.status} ok=${eb.ok}）`)
 
-  const missing = await post({ goal: 'x' })
-  const mb = await missing.json()
-  ok(missing.status === 400 && mb.missing?.join(',') === '要学什么,学到哪一层,验收判据', `缺必填 → ${missing.status} ${mb.error}`)
-
-  // 没归属（没 pointId）→ 不落盘、不报错，只提示（B6 / Q10）
-  const nb = await (await post({ topic: 'A', goal: 'B', tier: '1', acceptance: 'C' })).json()
-  ok(nb.ok === true && nb.goalSaved === false && /终点还没结构化/.test(nb.goalHint || ''), `没归属 → 只拼文本 +「终点还没结构化」提示（${nb.goalHint}）`)
-  ok(fs.readFileSync(shadowGoals, 'utf8').trim().split('\n').length === 2, '没归属 → 影副本台账没多行')
+  const nb = await (await post({})).json()
+  ok(nb.ok === true && nb.goalSaved === false, '没归属也照拼（终点本来就不在这条路上落）')
+  ok(!fs.existsSync(shadowGoals), '都没写 goals.jsonl')
 
   const g2 = await get(undefined)
   const gb2 = await g2.json()
