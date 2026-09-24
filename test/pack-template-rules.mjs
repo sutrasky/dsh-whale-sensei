@@ -82,7 +82,7 @@ export const FROM_PACK = [
   'assets/build-questions.js',
   'tools/build-public.js',
   'tools/app-server.js',
-  'tools/serve-static.js',
+  'tools/make-icon.js',
 ]
 
 /** 取自课程包侧 `skill-draft/`（技能包）的件：**空台账骨架** —— 一个名词都没有 */
