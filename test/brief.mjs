@@ -129,6 +129,15 @@ try {
   }
 
   // ── ② 补齐第2课的缺口 → 建议必须变 ──
+  // ⚠️ 夹具先把第2课的**两个端点挑战挖掉**：`before` 的前提是"第2课还有缺口"，
+  //    而真包里学生已经把 TaskController 写完了（2026-09-24 G 条修好端点解析后，那两道端点挑战
+  //    从"假阴"变成真的达成 ⇒ 不挖掉就没有缺口可补，`continue-lesson` 这条分支永远走不到）。
+  //    前提必须由夹具自己造出来，不能靠"学生今天做到哪"（本文件上面 vue / math 两段同理）。
+  fs.writeFileSync(
+    path.join(pkg, 'controller', 'TaskController.java'),
+    'package x;\n// 夹具：先把第2课的端点挑战挖掉（见上）\npublic class TaskController {\n}\n',
+    'utf8'
+  )
   const before = await tool2.execute({ root: tmp })
   ok(before.brief.next.action === 'continue-lesson', `补齐前：${before.brief.next.action}`)
   for (const d of ['model', 'service', 'controller', 'exception']) {

@@ -21,7 +21,7 @@ import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { readPack } from '../lib/pack.js'
 import { probeState, writeState, scanWorkspace, scanProject } from '../lib/state-scan.js'
-import { validateExpect, computeGaps, assertLosslessJson } from '../lib/state.js'
+import { validateExpect, computeGaps, assertLosslessJson, parseEndpoints, joinEndpointPath } from '../lib/state.js'
 import { summarizeState } from '../lib/state.js'
 import { packRoot } from './_pack.mjs'
 
@@ -140,6 +140,83 @@ ok(!JSON.stringify(summarizeState(state)).includes('[object Object]'), '摘要�
   }
 }
 ok(!JSON.stringify(summarizeState(state)).includes('[object Object]'), '摘要里没有 [object Object]（渲染出来的每一行都是给人看的）')
+
+// ── ①c G 条：端点解析（裸注解 / 类级前缀拼接 / 旧三形态照旧）+ **不猜** ────────────
+// 探针喂的是挑战判定，判据里的端点是**浏览器实际访问的全路径**（code/_hello-spring-boot/EXPECT.json
+// 就写着 `PATCH /api/tasks/{id}/complete`）。所以类级前缀必须拼进来；裸注解回落到前缀本身。
+// 立场：**误报比漏报更坏** —— 认不出的形态一条都不报，绝不编一个路径出来。
+{
+  const SRC = `package x;
+import org.springframework.web.bind.annotation.*;
+/**
+ * 接口一览（Javadoc 里的假注解，**不许被当成代码**）：
+ * 用法示例见下文，形如 {@code @RequestMapping("/doc-only")}。
+ */
+@RestController
+@RequestMapping("/api")
+class TaskCtrl {
+  /** 对应 {@code GET /api}；本行还藏着一个假注解 {@code @GetMapping("/doc-only")}。 */
+  @GetMapping
+  String list() { return ""; }
+
+  @GetMapping("/tasks/{id}")
+  String one() { return ""; }
+
+  @PostMapping(value = "/tasks")
+  String create() { return ""; }
+
+  @PutMapping(path = "/tasks/{id}")
+  String update() { return ""; }
+
+  @RequestMapping("/legacy")
+  String legacy() { return ""; }
+
+  @GetMapping({"/a", "/b"})
+  String multi() { return ""; }
+
+  @GetMapping(CONSTANT)
+  String konst() { return ""; }
+}`
+  const eps = parseEndpoints(SRC, 'TaskCtrl.java')
+  const has = (method, p) => eps.some((e) => e.method === method && e.path === p)
+  ok(has('GET', '/api'), `裸注解 @GetMapping → 类级前缀本身（实得 ${eps.map((e) => e.method + ' ' + e.path).join('、')}）`)
+  ok(has('GET', '/api/tasks/{id}'), '类级前缀拼接：/api + /tasks/{id}')
+  ok(has('POST', '/api/tasks'), '旧形态 value = "/x" 照认，且拼前缀')
+  ok(has('PUT', '/api/tasks/{id}'), '旧形态 path = "/x" 照认，且拼前缀')
+  ok(has('ANY', '/api/legacy'), '方法级 @RequestMapping 也拼前缀（verb = ANY）')
+  ok(has('GET', '/api/tasks/{id}') && eps.filter((e) => e.path === '/api/tasks/{id}').length === 2,
+    '旧形态 @GetMapping("/x") 逐字保持识别（GET 与 PUT 各一条，没有互相吞掉）')
+  ok(!eps.some((e) => e.path === '/doc-only' || e.path.endsWith('/doc-only')),
+    'Javadoc 里的假注解不认（先剥注释再解析）—— 误报比漏报更坏')
+  ok(!eps.some((e) => e.path === '/a' || e.path === '/b' || e.path === '/api/a' || e.path === '/api/b'),
+    '数组参数 {"/a","/b"} → 一条都不报（不猜、不编）')
+  ok(!eps.some((e) => /CONSTANT/.test(e.path)) && eps.length === 5,
+    `常量参数 → 不报；总数恰为 5（实得 ${eps.length}：${eps.map((e) => e.method + ' ' + e.path).join('、')}）`)
+
+  // 裸注解 + 类上没有前缀 → `/`（Spring 把无路径映射挂在根路径；空串会变成比不了的 `GET `）
+  const root = parseEndpoints('class C {\n  @GetMapping\n  String home() { return ""; }\n}\n', 'C.java')
+  ok(root.length === 1 && root[0].method === 'GET' && root[0].path === '/',
+    `裸注解 + 类上没有 @RequestMapping → "/"（实得 ${JSON.stringify(root)}）`)
+  ok(joinEndpointPath('/api/', '/tasks') === '/api/tasks' && joinEndpointPath('', '') === '/',
+    '拼接规则：斜杠重叠归一、两边都空 → /')
+
+  // 类上有 @RequestMapping 但**路径解析不出**（数组/常量）→ 裸注解不报：那时任何 URL 都是猜的
+  const amb = parseEndpoints('@RequestMapping({"/a","/b"})\nclass C {\n  @GetMapping\n  String home() { return ""; }\n  @GetMapping("/x")\n  String x() { return ""; }\n}\n', 'Amb.java')
+  ok(!amb.some((e) => e.path === '/' || e.path === '/a' || e.path === '/b'),
+    `类级前缀解析不出 → 裸注解**不报**（不猜前缀；实得 ${amb.map((e) => e.method + ' ' + e.path).join('、') || '空'}）`)
+  ok(amb.some((e) => e.method === 'GET' && e.path === '/x'),
+    '但旧三形态照旧识别（@GetMapping("/x") 仍报 /x —— 不退化）')
+
+  // 反空转：拿**修法前的旧正则**跑同一份源码 —— 它既漏（给不出完整 URL）又误（把 Javadoc 当代码）
+  const OLD = /@(Get|Post|Put|Delete|Patch|Request)Mapping\s*\(\s*(?:value\s*=\s*|path\s*=\s*)?["']([^"']*)["']/g
+  const oldPaths = [...SRC.matchAll(OLD)].map((m) => m[2])
+  ok(oldPaths.includes('/doc-only') && !eps.some((e) => e.path.endsWith('/doc-only')),
+    `反空转①：旧正则把 Javadoc 里的假注解报成端点（${oldPaths.filter((p) => p === '/doc-only').length} 条 /doc-only），新解析器 0 条`)
+  ok(!oldPaths.includes('/api/tasks') && has('POST', '/api/tasks'),
+    '反空转②：旧正则给不出完整 URL（只有 /tasks 片段 ⇒ 判据必假阴），新解析器给出 /api/tasks')
+  ok(!oldPaths.includes('') && has('GET', '/api'),
+    '反空转③：旧正则根本不认裸注解（空路径 0 条），新解析器认出 GET /api')
+}
 
 // ── ② 与人工记录对齐（外部锚）──
 const l1 = P?.lessons.find((l) => l.id === 'spring-boot/0001')

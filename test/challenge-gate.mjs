@@ -71,7 +71,9 @@ ok(judgeSnapshot(null, ROOT, 'pt/0001').code === 'no-snapshot', '没有快照 �
 ok(judgeSnapshot({ projects: [] }, ROOT, 'pt/0001').code === 'no-criteria', '找不到课 / 没声明判据 → no-criteria')
 ok(judgeSnapshot(mkDoc([DONE], '错的指纹'), ROOT, 'pt/0001').code === 'stale-snapshot', '内容指纹对不上 → stale-snapshot（不是 mtime）')
 const good = judgeSnapshot(mkDoc([DONE, REVIEW], realDigest), ROOT, 'pt/0001')
-ok(good.ok === true && good.needsReview.join() === '3', '全过 → ok，且 auto:false 那题**不阻塞但显式回执题号**（3）')
+// code 必须是词汇表里的 'ok'（不是 undefined）：漏了它会掉进兜底 fail-closed 分支，
+// 把"挑战全过"误判成「未检测」—— 2026-09-24 真包第一次出现"全过"时当场暴露（G 条连带修）
+ok(good.ok === true && good.code === 'ok' && good.needsReview.join() === '3', '全过 → ok（code=ok），且 auto:false 那题**不阻塞但显式回执题号**（3）')
 const bad = judgeSnapshot(mkDoc([DONE, TODO], realDigest), ROOT, 'pt/0001')
 ok(bad.code === 'criteria-not-met' && bad.gaps.length === 1 && bad.gaps[0].no === 2,
   '有 missing → criteria-not-met，且点名题号（' + JSON.stringify(bad.gapText) + '）')
