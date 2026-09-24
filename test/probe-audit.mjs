@@ -197,6 +197,11 @@ try {
     ],
     points: [{ id: 'pt' }, { id: 'pt' }],   // 知识点 id 重复
     learned: ['ghost/0009'],                // 幽灵进度
+    // ⚠️ 这个假包**必须有圆圈**：`static.svg` 是**有条件**要的产物（0 个圆圈时生成器
+    //    刻意 exit 1，与 `lib/verify.js` ⑤ 同一口径）。不给 circles 的话，
+    //    「三件产物缺失都触发」这条断言就只能数到 2 条 —— 那是夹具漏了前提，不是实现漏了。
+    //    （0 个圆圈那一侧由下面的 [端到端] 空包 + [反空转] 有圆圈 两条覆盖。）
+    circles: [{ id: 'pt', name: '测试圆圈', points: [] }],
   }
   const r5 = auditPack(fakeRoot, fakePack)
   const gotIds = r5.findings.map((f) => f.id)
@@ -230,15 +235,31 @@ try {
   ok(threw === null && value !== null, `[端到端] 空包上 whale_audit 不抛异常${threw ? '（抛了：' + threw.message + '）' : ''}`)
   if (value) {
     ok(!('error' in value), `[端到端] 不回宿主级错误${'error' in value ? '（回了：' + value.error + '）' : ''}`)
+    // ⚠️ 这个空包**0 个圆圈** ⇒ `static.svg` **不该**被判"缺产物"：它的唯一产出者
+    //    （build-starmap-svg ← build-starmap）对 0 个圆圈**刻意 exit 1**（反空转：不许画假图）。
+    //    口径与 `lib/verify.js` ⑤ **同一处**（板子 A–H 的 D 条：新包一建出来就吃 warn 是误报）。
+    //    所以这里只有 **2** 条。
     const want = [
       'silent-degradation@reference/NOTES.html',
       'silent-degradation@starmap/content.js',
-      'silent-degradation@starmap/static.svg',
     ]
     const got = value.findings.map((f) => `${f.id}@${f.file}`).sort()
     ok(got.join(' | ') === want.join(' | '), `[端到端] 如实报出该报的发现项（${got.length} 条：${got.join(' / ')}）`)
-    ok(value.ok === true && /3 个发现项/.test(value.summary), `[端到端] 摘要如实（${value.summary}）`)
+    ok(value.ok === true && /2 个发现项/.test(value.summary), `[端到端] 摘要如实（${value.summary}）`)
+    ok(!got.includes('silent-degradation@starmap/static.svg'),
+      '[端到端] 0 个圆圈时**不**报 static.svg（生成器按规矩不产出的东西，不该反过来说使用者缺产物）')
     ok(Array.isArray(value.warnings), `[端到端] readPack 告警原样带出（${value.warnings.length} 条）`)
+
+    // ⑦a 反空转：**有圆圈**的同款包必须**照旧报** static.svg
+    //     —— 证明上一条不是把这条检查整个废掉了（不然就是"修好一个误报、关掉一个真检查"）。
+    const oneHalo = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-onehalo-')); tmpDirs.push(oneHalo)
+    fs.mkdirSync(path.join(oneHalo, 'lessons', 'math'), { recursive: true })
+    fs.writeFileSync(path.join(oneHalo, 'lessons', 'math', 'halo.json'),
+      JSON.stringify({ halo: 'math', name: '数学' }, null, 2) + '\n', 'utf8')
+    const vOne = await tool.execute({ root: oneHalo })
+    const sdOne = (vOne.findings || []).filter((f) => f.id === 'silent-degradation').map((f) => f.file)
+    ok(sdOne.includes('starmap/static.svg'),
+      `[反空转] 有圆圈时 static.svg 照旧报（${sdOne.join(' / ') || '（一条都没有）'}）`)
 
     // ⑦ lossless JSON：递归找 undefined（两次返回对象都跑；不用 stringify 往返）
     const und = findUndefined(value, 'whale_audit 返回值')
