@@ -237,7 +237,10 @@ try {
     inject: (_n, cb) => cb({ get: () => ({ fetch: { register: (r) => routes.push(r) } }) }),
   })
   const route = routes[0]
-  ok(routes.length === 1 && route.path === '/api/whale/pack/choose', `挂了一条路由 ${route?.path}`)
+  ok(routes.length === 2 && route.path === '/api/whale/pack/choose', `挂了两条路由 ${routes.map((r) => r.path).join('、')}`)
+  const openRoute = routes.find((r) => r.path === '/api/whale/pack/open')
+  ok(!!openRoute && openRoute.methods.join() === 'POST' && openRoute.requestBody === 'buffered',
+    '第二条是 POST /api/whale/pack/open（侧栏「进入课程包」靠它）且**显式声明 requestBody**')
   ok(route.methods.join() === 'POST' && route.requestBody === 'buffered', 'methods=POST 且**显式声明 requestBody**（省略会被基座当 streaming ⇒ 400 空体）')
   const req = (method, body) => new Request('http://127.0.0.1:3090/api/whale/pack/choose', {
     method, headers: { 'content-type': 'application/json' }, ...(body === undefined ? {} : { body }),

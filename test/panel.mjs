@@ -381,14 +381,22 @@ ok((gb.entry?.form?.fields || []).filter((f) => f.required).length === 0, '不�
       ok(row?.textContent === '新课程', `行上的字是「新课程」（${row?.textContent}）`)
       ok(row?.getAttribute('data-dsh-whale-entry') === '' && row?.getAttribute('data-dsh-part') === 'sidebar-entry', '带 data-dsh-whale-entry 与 data-dsh-part（可被识别、可被别的插件避让）')
 
-      // ② 别的插件行插到我上面 → 触发 observer → 必须挪回「新建会话」正下方
+      // ①b 第二行「进入课程包」：**放「新课程」下**（主人 2026-09-25 定），样式抄「技能中心」
+      const packRow = doc1.querySelector('[data-dsh-whale-pack-entry]')
+      ok(!!packRow && packRow.tagName === 'BUTTON', '侧栏第二行「进入课程包」也插进了 DOM')
+      ok(packRow?.previousElementSibling === row, '位置①b：紧贴「新课程」下面（链式：新建会话 → 新课程 → 进入课程包）')
+      ok(packRow?.textContent === '进入课程包', `第二行上的字是「进入课程包」（${packRow?.textContent}）`)
+      ok(packRow?.getAttribute('data-dsh-part') === 'sidebar-entry', '第二行也带 data-dsh-part（与第一行同形）')
+
+      // ② 别的插件行插到我上面 → 触发 observer → **两行都要**挪回原位（链式）
       const skill = doc1.createElement('button', 'cBrkua_entry')
       skill.setAttribute('data-dsh-skill-explorer-entry', '')
       s1.col.insertBefore(skill, row)
       ok(row.previousElementSibling === skill, '（先把技能中心插到我上面，模拟现场那一幕）')
       seen.forEach((o) => o.cb())
       ok(row.previousElementSibling === s1.native, '位置②：被技能中心挤下去后**挪回了「新建会话」正下方**')
-      ok(row.nextElementSibling === skill && skill.nextElementSibling !== row, '技能中心被排到我后面（顺序：新建会话 → 新课程 → 技能中心）')
+      ok(packRow.previousElementSibling === row, '位置②b：第二行跟着挪回「新课程」正下方（链式一起挪，不是只挪一行）')
+      ok(skill.previousElementSibling === packRow, '技能中心被排到我们**两行之后**（顺序：新建会话 → 新课程 → 进入课程包 → 技能中心）')
 
       // ③ 侧栏还没渲染出来 → 先不插；等它出现，body observer 要补插（缺这条 = 静默什么都不发生）
       const doc2 = makeDom()
@@ -397,6 +405,8 @@ ok((gb.entry?.form?.fields || []).filter((f) => f.required).length === 0, '不�
       const s2 = withSidebar(doc2)
       seen.filter((o) => o.cb).forEach((o) => o.cb())
       ok(doc2.querySelector('[data-dsh-whale-entry]')?.previousElementSibling === s2.native, '侧栏一出现就补插到「新建会话」正下方（body observer 生效）')
+      ok(doc2.querySelector('[data-dsh-whale-pack-entry]')?.previousElementSibling === doc2.querySelector('[data-dsh-whale-entry]'),
+        '侧栏一出现：第二行也按链式补插到「新课程」下（body observer 对**两行**都生效）')
 
       // ④ 整条真流程：点侧栏那行 → 弹窗开 → 拉载荷 → 填字段 → 点「发送」→ setDraft + submit
       //    这需要 React 的**状态**（弹窗开/关、字段值、phase），所以这里用一个 40 行的 mini-React：
@@ -615,7 +625,28 @@ ok((gb.entry?.form?.fields || []).filter((f) => f.required).length === 0, '不�
   ok(/\[data-pane="sidebar"\]/.test(code) && /sidebarCol/.test(code), '定位侧栏外壳：`[data-pane="sidebar"], [class*="sidebarCol"]`（与技能中心同一套选择器）')
   ok(/button\[class\*="newSession"\]/.test(code), '定位原生「新建会话」按钮（新版嵌 logoRow、老版是直接子节点）')
   ok(/MutationObserver/.test(code), 'MutationObserver 自愈：React 重渲染把它冲掉时插回')
-  ok(/previousElementSibling === base/.test(code), '**位置断言**：被别的插件行（技能中心）挤下去时挪回「新建会话」正下方')
+  ok(/function placeRowAfter/.test(code) && /previousElementSibling === prev/.test(code),
+    '**位置断言**：被别的插件行（技能中心）挤下去时挪回上一行正下方（`placeRowAfter` 每次调用都比一遍 previousElementSibling）')
+
+  // 侧栏第二行「进入课程包」（2026-09-25 主人定：**放「新课程」下**、**样式参考「技能中心」**）
+  ok(/data-dsh-whale-pack-entry/.test(code), '第二行有独立标记（data-dsh-whale-pack-entry）')
+  ok(/function placeEntryRows/.test(code) && /prev = rows\[i\]/.test(code),
+    '两行**链式**摆放（新建会话 → 新课程 → 进入课程包），位置断言对两行都生效')
+  ok(/PACK_ENTRY_LABEL = '进入课程包'/.test(code), '第二行的字是「进入课程包」')
+  ok(/\/api\/whale\/pack\/open/.test(code), '第二行调 POST /api/whale/pack/open 拿星图地址')
+  ok(/window\.open\(''/.test(code), '点第二行时**同步**开一张空白页（异步再 open 会被弹窗拦截器吃掉）')
+  // ⚠️ 样式**只在这个块里判**：`height:36px` 这类串在第一行（新课程）的收起态里也有，
+  //    整份源码里 grep 会**假绿**。先抽块，再判；抽不到就报出来（下面那条自检）。
+  const packCss = (code.match(/var PACK_ENTRY_CSS = \[([\s\S]*?)\]\.join\(''\)/) || [])[1] || ''
+  ok(packCss.length > 200, `抽到了第二行的样式块（${packCss.length} 字符）—— 抽不到的话下面几条会假绿`)
+  // 逐条对齐技能中心那一行（它 lib/client.js:315 的 .cBrkua_entry*）
+  ok(/height:36px/.test(packCss) && /border-radius:8px/.test(packCss) && /background:0 0/.test(packCss)
+    && /interactive-bg-hover/.test(packCss) && /width:24px;height:24px/.test(packCss)
+    && /font-size:13px/.test(packCss) && /padding:0 10px/.test(packCss) && /gap:8px/.test(packCss),
+    '第二行几何逐条对齐「技能中心」（36px / 圆角 8 / 透明底 / hover 才上色 / 图标 24×24 / 13px / padding 0 10px / gap 8px）')
+  ok(!/border:\.5px solid/.test(packCss) && !/button-elevated-fill/.test(packCss),
+    '第二行**没有**抄「新课程」那种按钮样（半像素边框 / button-elevated-fill —— 主人明确说不要）')
+  ok(/border-radius:50%/.test(packCss), '第二行收起态是**圆形**（技能中心是 border-radius:50%，与「新课程」的方形变体刻意不同）')
   ok(/align-self:stretch/.test(code) && !/width:100%/.test(code), '撑满靠 align-self:stretch，**不写 width:100%**（写了总宽比「新会话」多 4px）')
   ok(/data-sidebar-collapsed/.test(code), '侧栏收起（rail）时切成 36×36 图标按钮（与原生收起变体一致）')
   ok(new RegExp("ENTRY_LABEL = '" + STARTER_LABEL + "'").test(code), `按钮/弹窗标题与宿主侧 STARTER_LABEL 一致（${STARTER_LABEL}）`)
