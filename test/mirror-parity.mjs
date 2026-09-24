@@ -36,6 +36,7 @@ import { stripBom, splitLines } from '../lib/text.js'
 import { digestTree } from '../lib/fingerprint.js'
 import { appendNote } from '../lib/notes-io.js'
 import { writeScaffold } from '../lib/pack-scaffold.js'
+import { validatePlan, planFrontier } from '../lib/plan.js'
 import { packRoot, PLUGIN } from './_pack.mjs'
 
 const ROOT = packRoot()
@@ -261,6 +262,79 @@ try {
   } finally {
     fs.rmSync(fx, { recursive: true, force: true })
   }
+}
+
+/* ── ⑥ 知识点地图（大纲）：插件 lib/plan.js ↔ 包侧 tools/plan-map.js ─────────
+   判据矩阵 + **前沿**（"下一颗星星"）逐案例同输入同输出。两侧一漂 = 插件告诉老师
+   "下一课开第 N 课"，而星图/课程页的"待开课"占位指的是别的课 —— 同一件事两个答案。 */
+{
+  const packPlan = require_(path.join(ROOT, 'tools', 'plan-map.js'))
+  const SRC = [{ label: 'Spring 官方指南', url: 'https://spring.io/guides/gs/spring-boot/' }]
+  const n = (no, extra) => ({ no, title: '第' + no + '课', deliverable: '产物' + no, criteria: '判据' + no, why: '它让终点更近了', sources: SRC, ...extra })
+
+  // 地图：主线 1..4，支线 5 紧跟在 4 之后（「这里正好有支线分叉」）
+  const WITH_BRANCH = { goal: '交付一个服务', nodes: [n(1), n(2), n(3), n(4), n(5, { branch: true })] }
+  // 地图：没有支线
+  const NO_BRANCH = { goal: '交付一个服务', nodes: [n(1), n(2), n(3)] }
+
+  const docCases = [
+    ['完整地图', WITH_BRANCH],
+    ['没有 plan', undefined],
+    ['不是对象', 'x'],
+    ['缺 goal', { goal: '', nodes: [n(1)] }],
+    ['nodes 空', { goal: 'x', nodes: [] }],
+    ['缺 why', { goal: 'x', nodes: [n(1, { why: '' })] }],
+    ['no 重复', { goal: 'x', nodes: [n(1), n(1)] }],
+    ['no 非正整数', { goal: 'x', nodes: [n(0)] }],
+    ['缺 sources', { goal: 'x', nodes: [n(1, { sources: [] })] }],
+    ['出处不是 http', { goal: 'x', nodes: [n(1, { sources: [{ label: 'x', url: 'nope' }] })] }],
+    ['乱序（应排序）', { goal: 'x', nodes: [n(3), n(1), n(2)] }],
+  ]
+  let same = 0
+  for (const [label, doc] of docCases) {
+    const a = JSON.stringify(validatePlan(doc).problems)
+    const b = JSON.stringify(packPlan.validatePlan(doc).problems)
+    const oa = validatePlan(doc).ok
+    const ob = packPlan.validatePlan(doc).ok
+    if (a === b && oa === ob) same++
+    else console.log(`     ✗ ${label}：插件 ok=${oa} ${a.slice(0, 90)} ／ 包侧 ok=${ob} ${b.slice(0, 90)}`)
+  }
+  ok(same === docCases.length, `validatePlan：判据矩阵逐案例一致（${same}/${docCases.length}）`)
+
+  // 前沿：同一张地图 + 不同"已建课"进度 → 两颗/一颗/没有了
+  const existingCases = [
+    ['全没建', []],
+    ['建了1', [1]],
+    ['建了1到3', [1, 2, 3]],
+    ['建了1到4', [1, 2, 3, 4]],
+    ['全建完', [1, 2, 3, 4, 5]],
+    ['混进地图上没有的号', [1, 2, 3, 4, 9]],
+  ]
+  let fSame = 0
+  const shapes = {}
+  for (const [label, ex] of existingCases) {
+    const a = planFrontier(WITH_BRANCH, ex)
+    const b = packPlan.planFrontier(WITH_BRANCH, ex)
+    if (JSON.stringify(a) === JSON.stringify(b)) fSame++
+    else console.log(`     ✗ ${label} [${ex}]：插件 ${JSON.stringify(a).slice(0, 110)} ／ 包侧 ${JSON.stringify(b).slice(0, 110)}`)
+    shapes[label] = a.stars.map((s) => s.no).join('+') || '（无）'
+  }
+  ok(fSame === existingCases.length, `planFrontier：前沿逐案例一致（${fSame}/${existingCases.length}）`)
+  ok(JSON.stringify(planFrontier(NO_BRANCH, [])) === JSON.stringify(packPlan.planFrontier(NO_BRANCH, [])),
+    'planFrontier：没有支线的地图两边也一致')
+  ok(JSON.stringify(planFrontier(undefined, [])) === JSON.stringify(packPlan.planFrontier(undefined, [])),
+    'planFrontier：地图不可用时两边都 ok:false（不猜）')
+
+  // 反空转：前沿的形状必须真的在变，否则"一致"是白得的
+  ok(shapes['全没建'] === '1' && shapes['建了1'] === '2',
+    `反空转：已建 0 颗 → 下一颗是 1；已建 [1] → 下一颗是 2（实得 ${shapes['全没建']} / ${shapes['建了1']}）`)
+  ok(shapes['建了1到3'] === '4+5',
+    `反空转：「这里正好有支线分叉」→ **两颗**（已建 [1,2,3] 时实得 ${shapes['建了1到3']}）—— 这就是 01:205 的"或两颗"`)
+  ok(shapes['建了1到4'] === '5', `反空转：主线走完、支线还剩 → 一颗（实得 ${shapes['建了1到4']}）`)
+  ok(planFrontier(WITH_BRANCH, [1, 2, 3, 4, 5]).exhausted === true, '反空转：全建完了 → exhausted（如实说"没有下一颗星"）')
+  // 已建号不在图上（比如别的点的课号）不许影响前沿
+  ok(shapes['混进地图上没有的号'] === shapes['建了1到4'],
+    `反空转：塞进地图上没有的课次号（9）→ 前沿与不塞时相同（实得 ${shapes['混进地图上没有的号']} / ${shapes['建了1到4']}）`)
 }
 
 /* ── ⑤ 真包未被改动 ────────────────────────────────────────────────────── */

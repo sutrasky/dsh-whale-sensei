@@ -10,15 +10,17 @@
  *   ③ **大纲闸**：没地图 → 拒建课，且 **force 也绕不过去**
  *   ④ 有地图 → 放行（后面由别的闸接棒）
  *   ⑤ 自造的小包 + 真包守卫（这一套全程不碰真包）
+ *   ⑥ **前沿**（01:205"下一个星星 —— 或两颗"）：下一课教什么 / 至多两颗 / 全建完如实说
+ *   ⑦ **课的号按大纲给**：`nextNumber` 有地图时按地图（替代"文件名序 +1"），无答案时才退回最大号 +1
  */
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import crypto from 'node:crypto'
-import { validatePlan, planGate, planNode, summarizePlan } from '../lib/plan.js'
+import { validatePlan, planGate, planNode, summarizePlan, planFrontier, summarizeFrontier } from '../lib/plan.js'
 import { plugin as planPlugin } from '../lib/mods/plan.js'
 import { plugin as authorPlugin } from '../lib/mods/author.js'
-import { readPack } from '../lib/pack-model.js'
+import { readPack, nextNumber } from '../lib/pack-model.js'
 import { packRoot } from './_pack.mjs'
 
 const ROOT = packRoot()
@@ -76,6 +78,44 @@ ok(summarizePlan({ goal: 'x', nodes: [node1, { ...node2, branch: true }] }) === 
   `摘要把主线/支线分开数（${summarizePlan({ goal: 'x', nodes: [node1, { ...node2, branch: true }] })}）`)
 ok(planNode(GOOD, 2).title === '第2课 分层' && planNode(GOOD, 9) === null, 'planNode(no) 取得到、取不到回 null')
 
+// ── ①b 前沿：**下一课教什么**（01:205「显示下一个星星 —— 或两颗（如果这里正好有支线分叉）」）──
+{
+  const br = { ...node2, no: 3, branch: true, title: '第3课 支线' }
+  const WITH_BRANCH = { goal: GOOD.goal, nodes: [node1, node2, br] }
+  ok(planFrontier(GOOD, []).next.no === 1, '前沿：一节没建 → 下一课是第 1 课')
+  ok(planFrontier(GOOD, [1]).next.no === 2, '前沿：建了第 1 课 → 下一课是第 2 课')
+  ok(planFrontier(GOOD, [1, 2]).exhausted === true, '前沿：地图上的课全建完了 → exhausted（如实说"没有下一颗星"）')
+  ok(planFrontier(GOOD, [1, 2]).next === null, 'exhausted 时 next 为 null（不硬凑一个号出来）')
+  ok(planFrontier(WITH_BRANCH, [1]).stars.map((s) => s.no).join('+') === '2+3',
+    '前沿：建了第 1 课 → **两颗**（下一颗主线 2 + 紧随它的支线 3）—— 这就是"这里正好有支线分叉"')
+  ok(planFrontier(WITH_BRANCH, [1, 2]).stars.map((s) => s.no).join('+') === '3',
+    '前沿：主线走完、只剩支线 → 一颗（支线后面没有别的分了）')
+  const mid = { goal: GOOD.goal, nodes: [node1, { ...node2, no: 2 }, { ...br, no: 3 }, { ...br, no: 4, title: '第4课 追支线' }] }
+  ok(planFrontier(mid, [1, 2]).stars.map((s) => s.no).join('+') === '3+4',
+    '前沿：下一颗主线后面紧跟支线 → **两颗**（这就是"这里正好有支线分叉"）')
+  ok(planFrontier(mid, [1, 2]).stars.length <= 2, '前沿**至多两颗**（01:205 只说"或两颗"，没说要铺满）')
+  ok(planFrontier(undefined, []).ok === false && planFrontier(GOOD, []).ok === true, '前沿：地图不可用 → ok:false（不猜）')
+  ok(/下一课 第1课/.test(summarizeFrontier(planFrontier(GOOD, []))), `前沿摘要给出「下一课 第N课 <主题>」（${summarizeFrontier(planFrontier(GOOD, []))}）`)
+  ok(/全建完了/.test(summarizeFrontier(planFrontier(GOOD, [1, 2]))), '前沿摘要：全建完时如实说"全建完了"')
+}
+
+// ── ①c 课的**号**按大纲给（01:394 的"③生成课程按大纲定下一课教什么"，替代"文件名序 +1"）──
+{
+  const packOf = (plan, displays, fileBase) => ({
+    points: [{ id: 'pt', circle: 'c', fileBase: fileBase || 0, plan }],
+    lessons: displays.map((d) => ({ circle: 'c', point: 'pt', number: (fileBase || 0) + d, displayNumber: d })),
+  })
+  ok(nextNumber(packOf(GOOD, [1], 0), 'c', 'pt') === 2, '有地图 → 号按大纲给（建了第 1 课 → 2）')
+  ok(nextNumber(packOf(GOOD, [1, 5], 0), 'c', 'pt') === 2,
+    '乱序建课（1、5）→ 仍按地图给号（地图上第一颗没建的是 2），不按最大号跳到 6')
+  ok(nextNumber(packOf(GOOD, [1, 2], 0), 'c', 'pt') === 3,
+    '地图上全建完了 → 退回"最大号 + 1"（地图对下一课确实没答案；这一句由 whale_plan 明说，不静默）')
+  ok(nextNumber(packOf(undefined, [1, 5], 0), 'c', 'pt') === 6,
+    '没地图 → 退回"最大号 + 1"（此时建课会被大纲闸拦下，这个号只影响显示）')
+  ok(nextNumber(packOf(GOOD, [1], 1000), 'c', 'pt') === 1002, 'fileBase 折算仍生效（1000 + 第 2 课 = 1002）')
+  ok(nextNumber(packOf(GOOD, [], 1000), 'c', 'pt') === 1001, '一节没建 → fileBase + 第 1 课 = 1001')
+}
+
 // ── ②③④⑤ 自造一个小包（不碰真包）──
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-plan-'))
 try {
@@ -113,6 +153,9 @@ try {
     '只动 plan 一个键：其余字段**原样保留**（_ / point / fileBase 都没变）')
   const rd = await planTool.execute({ op: 'read', point: 'prog/pt1', root: tmp })
   ok(rd.ok === true && rd.nodes.length === 2 && rd.problems.length === 0, `read 回得来（circle/point 形态也认，${rd.point}）`)
+  // read 顺带给出「下一课教什么」——③生成课程照它办，不按文件名序 +1（01:394）
+  ok(rd.nextLesson && rd.nextLesson.no === 1 && /下一课 第1课/.test(rd.nextLine || ''),
+    `read 顺带给出「下一课 第N课」（${rd.nextLine}）`)
   const rdByBare = await planTool.execute({ op: 'read', point: 'pt2', root: tmp })
   ok(rdByBare.ok === true && rdByBare.nodes.length === 2, '裸 point 名也认')
   const notFound = await planTool.execute({ op: 'read', point: 'nope', root: tmp })
