@@ -13,13 +13,33 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { createHash } from 'node:crypto'
 import { readPack } from '../lib/pack.js'
 import { probePath } from '../lib/probe.js'
 import { auditPack } from '../lib/audit.js'
+import { assertLosslessJson } from '../lib/state.js'
 import { packRoot } from './_pack.mjs'
 
 const ROOT = packRoot()
+
+// ── 真包守卫：本套所有动手的目录都在 os.tmpdir()；真包整树的内容哈希前后必须一致 ──
+//    （跳过 .git/ —— 别人的 git 活动不该让本判据抖动；课程包内容一个字节都不许变）
+const treeDigest = (dir) => {
+  const h = createHash('sha256')
+  const files = []
+  ;(function walk(d) {
+    for (const e of fs.readdirSync(d, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+      if (e.name === '.git') continue
+      const p = path.join(d, e.name)
+      if (e.isDirectory()) walk(p)
+      else if (e.isFile()) files.push(p.split(path.sep).join('/'))
+    }
+  })(dir)
+  for (const f of files.sort()) { h.update(f + '\0'); h.update(fs.readFileSync(f)); h.update('\0') }
+  return `${h.digest('hex')}:${files.length}`
+}
+const realBefore = treeDigest(ROOT)
 
 let pass = 0
 const fails = []
@@ -140,6 +160,157 @@ try {
   fs.rmSync(tmp, { recursive: true, force: true })
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// ⑤ 源头收敛：**没有行号的发现项不许带 `line` 键**（键集断言，不是值断言）
+//    背景：五处调用（duplicate-id×2 / ghost-progress / missing-artifact /
+//    silent-degradation）本来就没有行号；以前 add() 无条件写 line ⇒ `line: undefined`
+//    ⇒ 宿主以 "value is not lossless JSON" 拒收**整次调用**（SESSION-LESSONS 204）。
+// ⑥ 端到端：**没建星图的空包影副本**上跑 whale_audit 工具 —— 不许抛 / 不许回宿主级错误。
+// ⑦ lossless JSON：对返回对象**递归找 undefined**（⚠️ 不用 JSON.stringify 往返 ——
+//    它会把 undefined 悄悄丢掉，等于自己销毁证据）；status 路由的返回体同样核一遍。
+// ⑧ 反空转：把 add() 临时改回"无条件写 line"（突变体只写 tmpdir）→ 判据必须报出来。
+// ══════════════════════════════════════════════════════════════════════════
+const NO_LINE = new Set(['duplicate-id', 'ghost-progress', 'missing-artifact', 'silent-degradation'])
+const KS5 = ['id', 'severity', 'file', 'message', 'hint'].sort().join(',')
+const KS6 = ['id', 'severity', 'file', 'line', 'message', 'hint'].sort().join(',')
+const keySet = (f) => Object.keys(f).sort().join(',')
+/** 判据本体（⑤与⑧共用同一份纯函数）：没行号的发现项却带了 `line` 键 = 违例 */
+const lineKeyViolations = (findings) => findings.filter((f) => NO_LINE.has(f.id) && Object.keys(f).includes('line'))
+/** 递归找 `undefined` —— 走 Object.keys（`{line: undefined}` 的键在），不经 stringify */
+const findUndefined = (v, p = 'value', out = []) => {
+  if (v === undefined) { out.push(p); return out }
+  if (v === null || typeof v !== 'object') return out
+  if (Array.isArray(v)) { v.forEach((x, i) => findUndefined(x, `${p}[${i}]`, out)); return out }
+  for (const k of Object.keys(v)) findUndefined(v[k], `${p}.${k}`, out)
+  return out
+}
+
+const tmpDirs = []
+try {
+  // ⑤ 假包（纯函数伪造入参）：五类"没行号"的发现 + 一类"有行号"的（死链）全触发
+  const fakeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-noline-')); tmpDirs.push(fakeRoot)
+  fs.writeFileSync(path.join(fakeRoot, 'p.html'), '<html><body><a href="./nope-404.html">x</a></body></html>', 'utf8')
+  const fakePack = {
+    lessons: [
+      { id: 'pt/0001', href: 'p.html' },    // 死链（**有**行号 —— 正向对照）
+      { id: 'pt/0001', href: 'gone.html' }, // 课程 id 重复 + 缺产物
+    ],
+    points: [{ id: 'pt' }, { id: 'pt' }],   // 知识点 id 重复
+    learned: ['ghost/0009'],                // 幽灵进度
+  }
+  const r5 = auditPack(fakeRoot, fakePack)
+  const gotIds = r5.findings.map((f) => f.id)
+  for (const want of ['duplicate-id', 'ghost-progress', 'missing-artifact', 'silent-degradation', 'dead-link']) {
+    ok(gotIds.includes(want), `[源头] 假包触发到 ${want}（没触发 = 判据没牙）`)
+  }
+  ok(r5.findings.filter((f) => f.id === 'duplicate-id').length === 2, '[源头] duplicate-id 课/点两处调用都触发')
+  ok(r5.findings.filter((f) => f.id === 'silent-degradation').length === 3, '[源头] silent-degradation 三件产物缺失都触发')
+  const viol5 = lineKeyViolations(r5.findings)
+  ok(viol5.length === 0, `[源头] 没行号的发现项一个都不带 line 键${viol5.length ? '（违例：' + viol5.map((f) => f.id).join('、') + '）' : ''}`)
+  ok(
+    r5.findings.every((f) => keySet(f) === (NO_LINE.has(f.id) ? KS5 : KS6)),
+    '[源头] 键集断言：没行号 = 恰好 5 键、有行号 = 恰好 6 键（键集，不是值）'
+  )
+  const withLine = r5.findings.filter((f) => 'line' in f)
+  ok(
+    withLine.length > 0 && withLine.every((f) => f.id === 'dead-link' && typeof f.line === 'number'),
+    '[源头] 正向对照：死链那条仍然带数字行号（收敛没把行号一起弄丢）'
+  )
+
+  // ⑥ 端到端：没建星图的空包影副本（os.tmpdir()，只有 lessons/，不建 starmap/）
+  const emptyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-emptypack-')); tmpDirs.push(emptyRoot)
+  fs.mkdirSync(path.join(emptyRoot, 'lessons'))
+  const tools = []
+  const mod = await import('../lib/mods/audit.js')
+  mod.plugin.install({ paths: { packRoot: emptyRoot, dataDir: emptyRoot }, log: () => {}, registerTool: (d) => tools.push(d) })
+  const tool = tools.find((t) => t.name === 'whale_audit')
+  let value = null
+  let threw = null
+  try { value = await tool.execute({ root: emptyRoot }) } catch (e) { threw = e }
+  ok(threw === null && value !== null, `[端到端] 空包上 whale_audit 不抛异常${threw ? '（抛了：' + threw.message + '）' : ''}`)
+  if (value) {
+    ok(!('error' in value), `[端到端] 不回宿主级错误${'error' in value ? '（回了：' + value.error + '）' : ''}`)
+    const want = [
+      'silent-degradation@reference/NOTES.html',
+      'silent-degradation@starmap/content.js',
+      'silent-degradation@starmap/static.svg',
+    ]
+    const got = value.findings.map((f) => `${f.id}@${f.file}`).sort()
+    ok(got.join(' | ') === want.join(' | '), `[端到端] 如实报出该报的发现项（${got.length} 条：${got.join(' / ')}）`)
+    ok(value.ok === true && /3 个发现项/.test(value.summary), `[端到端] 摘要如实（${value.summary}）`)
+    ok(Array.isArray(value.warnings), `[端到端] readPack 告警原样带出（${value.warnings.length} 条）`)
+
+    // ⑦ lossless JSON：递归找 undefined（两次返回对象都跑；不用 stringify 往返）
+    const und = findUndefined(value, 'whale_audit 返回值')
+    ok(und.length === 0, `[lossless] whale_audit 返回值递归找 undefined：0 处${und.length ? '（' + und.slice(0, 4).join('、') + '）' : ''}`)
+    let hostErr = null
+    try { assertLosslessJson(value, 'value') } catch (e) { hostErr = e.message }
+    ok(hostErr === null, `[lossless] 宿主级护栏 assertLosslessJson 收得下${hostErr ? '（拒了：' + hostErr + '）' : ''}`)
+    const rendered = tool.output.render({ root: emptyRoot }, value)
+    ok(Array.isArray(rendered) && rendered.every((x) => typeof x?.text === 'string'), '[端到端] render 也吃得下空包的结果（一打开就崩不止是 execute）')
+
+    // ⑦b status 路由（也调 auditPack）：返回体在 **stringify 之前**的原对象上找 undefined
+    const cap = []
+    const statusMod = await import('../lib/mods/status.js')
+    statusMod.plugin.install({
+      paths: { packRoot: emptyRoot, dataDir: emptyRoot },
+      log: () => {},
+      registerTool: () => {},
+      inject: (_names, cb) => cb({ get: () => ({ fetch: { register: (r) => cap.push(r) } }) }),
+    })
+    const route = cap.find((r) => r.path === '/api/whale/status')
+    ok(!!route, '[lossless] status 路由在册（它也调 auditPack，同样要核）')
+    if (route) {
+      const seen = []
+      const orig = JSON.stringify
+      JSON.stringify = (v, ...rest) => { seen.push(v); return orig(v, ...rest) }
+      let sErr = null
+      try { await route.fetch(new Request('http://127.0.0.1/api/whale/status', { method: 'GET' })) }
+      catch (e) { sErr = e } finally { JSON.stringify = orig }
+      ok(sErr === null, `[端到端] 空包上 status 路由不抛异常${sErr ? '（抛了：' + sErr.message + '）' : ''}`)
+      const body = seen.find((v) => v && typeof v === 'object' && 'ok' in v && 'packRoot' in v)
+      ok(!!body, '[lossless] 捕获到 status 返回体（stringify 之前的原对象 —— 不是往返回来的）')
+      if (body) {
+        const sUnd = findUndefined(body, 'status 返回体')
+        ok(sUnd.length === 0, `[lossless] status 返回体递归找 undefined：0 处${sUnd.length ? '（' + sUnd.slice(0, 4).join('、') + '）' : ''}`)
+        let sHost = null
+        try { assertLosslessJson(body, 'body') } catch (e) { sHost = e.message }
+        ok(sHost === null, `[lossless] status 返回体过宿主级护栏${sHost ? '（拒了：' + sHost + '）' : ''}`)
+      }
+    }
+  }
+
+  // ⑧ 反空转：突变体 = 把 add() 改回"无条件写 line"（只写 tmpdir，真源码一个字节没动）
+  {
+    const src = fs.readFileSync(fileURLToPath(new URL('../lib/audit.js', import.meta.url)), 'utf8')
+    const MARK = 'if (line !== undefined) f.line = line'
+    ok(src.includes(MARK), '[反空转] 源码里找得到"按需写 line 键"的收敛点（找不到 = 判据要更新，不许静默跳过）')
+    if (src.includes(MARK)) {
+      const mutDir = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-mutant-')); tmpDirs.push(mutDir)
+      const mutantPath = path.join(mutDir, 'audit-mutant.mjs')
+      fs.writeFileSync(mutantPath, src.split(MARK).join('f.line = line'), 'utf8') // 改回无条件写
+      const mutant = await import(pathToFileURL(mutantPath).href)
+      const mr = mutant.auditPack(fakeRoot, fakePack) // 同一份纯函数 + 同一份伪造入参
+      const mViol = lineKeyViolations(mr.findings)
+      ok(mViol.length > 0, `[反空转] 突变体被键集判据报出 ${mViol.length} 处（${[...new Set(mViol.map((f) => f.id))].join('、')}）`)
+      const mUnd = findUndefined(mr, 'value')
+      ok(mUnd.length > 0, `[反空转] 递归找 undefined 也报出 ${mUnd.length} 处（${mUnd.slice(0, 3).join('、')}）`)
+      let mHost = null
+      try { assertLosslessJson(mr, 'value') } catch (e) { mHost = e.message }
+      ok(!!mHost, `[反空转] 宿主级护栏同样拒收突变体（${mHost ? mHost.slice(0, 70) : '没拒 = 判据空转 ✗'}）`)
+    }
+  }
+} finally {
+  for (const d of tmpDirs) fs.rmSync(d, { recursive: true, force: true })
+}
+
+// 真包守卫收口：跑完再哈希一次 —— 一个字节都不许变
+const realAfter = treeDigest(ROOT)
+ok(
+  realBefore === realAfter,
+  `真包未被改动：整树内容哈希前后一致（${realBefore.split(':')[1]} 个文件）${realBefore === realAfter ? '' : ` 前 ${realBefore} ≠ 后 ${realAfter}`}`
+)
+
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
-console.log('✅ probe 纯函数且判得准；audit 与干净包一致、坏样抓得到')
+console.log('✅ probe 纯函数且判得准；audit 与干净包一致、坏样抓得到；line 键源头收敛、空包不崩、lossless、反空转')
