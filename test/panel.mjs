@@ -381,11 +381,11 @@ ok((gb.entry?.form?.fields || []).filter((f) => f.required).length === 0, '不�
       ok(row?.textContent === '新课程', `行上的字是「新课程」（${row?.textContent}）`)
       ok(row?.getAttribute('data-dsh-whale-entry') === '' && row?.getAttribute('data-dsh-part') === 'sidebar-entry', '带 data-dsh-whale-entry 与 data-dsh-part（可被识别、可被别的插件避让）')
 
-      // ①b 第二行「进入课程包」：**放「新课程」下**（主人 2026-09-25 定），样式抄「技能中心」
+      // ①b 第二行「课程中心」：**放「新课程」下**（主人 2026-09-25 定），样式抄「技能中心」
       const packRow = doc1.querySelector('[data-dsh-whale-pack-entry]')
-      ok(!!packRow && packRow.tagName === 'BUTTON', '侧栏第二行「进入课程包」也插进了 DOM')
-      ok(packRow?.previousElementSibling === row, '位置①b：紧贴「新课程」下面（链式：新建会话 → 新课程 → 进入课程包）')
-      ok(packRow?.textContent === '进入课程包', `第二行上的字是「进入课程包」（${packRow?.textContent}）`)
+      ok(!!packRow && packRow.tagName === 'BUTTON', '侧栏第二行「课程中心」也插进了 DOM')
+      ok(packRow?.previousElementSibling === row, '位置①b：紧贴「新课程」下面（链式：新建会话 → 新课程 → 课程中心）')
+      ok(packRow?.textContent === '课程中心', `第二行上的字是「课程中心」（${packRow?.textContent}）`)
       ok(packRow?.getAttribute('data-dsh-part') === 'sidebar-entry', '第二行也带 data-dsh-part（与第一行同形）')
 
       // ② 别的插件行插到我上面 → 触发 observer → **两行都要**挪回原位（链式）
@@ -396,7 +396,7 @@ ok((gb.entry?.form?.fields || []).filter((f) => f.required).length === 0, '不�
       seen.forEach((o) => o.cb())
       ok(row.previousElementSibling === s1.native, '位置②：被技能中心挤下去后**挪回了「新建会话」正下方**')
       ok(packRow.previousElementSibling === row, '位置②b：第二行跟着挪回「新课程」正下方（链式一起挪，不是只挪一行）')
-      ok(skill.previousElementSibling === packRow, '技能中心被排到我们**两行之后**（顺序：新建会话 → 新课程 → 进入课程包 → 技能中心）')
+      ok(skill.previousElementSibling === packRow, '技能中心被排到我们**两行之后**（顺序：新建会话 → 新课程 → 课程中心 → 技能中心）')
 
       // ③ 侧栏还没渲染出来 → 先不插；等它出现，body observer 要补插（缺这条 = 静默什么都不发生）
       const doc2 = makeDom()
@@ -628,11 +628,11 @@ ok((gb.entry?.form?.fields || []).filter((f) => f.required).length === 0, '不�
   ok(/function placeRowAfter/.test(code) && /previousElementSibling === prev/.test(code),
     '**位置断言**：被别的插件行（技能中心）挤下去时挪回上一行正下方（`placeRowAfter` 每次调用都比一遍 previousElementSibling）')
 
-  // 侧栏第二行「进入课程包」（2026-09-25 主人定：**放「新课程」下**、**样式参考「技能中心」**）
+  // 侧栏第二行「课程中心」（2026-09-25 主人定：**放「新课程」下**、**样式参考「技能中心」**）
   ok(/data-dsh-whale-pack-entry/.test(code), '第二行有独立标记（data-dsh-whale-pack-entry）')
   ok(/function placeEntryRows/.test(code) && /prev = rows\[i\]/.test(code),
-    '两行**链式**摆放（新建会话 → 新课程 → 进入课程包），位置断言对两行都生效')
-  ok(/PACK_ENTRY_LABEL = '进入课程包'/.test(code), '第二行的字是「进入课程包」')
+    '两行**链式**摆放（新建会话 → 新课程 → 课程中心），位置断言对两行都生效')
+  ok(/PACK_ENTRY_LABEL = '课程中心'/.test(code), '第二行的字是「课程中心」')
   ok(/\/api\/whale\/pack\/open/.test(code), '第二行调 POST /api/whale/pack/open 拿星图地址')
   ok(/window\.open\(''/.test(code), '点第二行时**同步**开一张空白页（异步再 open 会被弹窗拦截器吃掉）')
   // ⚠️ 样式**只在这个块里判**：`height:36px` 这类串在第一行（新课程）的收起态里也有，
@@ -644,6 +644,8 @@ ok((gb.entry?.form?.fields || []).filter((f) => f.required).length === 0, '不�
     && /interactive-bg-hover/.test(packCss) && /width:24px;height:24px/.test(packCss)
     && /font-size:13px/.test(packCss) && /padding:0 10px/.test(packCss) && /gap:8px/.test(packCss),
     '第二行几何逐条对齐「技能中心」（36px / 圆角 8 / 透明底 / hover 才上色 / 图标 24×24 / 13px / padding 0 10px / gap 8px）')
+  ok(/margin:0 0 8px/.test(packCss) && !/margin:0 2px/.test(packCss),
+    '横向**不加 margin** —— 第一版抄了「新课程」的 `margin:0 2px 8px`，比技能中心窄 4px、左边缘偏右 2px（主人 2026-09-25 看截图指出"歪了"）')
   ok(!/border:\.5px solid/.test(packCss) && !/button-elevated-fill/.test(packCss),
     '第二行**没有**抄「新课程」那种按钮样（半像素边框 / button-elevated-fill —— 主人明确说不要）')
   ok(/border-radius:50%/.test(packCss), '第二行收起态是**圆形**（技能中心是 border-radius:50%，与「新课程」的方形变体刻意不同）')

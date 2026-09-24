@@ -1,8 +1,8 @@
 /**
- * test/pack-open.mjs — 「进入课程包」：确保课程包自己的预览服务在跑
+ * test/pack-open.mjs — 「课程中心」：确保课程包自己的预览服务在跑
  * ------------------------------------------------------------------
  * 场景 A（2026-09-25 主人定「保留网页版 + 自制快捷方式」）：
- * 侧栏第二行「进入课程包」→ `POST /api/whale/pack/open` → 宿主确保
+ * 侧栏第二行「课程中心」→ `POST /api/whale/pack/open` → 宿主确保
  * `tools/app-server.js` 在跑（**先探活**；没起就**在宿主进程内**起）→ 回星图地址。
  *
  * 为什么走这条路（而不是插件自己托管课程包）见 `lib/pack-server.js` 的文件头 ——
@@ -68,7 +68,7 @@ function healthOk(port) {
   })
 }
 
-console.log('\n[pack-open] 「进入课程包」：起/复用课程包自己的预览服务')
+console.log('\n[pack-open] 「课程中心」：起/复用课程包自己的预览服务')
 
 /* ── ① 先探活再起：已经有服务在跑 → 复用 ───────────────────────────── */
 {
@@ -188,4 +188,4 @@ if (fails.length) {
   fails.forEach((f) => console.log('  ✗ ' + f))
   process.exit(1)
 }
-console.log('✅ 进入课程包：先探活再起 / 复用不重复 listen / 起完真的答 / 缺件一律如实报')
+console.log('✅ 课程中心：先探活再起 / 复用不重复 listen / 起完真的答 / 缺件一律如实报')
