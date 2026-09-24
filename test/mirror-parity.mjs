@@ -19,6 +19,9 @@
  *      （星图数据生成器）+ **随包模板副本**（`lib/pack-template/tools/build-starmap.js` 等 4 件）——
  *      同一个 `window.STARMAP_REAL` 契约：键序一致、空包**纯空**（0 圈，不许塞默认圈当地基）、
  *      建第一个圈后重建圈出现在载荷与页面里，且模板副本与包侧原件**同输入 → 逐字节同产出**。
+ *   ⑦ **课次锚点（F 条）**：`lib/pack-model.js` ↔ 包侧 `tools/lesson-map.js` 的 `labelAnchorId`，
+ *      外加**产物往返一致**（课程页 fragment ↔ NOTES.html 的 id）—— id 不许含空白（HTML 规范），
+ *      fragment 必须 percent-encode 过，且 `decode(fragment) === id`。
  *
  * 判据自带**反空转**：两条记录必须真的来自两个不同写入者（text 不同、id 递进），
  * 否则"同形"是白得的。
@@ -37,6 +40,7 @@ import { digestTree } from '../lib/fingerprint.js'
 import { appendNote } from '../lib/notes-io.js'
 import { writeScaffold } from '../lib/pack-scaffold.js'
 import { validatePlan, planFrontier } from '../lib/plan.js'
+import { labelAnchorId } from '../lib/pack-model.js'
 import { packRoot, PLUGIN } from './_pack.mjs'
 
 const ROOT = packRoot()
@@ -370,6 +374,86 @@ try {
     `反空转：塞进地图上没有的课次号（9）→ 前沿与不塞时相同（实得 ${shapes['混进地图上没有的号']} / ${shapes['建了1到4']}）`)
 }
 
+/* ── ⑦ 课次锚点（2026-09-24 F 条）：两侧的 labelAnchorId + 产物往返一致 ─────────
+ * 为什么归「镜像对拍」：锚点 id 的公式有**两份实现**（包侧 `tools/lesson-map.js` /
+ * 插件 `lib/pack-model.js`），产物又分两处生成 —— 课程页的 fragment 来自 build-lessons /
+ * render，`reference/NOTES.html` 的 id 来自 build-notes。两侧一漂就是「点封面卡跳不到
+ * 笔记小节」这种**静默失效**。
+ * 判据是**往返一致**：浏览器按 percent-decode 后拿 fragment 与 id 比对
+ * ⇒ `decode(fragment) === id` 必须成立；且 **id 本身不许含空白**（HTML 对 id 的硬限制 ——
+ * 只编码 href 不够），fragment 必须真的 percent-encode 过。
+ */
+export function checkNotesAnchors(notesHtml, pages) {
+  const problems = []
+  const ids = [...new Set([...String(notesHtml).matchAll(/\bid="([^"]*)"/g)].map((m) => m[1]))]
+  for (const id of ids) {
+    if (!id || /\s/.test(id)) problems.push(`NOTES.html 的 id「${id}」为空或含空白 —— 非法 HTML id（规范如此，只编码 href 不够）`)
+  }
+  for (const p of pages) {
+    const frags = [...new Set([...String(p.html).matchAll(/NOTES\.html#([^"]*)/g)].map((m) => m[1]))]
+    for (const frag of frags) {
+      let decoded = null
+      try { decoded = decodeURIComponent(frag) } catch { problems.push(`${p.name}: fragment「${frag}」不是合法的 percent-encoding`); continue }
+      if (!ids.includes(decoded)) problems.push(`${p.name}: fragment「${frag}」decode 后「${decoded}」在 NOTES.html 里没有对应 id（浏览器就是这么比的）`)
+      if (encodeURIComponent(decoded) !== frag) problems.push(`${p.name}: fragment「${frag}」没做 URL 编码（应为「${encodeURIComponent(decoded)}」）`)
+    }
+  }
+  return { ids, problems }
+}
+
+{
+  const packLessonMap = require_(path.join(ROOT, 'tools', 'lesson-map.js'))
+  const anchorCases = ['第1课', 'Vue 第1课', '代数 第1课', '带  多空格\t与制表', '第1课 ', ' no-前导']
+  let same = 0
+  for (const c of anchorCases) {
+    const a = labelAnchorId(c)
+    const b = packLessonMap.labelAnchorId(c)
+    if (a === b) same++
+    else console.log(`     ✗ 输入 ${JSON.stringify(c)}：插件 ${JSON.stringify(a)} / 包侧 ${JSON.stringify(b)}`)
+  }
+  ok(same === anchorCases.length, `课次锚点公式两边逐案例一致（${same}/${anchorCases.length}：空白→-、多空格/制表/前后缀空白都归一）`)
+  ok(anchorCases.every((c) => !/\s/.test(labelAnchorId(c))), '产出的 id 一律不含空白（HTML 规范对 id 的硬限制）')
+  ok(decodeURIComponent(encodeURIComponent(labelAnchorId('代数 第1课'))) === labelAnchorId('代数 第1课'),
+    '往返一致：fragment percent-encode 再 decode 回到同一个 id')
+  let threw = false
+  try { labelAnchorId('   ') } catch { threw = true }
+  ok(threw, '空白 label → 当场抛错（绝不静默编一个跳不到的锚点）')
+
+  // 产物端：真包只读 —— 课程页的 fragment 与 NOTES.html 的 id 必须对得上
+  const notesPath = path.join(ROOT, 'reference', 'NOTES.html')
+  const lessonsDir = path.join(ROOT, 'lessons')
+  const pages = []
+  ;(function walk(d, prefix = '') {
+    if (!fs.existsSync(d)) return
+    for (const e of fs.readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      if (e.name === 'src') continue
+      const rel = prefix ? `${prefix}/${e.name}` : e.name
+      if (e.isDirectory()) { walk(path.join(d, e.name), rel); continue }
+      if (/^\d{4}-.*\.html$/.test(e.name)) pages.push({ name: rel, html: fs.readFileSync(path.join(d, e.name), 'utf8') })
+    }
+  })(lessonsDir)
+  const notesHtml = fs.existsSync(notesPath) ? fs.readFileSync(notesPath, 'utf8') : ''
+  const { ids, problems } = checkNotesAnchors(notesHtml, pages)
+  const links = pages.reduce((n, p) => n + (p.html.match(/NOTES\.html#/g) || []).length, 0)
+  ok(links > 0 && ids.length > 0, `产物非空转（${pages.length} 个课程页里 ${links} 条笔记页链接 × NOTES.html 里 ${ids.length} 个 id）`)
+  ok(problems.length === 0,
+    `产物往返一致：每条 NOTES.html#fragment percent-decode 后都落到真实 id，且 id 零空白、fragment 真编码过${problems.length ? '（' + problems.slice(0, 3).join('；') + '）' : ''}`)
+
+  // 反空转①：修法拿掉一半 —— id 换回带空格的旧写法（只编码 href 是不够的）
+  const legacy = checkNotesAnchors('<details id="代数 第1课"></details>', [{ name: '旧格式.html', html: 'href="x/NOTES.html#%E4%BB%A3%E6%95%B0%20%E7%AC%AC1%E8%AF%BE"' }])
+  ok(legacy.problems.some((p) => /含空白/.test(p)), '反空转①：id 含空格（旧写法）→ 判据红')
+  ok(legacy.problems.length === 1 && /含空白/.test(legacy.problems[0]),
+    `反空转①b：旧写法**只**被「id 含空白」抓住（往返在旧写法下是成立的）—— 证明只编码 href 过不了关，第二条判据不是摆设（实得 ${legacy.problems.length} 条）`)
+
+  // 反空转②：id 修了、fragment 没跟着换（decode 出来的还是旧 label）
+  const half = checkNotesAnchors('<details id="代数-第1课"></details>', [{ name: '只修id.html', html: 'href="x/NOTES.html#%E4%BB%A3%E6%95%B0%20%E7%AC%AC1%E8%AF%BE"' }])
+  ok(half.problems.some((p) => /没有对应 id/.test(p)), '反空转②：id 换了 fragment 没换 → 判据红')
+
+  // 反空转③：id / fragment 对得上，但 fragment 压根没做 URL 编码
+  const unencoded = checkNotesAnchors('<details id="第1课"></details>', [{ name: '未编码.html', html: 'href="x/NOTES.html#第1课"' }])
+  ok(unencoded.problems.some((p) => /没做 URL 编码/.test(p)), '反空转③：fragment 没做 URL 编码 → 判据红')
+}
+
 /* ── ⑤ 真包未被改动 ────────────────────────────────────────────────────── */
 {
   const real = path.join(ROOT, 'notes', 'notes.jsonl')
@@ -379,4 +463,4 @@ try {
 
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
-console.log('✅ 镜像对拍：文本助手一致、两个写入口产出同形记录（共用同一计数器与同一台账）、指纹算法逐案例一致、星图载荷契约一致（含随包模板副本逐字节同产出）')
+console.log('✅ 镜像对拍：文本助手一致、两个写入口产出同形记录（共用同一计数器与同一台账）、指纹算法逐案例一致、星图载荷契约一致（含随包模板副本逐字节同产出）、课次锚点往返一致（id 零空白 + fragment 编码）')
