@@ -42,13 +42,17 @@ const { state } = probeState(ROOT, pack)
 const data = buildPracticeData({ state, pack })
 const text = renderPracticeDataModule(data)
 
-// 3 课 = spring-boot 第1/2课（键 1、2）+ **vue 第1课（键 1001）**。
+// 3 课 = spring-boot 第1/2课 + vue 第1课。
 // 2026-09-24 D1：vue 的实践区（只有 EXPECT.json）以前立不成项目 ⇒ 它那份判据永远读不到、
 // 这里只有 2 条；修完变成 3 条 —— 这条断言就是那个缺陷的回归判据。
-ok(data.version === 1 && Object.keys(data.lessons).length === 3, `三课都有实践数据（${Object.keys(data.lessons).join('、')}）`)
-ok(!!data.lessons['1001'], 'vue 第1课的实践数据出现了（D1 修掉的那条链）')
-const l1 = data.lessons['1']
-const l2 = data.lessons['2']
+// 2026-09-24 D2-a：键从「课号」改成**课 id**（`spring-boot/0001`）—— 课号跨圈会撞车（见下）
+ok(
+  data.version === 2 && data.keyScheme === 'lesson-id' && Object.keys(data.lessons).length === 3,
+  `三课都有实践数据（${Object.keys(data.lessons).join('、')}）`
+)
+ok(!!data.lessons['vue/1001'], 'vue 第1课的实践数据出现了（D1 修掉的那条链）')
+const l1 = data.lessons['spring-boot/0001']
+const l2 = data.lessons['spring-boot/0002']
 ok(l1.summary.achieved === 3 && l1.summary.total === 3 && l1.summary.needsReview === 1, `第1课：达成 ${l1.summary.achieved} / 共 ${l1.summary.total}（另有 ${l1.summary.needsReview} 项需人工确认）`)
 ok(l2.summary.achieved === 0 && l2.summary.total === 3 && l2.summary.needsReview === 1, `第2课：达成 ${l2.summary.achieved} / 共 ${l2.summary.total}（另有 ${l2.summary.needsReview} 项需人工确认）`)
 ok(l1.challenges[0].state === 'done' && l2.challenges[0].state === 'todo', '逐题状态对（第1课第1题 done、第2课第1题 todo）')
@@ -60,6 +64,31 @@ ok(
 ok(/产出/.test(text), '生成的 JS 里带着产出字段（页面拿它显示"产出：…"）')
 ok(!/%/.test(text), '数据文件里**没有百分比**（口径：只报 k/n）')
 ok(!/[\u{1F300}-\u{1FAFF}]/u.test(text) && !/[✗✓⚠]/.test(text), '数据文件里没有 emoji/装饰符号（UI 层规则）')
+
+// ── 跨圈撞车回归（2026-09-24 D2-a）──
+// 键以前是「课号」：`spring-boot/0001` 与 `alge/0001` **都是 `1`** —— 后写的**静默覆盖**前一条，
+// 页面按课号查就会串课。造一份最小 state（两个圈各有一门 0001）看两条是否都在。
+const mkLesson = (id, achieved, total) => ({
+  id,
+  title: id,
+  challengeSummary: { achieved, total, needsReview: 0 },
+  challenges: [{ no: 1, hint: 'h', deliverable: 'd', done: achieved > 0, missing: [] }],
+})
+const colliding = buildPracticeData({
+  state: {
+    projects: [
+      { dir: 'code/a', expect: { path: 'code/a/EXPECT.json' }, lessons: [mkLesson('spring-boot/0001', 3, 3)] },
+      { dir: 'code/b', expect: { path: 'math/alge/EXPECT.json' }, lessons: [mkLesson('alge/0001', 0, 2)] },
+    ],
+  },
+  pack: { lessons: [] },
+})
+ok(
+  Object.keys(colliding.lessons).length === 2 && !!colliding.lessons['spring-boot/0001'] && !!colliding.lessons['alge/0001'],
+  `跨圈同名课号**不互相覆盖**（${Object.keys(colliding.lessons).join('、')}）`
+)
+ok(colliding.lessons['alge/0001'].summary.total === 2, '两条数据的数值各归各（没有串课）')
+ok(colliding.lessons['spring-boot/0001'].expect === 'code/a/EXPECT.json', '每条带着**自己项目**的 EXPECT 路径（页面脚注不再写死）')
 
 ok(text === fs.readFileSync(path.join(ROOT, DATA_REL), 'utf8'), '真包磁盘上的 practice-data.js 与现算结果**逐字节相同**（漂移检查绿）')
 
@@ -86,7 +115,7 @@ try {
   const req = createRequire(import.meta.url)
   delete req.cache[target]
   const required = req(target)
-  ok(required.version === 1 && required.lessons['1'].summary.total === 3, '产物是合法 JS，require 回来形状对')
+  ok(required.version === 2 && required.lessons['spring-boot/0001'].summary.total === 3, '产物是合法 JS，require 回来形状对')
   ok(Object.keys(required.byFile).length >= 1, `byFile 兜底键在（${Object.keys(required.byFile).join('、')}）`)
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true })
