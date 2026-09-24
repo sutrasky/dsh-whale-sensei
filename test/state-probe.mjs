@@ -72,7 +72,15 @@ try { assertLosslessJson({ a: new Map() }) } catch (e) { guardWorks = e.message 
 ok(!!guardWorks, `无损自检本身能变红（${guardWorks || '对 Map 没报错 ✗'}）`)
 
 // ── ① 事实抽得对 ──
-ok(state.projects.length === 1, `扫到 1 个学生项目（实得 ${state.projects.length}）`)
+// 2026-09-24 D1：实践区改成「按圈声明」后，**只有 EXPECT.json、没有构建文件**的
+// `code/programming/vue/` 也立成了项目 —— 所以从 1 个变成 2 个（这正是本轮修掉的那个缺陷）
+ok(state.projects.length === 2, `扫到 2 个学生项目（实得 ${state.projects.length}：${state.projects.map((p) => p.dir).join('、')}）`)
+ok(state.projects.some((p) => p.dir === 'code/programming/vue'),
+  '②层缺陷回归判据：只有 EXPECT.json 的 vue 实践区也被认成项目')
+ok(state.projects.every((p) => !path.isAbsolute(p.dir) && !p.dir.startsWith('../')),
+  '项目身份是**包根相对**路径（多根扫描下不撞名）')
+ok(JSON.stringify(state.practiceRoots) === JSON.stringify(['code/_hello-spring-boot/hello-spring-boot', 'code/programming', 'code/programming/vue', 'math'].sort()),
+  `practiceRoots = 圈级 ∪ 点级里实际存在的（实得 ${JSON.stringify(state.practiceRoots)}）`)
 ok(P?.facts.build === 'maven', `构建方式识别为 maven（实得 ${P?.facts.build}）`)
 ok(P?.facts.endpoints.length === 3, `端点数 3（实得 ${P?.facts.endpoints.length}：${(P?.facts.endpoints || []).map((e) => e.method + ' ' + e.path).join('、')}）`)
 ok(P?.facts.annotations.includes('RestController') && P?.facts.annotations.includes('GetMapping'), `注解含 @RestController 与 @GetMapping（现有 ${(P?.facts.annotations || []).map((a) => '@' + a).join(' ')}）`)
@@ -83,7 +91,8 @@ ok(!P?.facts.files.some((f) => /\.LCK|~$/.test(f)), '编辑器锁文件没被算
 // ⚠️ 这两条是实际输出暴露的漏判：主源/测试数被数成 0，pack 计数打成了 [object Object]
 ok(P?.facts.java.main.length === 2 && P?.facts.java.test.length === 1, `主源 2 / 测试 1（实得 ${P?.facts.java.main.length}/${P?.facts.java.test.length}）`)
 ok(typeof state.pack.learned === 'number' && typeof state.pack.lessons === 'number', `pack 计数是数字（learned=${typeof state.pack.learned}、lessons=${typeof state.pack.lessons}）`)
-ok(state.pack.lessons === 3 && state.pack.learned === 1, `pack 计数正确：3 门课 / 点亮 1（实得 ${state.pack.lessons}/${state.pack.learned}）`)
+// 4 门课 = spring-boot 0001/0002 + vue 1001 + **math/alge 0001**（2026-09-24 新增的高数第 1 节）
+ok(state.pack.lessons === 4 && state.pack.learned === 1, `pack 计数正确：4 门课 / 点亮 1（实得 ${state.pack.lessons}/${state.pack.learned}）`)
 ok(!JSON.stringify(summarizeState(state)).includes('[object Object]'), '摘要里没有 [object Object]（渲染出来的每一行都是给人看的）')
 
 // ── ② 与人工记录对齐（外部锚）──
@@ -105,7 +114,10 @@ try {
   fs.cpSync(path.join(ROOT, 'code'), path.join(tmp, 'code'), { recursive: true })
   fs.mkdirSync(path.join(tmp, 'learning-records'), { recursive: true })
 
-  const projDir = path.join(tmp, 'code', P.facts.dir)
+  // ⚠️ `P.facts.dir` 是**包根相对**（2026-09-24 D1 起）—— 而 `tmp` 下拷的就是包根，
+  //    所以直接 join(tmp, dir)。旧写法 `join(tmp, 'code', dir)` 会拼成 tmp/code/code/…，
+  //    rmSync 因 force 不报错，于是**坏样本根本没造出来、判据却在报"功能坏了"**（静默空转）
+  const projDir = path.join(tmp, P.facts.dir)
   const ctrl = path.join(projDir, 'src', 'main', 'java', 'com', 'sutrasky', 'hello_spring_boot', 'HelloController.java')
 
   // ③ 删掉控制器 → 第1课必须变红
@@ -140,7 +152,8 @@ try {
   fs.copyFileSync(realExpect, path.join(tmp, 'code', '_hello-spring-boot', 'EXPECT.json'))
   const beforeCh = probeState(tmp, STUB_PACK).state.projects[0].lessons.find((l) => l.id === 'spring-boot/0002')
   ok(beforeCh.challengeSummary.achieved === 0, `补之前：第2课挑战达成 ${beforeCh.challengeSummary.achieved} / 共 ${beforeCh.challengeSummary.total}`)
-  const taskDir = path.join(tmp, 'code', P.facts.dir, 'src', 'main', 'java', 'com', 'sutrasky', 'hello_spring_boot', 'model')
+  // ⚠️ 同上：`P.facts.dir` 是**包根相对**，`tmp` 下拷的就是包根 → 直接 join(tmp, dir)
+  const taskDir = path.join(tmp, P.facts.dir, 'src', 'main', 'java', 'com', 'sutrasky', 'hello_spring_boot', 'model')
   fs.mkdirSync(taskDir, { recursive: true })
   fs.writeFileSync(path.join(taskDir, 'Task.java'), 'package x;\nimport jakarta.validation.constraints.NotNull;\npublic class Task {\n  @NotNull private String title;\n}\n', 'utf8')
   const afterCh = probeState(tmp, STUB_PACK).state.projects[0].lessons.find((l) => l.id === 'spring-boot/0002')
@@ -211,7 +224,9 @@ ok(!/%/.test(summaryText), '摘要里**没有百分比**（有"需人工确认"�
 
 // ── ⑧ codeDir 不存在 ──
 const none = scanWorkspace(ROOT, { codeDir: '不存在的目录' })
-ok(none.projects.length === 0 && none.warnings.length === 0, 'codeDir 不存在 → 0 个项目且不炸')
+// 2026-09-24 D1 起：扫描根不存在**不再静默** —— 0 个项目（不炸）**且**有一条点名它的 warning
+ok(none.projects.length === 0 && none.warnings.length === 1 && /不存在的目录/.test(none.warnings[0]),
+  `codeDir 不存在 → 0 个项目、不炸、且**不静默**（warnings=${JSON.stringify(none.warnings)}）`)
 
 // ── 真工作区没被动过 ──
 ok(hashTree(path.join(ROOT, 'code')) === realBefore, '真工作区一字未动（code/ 全树哈希相同）')

@@ -42,7 +42,11 @@ const { state } = probeState(ROOT, pack)
 const data = buildPracticeData({ state, pack })
 const text = renderPracticeDataModule(data)
 
-ok(data.version === 1 && Object.keys(data.lessons).length === 2, `两课都有实践数据（${Object.keys(data.lessons).join('、')}）`)
+// 3 课 = spring-boot 第1/2课（键 1、2）+ **vue 第1课（键 1001）**。
+// 2026-09-24 D1：vue 的实践区（只有 EXPECT.json）以前立不成项目 ⇒ 它那份判据永远读不到、
+// 这里只有 2 条；修完变成 3 条 —— 这条断言就是那个缺陷的回归判据。
+ok(data.version === 1 && Object.keys(data.lessons).length === 3, `三课都有实践数据（${Object.keys(data.lessons).join('、')}）`)
+ok(!!data.lessons['1001'], 'vue 第1课的实践数据出现了（D1 修掉的那条链）')
 const l1 = data.lessons['1']
 const l2 = data.lessons['2']
 ok(l1.summary.achieved === 3 && l1.summary.total === 3 && l1.summary.needsReview === 1, `第1课：达成 ${l1.summary.achieved} / 共 ${l1.summary.total}（另有 ${l1.summary.needsReview} 项需人工确认）`)

@@ -105,6 +105,17 @@ try {
   const proj = path.join(tmp, 'code', '_hello-spring-boot', 'hello-spring-boot')
   const pkg = path.join(proj, 'src', 'main', 'java', 'com', 'sutrasky', 'hello_spring_boot')
 
+  // ⚠️ 2026-09-24 D1：实践区改成「按圈声明」后，`code/programming/vue/`（原先只有 EXPECT.json、
+  //    立不成项目）**也被认成项目** ⇒ vue 第1课成了"没做完的课"。而 decideNext 的优先级是
+  //    **先补没做完的课、最后才谈开新课**（`lib/brief.js:24`）—— 它会把本文件后面要验的
+  //    「前置闸 / 摸底 / 开下一课」三条分支**全挡住**。所以夹具先把 vue 第1课做满，
+  //    让这三条分支真正可达；vue 第1课的判据就是这三个文件（`code/programming/vue/EXPECT.json`）。
+  const vueDir = path.join(tmp, 'code', 'programming', 'vue')
+  fs.mkdirSync(vueDir, { recursive: true })
+  fs.writeFileSync(path.join(vueDir, 'index.html'), '<div id="app"></div>\n', 'utf8')
+  fs.writeFileSync(path.join(vueDir, 'app.js'), 'createApp({})\n', 'utf8')
+  fs.writeFileSync(path.join(vueDir, 'api.js'), 'export const get = () => {}\n', 'utf8')
+
   // ── ② 补齐第2课的缺口 → 建议必须变 ──
   const before = await tool2.execute({ root: tmp })
   ok(before.brief.next.action === 'continue-lesson', `补齐前：${before.brief.next.action}`)
@@ -169,7 +180,11 @@ try {
   fs.writeFileSync(askPaths(tmp).pending, '', 'utf8')
 
   // ── ④ 没有 EXPECT.json → 不猜 ──
+  // D1 起 vue 也是项目、也有 EXPECT.json —— "没有期望"这个前提要求**两份都移走**
+  const vueExpect = path.join(tmp, 'code', 'programming', 'vue', 'EXPECT.json')
+  const vueExpectBody = fs.readFileSync(vueExpect, 'utf8')
   fs.rmSync(path.join(tmp, 'code', '_hello-spring-boot', 'EXPECT.json'), { force: true })
+  fs.rmSync(vueExpect, { force: true })
   const noExpect = await tool2.execute({ root: tmp })
   ok(noExpect.brief.next.action === 'unknown', `没有期望时：${noExpect.brief.next.action}`)
   ok(/期望|声明/.test(noExpect.brief.next.why) && !/缺 .*项/.test(noExpect.brief.next.why), `不猜缺什么（why：${noExpect.brief.next.why}）`)
@@ -178,6 +193,8 @@ try {
   // ── ⑧ 学生笔记：空台账 + 写入 + 截断 + 显示名 ──
   // 恢复 EXPECT.json（④ 删了它）
   fs.writeFileSync(path.join(tmp, 'code', '_hello-spring-boot', 'EXPECT.json'), JSON.stringify({ lessons: [{ id: 'spring-boot/0001', title: '第1课 REST 基础' }, { id: 'spring-boot/0002', title: '第2课 REST API 与分层' }] }), 'utf8')
+  // vue 那份也按原样放回去（④ 一并移走了）
+  fs.writeFileSync(vueExpect, vueExpectBody, 'utf8')
   // 空台账：这段在、写「还没有笔记」
   const emptyNotes = await tool2.execute({ root: tmp })
   const noteSec0 = emptyNotes.brief.sections.find((s) => s.title === '学生笔记')
