@@ -23,6 +23,7 @@ import { readPack } from '../lib/pack.js'
 import { probeState, writeState, scanWorkspace, scanProject } from '../lib/state-scan.js'
 import { validateExpect, computeGaps, assertLosslessJson, parseEndpoints, joinEndpointPath } from '../lib/state.js'
 import { summarizeState } from '../lib/state.js'
+import { PROBE_VERSION } from '../lib/fingerprint.js'
 import { packRoot } from './_pack.mjs'
 
 const ROOT = packRoot()
@@ -375,6 +376,8 @@ const gapsCh = computeGaps(emptyFacts(['A']), {
 const cs = gapsCh[0].challengeSummary
 ok(cs.achieved === 1 && cs.total === 1 && cs.needsReview === 1, `需人工确认的项**不计入达成数**（达成 ${cs.achieved} / 共 ${cs.total} ＋ ${cs.needsReview} 项人工）`)
 const summaryText = summarizeState({
+  // 手搓快照照抄真快照的顶层形状（probeVersion 用 import 的常量，不写字面量）
+  probeVersion: PROBE_VERSION,
   projects: [{ facts: emptyFacts(['A']), lessons: gapsCh }],
   signals: { pendingQuestions: 0, processedQuestions: 0, notes: 0, records: 0 },
   pack: { learned: 0, lessons: 0 },

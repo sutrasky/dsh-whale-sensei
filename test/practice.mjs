@@ -18,6 +18,7 @@ import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { readPack } from '../lib/pack.js'
 import { probeState } from '../lib/state-scan.js'
+import { PROBE_VERSION } from '../lib/fingerprint.js'
 import { buildPracticeData, renderPracticeDataModule } from '../lib/practice.js'
 import { probeBase, dumpDom, findBrowser } from '../lib/visual-io.js'
 import { plugin as practicePlugin } from '../lib/mods/practice.js'
@@ -95,6 +96,8 @@ const mkLesson = (id, achieved, total) => ({
 })
 const colliding = buildPracticeData({
   state: {
+    // 手搓快照照抄真快照的顶层形状（probeVersion 用 import 的常量，不写字面量）
+    probeVersion: PROBE_VERSION,
     projects: [
       { dir: 'code/a', expect: { path: 'code/a/EXPECT.json' }, lessons: [mkLesson('spring-boot/0001', 3, 3)] },
       { dir: 'code/b', expect: { path: 'math/alge/EXPECT.json' }, lessons: [mkLesson('alge/0001', 0, 2)] },

@@ -15,6 +15,7 @@
  *   ③ **内容指纹算法**：`lib/fingerprint.js` ↔ 包侧 `tools/fingerprint.js`（+ 模板逐字副本）——
  *      点亮换钉子的新鲜度判据。两侧一漂 = 永远 `stale-snapshot` = 点亮全废（R13），
  *      所以除了逐案例相等，还自带**反空转**（多文件 / 改字节 / 换行编码 → 指纹必变且两边仍相等）。
+ *      ③b 另比 **PROBE_VERSION**（探针版本，快照新鲜度的第一把尺子）：三份逐字同值。
  *   ④ **星图载荷契约**：`lib/pack-scaffold.js`（建包时写的空星图骨架）↔ 包侧 `tools/build-starmap.js`
  *      （星图数据生成器）+ **随包模板副本**（`lib/pack-template/tools/build-starmap.js` 等 4 件）——
  *      同一个 `window.STARMAP_REAL` 契约：键序一致、空包**纯空**（0 圈，不许塞默认圈当地基）、
@@ -36,7 +37,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { stripBom, splitLines } from '../lib/text.js'
-import { digestTree } from '../lib/fingerprint.js'
+import { digestTree, PROBE_VERSION } from '../lib/fingerprint.js'
 import { appendNote } from '../lib/notes-io.js'
 import { writeScaffold } from '../lib/pack-scaffold.js'
 import { validatePlan, planFrontier } from '../lib/plan.js'
@@ -200,6 +201,33 @@ try {
   } finally {
     fs.rmSync(fx, { recursive: true, force: true })
   }
+}
+
+/* ── ③b PROBE_VERSION（探针版本）：三份 fingerprint.js 逐字同值 ──────────────
+   它是快照新鲜度的**第一把尺子**（插件 gate.js 的 judgeSnapshot / 包侧 ask-server.js 的
+   judgeLightup 都先比它、再比 sourceDigest）。三份一漂 = 插件判「探针过期」而包侧判「新鲜」
+   （或反过来）—— 同一份快照两个答案，与 ③ 同一条纪律。比**两样**：导出值 + 源码里的
+   字面量（值相同 ≠ 写法相同；字面量是设计要求 —— 运行时不许读自身源码来算）。
+   ⚠️ 模板副本只比**字面量 + 与包侧逐字节同一份**，不 require 它：它内容是 CJS、却住在插件的
+   ESM 包作用域下（package.json type:module），运行期 require 会被当 ESM 加载而炸 ——
+   "模板 ≡ 包侧逐字节"这条不变量另有 test/pack-scaffold.mjs 的 FROM_PACK 逐文件核钉住。 */
+{
+  const packPath = path.join(ROOT, 'tools', 'fingerprint.js')
+  const tplPath = path.join(PLUGIN, 'lib', 'pack-template', 'tools', 'fingerprint.js')
+  const plugPath = path.join(PLUGIN, 'lib', 'fingerprint.js')
+  const packFp = require_(packPath)
+  const lit = (p) => {
+    const m = /PROBE_VERSION\s*=\s*'([^']*)'/.exec(fs.readFileSync(p, 'utf8'))
+    return m ? m[1] : null
+  }
+  ok(packFp.PROBE_VERSION === PROBE_VERSION, `包侧导出值与插件逐字相同（${packFp.PROBE_VERSION}）`)
+  const plugLit = lit(plugPath)
+  const packLit = lit(packPath)
+  const tplLit = lit(tplPath)
+  ok(plugLit === PROBE_VERSION && packLit === PROBE_VERSION && tplLit === PROBE_VERSION,
+    `三份源码里的 PROBE_VERSION **字面量**逐字相同（插件 ${plugLit} / 包 ${packLit} / 模板 ${tplLit}）`)
+  ok(fs.readFileSync(tplPath, 'utf8') === fs.readFileSync(packPath, 'utf8'),
+    '模板副本与包侧 fingerprint.js **逐字节同一份**（PROBE_VERSION 不会只改一边）')
 }
 
 /* ── ④ 星图载荷契约：空骨架（lib/pack-scaffold.js）↔ 生成器（包侧 tools/build-starmap.js）

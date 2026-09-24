@@ -12,17 +12,19 @@
  *   ④ 无判据课 → **放行 + 显式告警**（防死锁，绝不静默）
  *   ⑤ author 接线：commit 被拦（needsChallenge）；force 放行但**留痕**说清绕过了哪道闸
  *   ⑥ 真包一字未动
+ *   ⑦⑧⑨ 探针版本（PROBE_VERSION）：值 = 探针源指纹、PROBE_SOURCES = 导入闭包（改探针不改版本号 → 红）；
+ *      缺 / 不等 → stale-snapshot 且 hint 与「代码变了」那句分开；端到端自愈（临时包真跑）。
  */
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import crypto from 'node:crypto'
 import { readPack } from '../lib/pack.js'
-import { challengeGate, judgeSnapshot, previousLesson } from '../lib/gate.js'
-import { digestTree } from '../lib/fingerprint.js'
+import { challengeGate, judgeSnapshot, previousLesson, readSnapshot } from '../lib/gate.js'
+import { digestTree, PROBE_VERSION, PROBE_SOURCES } from '../lib/fingerprint.js'
 import { plugin as authorPlugin } from '../lib/mods/author.js'
 import { plugin as starterPlugin } from '../lib/mods/starter.js'
-import { packRoot } from './_pack.mjs'
+import { packRoot, PLUGIN } from './_pack.mjs'
 
 const ROOT = packRoot()
 let pass = 0
@@ -61,6 +63,9 @@ ok(previousLesson(pack, '不存在的点') === null, '不认识的知识点 → 
 const VUE_DIR = 'code/programming/vue'
 const realDigest = digestTree(path.join(ROOT, VUE_DIR))
 const mkDoc = (chs, digest, dir = VUE_DIR) => ({
+  // 手搓快照照抄真快照的顶层形状：probeVersion 用**常量**（import 进来的，不写字面量 ——
+  // 写死就跟着版本号漂，夹具会静默测不到新路径）。故意要"老快照"的用例自己 delete 它。
+  probeVersion: PROBE_VERSION,
   projects: [{ dir, sourceDigest: digest, lessons: [{ id: 'pt/0001', challenges: chs, missing: [] }] }],
 })
 const DONE = { no: 1, deliverable: '做完了', done: true, missing: [] }
@@ -77,6 +82,139 @@ ok(good.ok === true && good.code === 'ok' && good.needsReview.join() === '3', '�
 const bad = judgeSnapshot(mkDoc([DONE, TODO], realDigest), ROOT, 'pt/0001')
 ok(bad.code === 'criteria-not-met' && bad.gaps.length === 1 && bad.gaps[0].no === 2,
   '有 missing → criteria-not-met，且点名题号（' + JSON.stringify(bad.gapText) + '）')
+
+// ── ②b 探针版本（PROBE_VERSION）：探针改了、快照还是旧判词 → 必须判过期 ──
+// 为什么新加这把尺子：`sourceDigest` 只看**学生代码树**。探针实现改了（判定口径变过）时，
+// 旧快照照样"指纹新鲜" → 门禁拿**旧判词**拦人（2026-09-24 实测：端点解析扩完、重启宿主后
+// `challengeGate` 仍回 criteria-not-met「缺：有 PATCH …/complete」，手动 `whale_state write:true`
+// 刷一次立刻放行 —— 中间没有任何东西告诉人"该刷新了"）。
+const CODE_HINT = '代码在快照之后又变了：先跑 whale_state write:true 刷新'
+{
+  // ① 缺 probeVersion（探针升级前的快照）→ stale-snapshot，且点名**探针**
+  const noProbe = mkDoc([DONE], realDigest)
+  delete noProbe.probeVersion
+  const v1 = judgeSnapshot(noProbe, ROOT, 'pt/0001')
+  ok(v1.code === 'stale-snapshot' && /探针/.test(v1.hint || ''),
+    `缺 probeVersion（指纹是新鲜的）→ stale-snapshot，且点名探针（${v1.hint}）`)
+  // ② probeVersion 不等 → 同样判过期
+  const wrongProbe = mkDoc([DONE], realDigest)
+  wrongProbe.probeVersion = 'p:0000000000000000'
+  const v2 = judgeSnapshot(wrongProbe, ROOT, 'pt/0001')
+  ok(v2.code === 'stale-snapshot' && /探针/.test(v2.hint || ''), `probeVersion 不等 → stale-snapshot（${v2.hint}）`)
+  // ③ 两种过期原因**两句话**：探针那句 ≠ 「代码又改过」那句（混成一句会把人指向错的修法）
+  ok(v1.hint !== CODE_HINT && v2.hint !== CODE_HINT && v1.hint === v2.hint,
+    '探针过期的 hint 与「代码又改过」那句**不同**（两种原因两句话）')
+  // ④ 值相等 → 照旧走原有判定：`good` / `bad`（上面两条，夹具带着 probeVersion）必须照常出
+  //    'ok' / 'criteria-not-met' —— 加了新尺子不许把老判词挤没
+  ok(good.code === 'ok' && bad.code === 'criteria-not-met',
+    'probeVersion 相等 → 照旧走原有判定（ok / criteria-not-met 都还出得来）')
+}
+
+// ── ⑧ 探针版本的机械钉子：值 = 探针源内容指纹；清单 = 导入闭包 ────────────────
+// 反空转（这两条就是"真的在比"的证据）：把 PROBE_VERSION 改一个字 → ①当场红；
+// 探针长了新依赖却没进清单 → ②当场红；改了探针源却没改版本号 → ①当场红
+// （失败消息里把要贴的新值打出来，不用人再算一遍）。
+{
+  const src = (rel) => fs.readFileSync(path.join(PLUGIN, ...rel.split('/')))
+  // ① 重算探针源指纹 —— 与 lib/fingerprint.js 注释里的算法**逐字复算**：
+  //    按 PROBE_SOURCES 顺序、文件间 '\0' 分隔（首尾不留）、原始字节、sha256 前 16 位 hex
+  const parts = []
+  PROBE_SOURCES.forEach((rel, i) => { if (i) parts.push(Buffer.from('\0')); parts.push(src(rel)) })
+  const expect = 'p:' + crypto.createHash('sha256').update(Buffer.concat(parts)).digest('hex').slice(0, 16)
+  ok(PROBE_VERSION === expect,
+    `PROBE_VERSION == 探针源指纹（改了探针就贴新值进三份 fingerprint.js）—— 应为 ${expect}，实得 ${PROBE_VERSION}`)
+  // ② 导入闭包 == PROBE_SOURCES：从 lib/state.js + lib/state-scan.js 出发、只跟 './' 相对导入
+  const seen = new Set()
+  const walkImp = (rel) => {
+    if (seen.has(rel)) return
+    seen.add(rel)
+    const text = src(rel).toString('utf8')
+    const re = /(?:^|[\s};*])from\s+['"](\.\/[^'"]+)['"]|require\(\s*['"](\.\/[^'"]+)['"]\s*\)/gm
+    for (const m of text.matchAll(re)) {
+      const next = 'lib/' + (m[1] || m[2]).slice(2)
+      // 排除 lib/fingerprint.js：它就是**新鲜度机制本身**（它一变 sourceDigest 自会对不上，
+      // 老快照自己就过期 —— 不能自己吃自己；理由详见它的 PROBE_SOURCES 注释）
+      if (next === 'lib/fingerprint.js') continue
+      walkImp(next)
+    }
+  }
+  walkImp('lib/state.js')
+  walkImp('lib/state-scan.js')
+  const closure = [...seen].sort()
+  const declared = [...PROBE_SOURCES].sort()
+  ok(closure.join() === declared.join(),
+    `导入闭包 == PROBE_SOURCES（探针长了新依赖 → 红，逼人把它加进清单）${closure.join() === declared.join()
+      ? `（${closure.length} 件）`
+      : `—— 闭包：${closure.join('、')} ｜ 清单：${declared.join('、')}`}`)
+}
+
+// ── ⑨ 端到端自愈（真跑）：旧快照（缺 probeVersion）→ challengeGate(probe:true) 自动重判 + 原子写回 ──
+// ⚠️ 建**临时包**跑（绝不碰真包的 code/** 与 learning-records/state.json）。
+// 夹具的 sourceDigest 是**现算的** ⇒ 唯一的过期原因就是 probeVersion —— 缺陷现场的重演；
+// 探针升级后不用手动刷新，第一次调用就该自愈（v3 §4.1 那条 stale-snapshot → 重扫 + 写回）。
+{
+  const tmpP = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-gate-probever-'))
+  try {
+    const proj = path.join(tmpP, 'code', 'demo')
+    fs.mkdirSync(path.join(proj, 'src', 'main', 'java'), { recursive: true })
+    fs.mkdirSync(path.join(proj, 'src', 'main', 'resources'), { recursive: true })
+    // 判据样本抄 lightup.mjs 的 demo（那三条在那儿已证明会被探针判过 —— 不在这儿赌探针行为）
+    fs.writeFileSync(path.join(proj, 'src', 'main', 'java', 'HelloController.java'), [
+      'package demo;', '',
+      'import org.springframework.web.bind.annotation.GetMapping;',
+      'import org.springframework.web.bind.annotation.RestController;', '',
+      '@RestController',
+      '@Demo',
+      'public class HelloController {',
+      '    @GetMapping("/hello")',
+      '    public String hello() { return "hi"; }',
+      '}', '',
+    ].join('\n'), 'utf8')
+    fs.writeFileSync(path.join(proj, 'pom.xml'), '<project>\n  <artifactId>demo-project</artifactId>\n</project>\n', 'utf8')
+    fs.writeFileSync(path.join(proj, 'src', 'main', 'resources', 'application.properties'), 'server.port=8080\n', 'utf8')
+    fs.writeFileSync(path.join(proj, 'EXPECT.json'), JSON.stringify({
+      lessons: [{
+        id: 'pt/0001', title: '端到端自愈样本',
+        required: [{ id: 'any', kind: 'annotation', value: 'Demo', hint: '要有 @Demo' }],
+        challenges: [
+          { no: 1, deliverable: '有一个 @Demo 标的类', checks: [{ id: 'c1', kind: 'annotation', value: 'Demo' }] },
+          { no: 2, deliverable: '有 GET /hello 端点', checks: [{ id: 'c2', kind: 'endpoint', value: 'GET /hello' }] },
+          { no: 3, deliverable: '配置里有 server.port', checks: [{ id: 'c3', kind: 'configKey', value: 'server.port' }] },
+          { no: 4, deliverable: '讲清楚为什么这么写', auto: false, hint: '机器判不了' },
+        ],
+      }],
+    }, null, 2) + '\n', 'utf8')
+    // 手搓"探针升级前"的旧快照：**故意没有 probeVersion**（被测行为），其余照真快照的形状
+    const oldSnap = {
+      version: 1,
+      codeDir: 'code',
+      practiceRoots: ['code'],
+      projects: [{
+        dir: 'code/demo', sourceDigest: digestTree(proj), expect: { path: 'code/demo/EXPECT.json', lessons: 1 },
+        lessons: [{
+          id: 'pt/0001', title: '端到端自愈样本', satisfied: true, missing: [], done: true,
+          challenges: [{ no: 1, deliverable: '有一个 @Demo 标的类', done: true, missing: [] }],
+          challengeSummary: { achieved: 1, total: 1, needsReview: 0 },
+        }],
+      }],
+      signals: { pendingQuestions: 0, processedQuestions: 0, notes: 0, records: 0 },
+      notes: [],
+    }
+    const vOld = judgeSnapshot(oldSnap, tmpP, 'pt/0001')
+    ok(vOld.code === 'stale-snapshot' && /探针/.test(vOld.hint || ''),
+      `旧快照（指纹新鲜、缺 probeVersion）→ 拦在「探针」那句（${vOld.hint}）`)
+    ok(judgeSnapshot({ ...oldSnap, probeVersion: PROBE_VERSION }, tmpP, 'pt/0001').code === 'ok',
+      '反证：把 probeVersion 补上就判 ok —— 拦人的唯一原因就是探针版本（指纹 / 判据都没问题）')
+    const g = challengeGate({ root: tmpP, pack: { lessons: [{ id: 'pt/0001', point: 'pt', number: 1 }] }, point: 'pt', probe: true })
+    ok(g.rejudged === true, '端到端：probe:true **自动重判了一次**（v3 §4.1 自愈路真的接上了）')
+    const after = readSnapshot(tmpP)
+    ok(after && after.probeVersion === PROBE_VERSION, `写回的快照带上了当前 probeVersion（实得 ${after && after.probeVersion}）`)
+    ok(g.allowed === true && g.code === 'ok',
+      `重判后放行（code=${g.code}）—— 改探针后**第一次调用就自愈**，不用手动刷新`)
+  } finally {
+    fs.rmSync(tmpP, { recursive: true, force: true })
+  }
+}
 
 // ── ③ 与真包同构的影子副本：门禁跑得通，且**自动重判**这条按 v3 §4.1 真的触发 ──
 // ⚠️ 为什么用副本而不是真包：`challengeGate` 的 `probe:true` 在快照过期时会**重研判据快照并写回**

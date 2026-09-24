@@ -32,7 +32,7 @@ import path from 'node:path'
 import net from 'node:net'
 import { spawn } from 'node:child_process'
 import { probeState, writeState } from '../lib/state-scan.js'
-import { digestTree } from '../lib/fingerprint.js'
+import { digestTree, PROBE_VERSION } from '../lib/fingerprint.js'
 import { packRoot } from './_pack.mjs'
 
 const ROOT = packRoot()
@@ -172,7 +172,9 @@ try {
     fs.writeFileSync(STATE(tmp), '{ 这不是 JSON', 'utf8')
     const r2 = await post({ lesson: 'demo/0001', done: true })
     ok(r2.body.code === 'no-snapshot', `B2 快照读不懂 → no-snapshot（实得 ${r2.body.code}）`)
-    fs.writeFileSync(STATE(tmp), JSON.stringify({ version: 1 }), 'utf8')
+    // B3 的本意是「快照没有 projects」（畸形样本），**不是**"老快照"夹具 —— 所以 probeVersion
+    // 照抄真快照的顶层形状（用常量，不写字面量）；故意造老快照的是 D1，那处保留缺字段形态。
+    fs.writeFileSync(STATE(tmp), JSON.stringify({ version: 1, probeVersion: PROBE_VERSION }), 'utf8')
     const r3 = await post({ lesson: 'demo/0001', done: true })
     ok(r3.body.code === 'no-snapshot', `B3 快照没有 projects → no-snapshot（实得 ${r3.body.code}）`)
     noLearned(tmp, 'B')
@@ -206,6 +208,18 @@ try {
     fs.writeFileSync(STATE(tmp), JSON.stringify(old, null, 2) + '\n', 'utf8')
     const r1 = await post({ lesson: 'demo/0001', done: true })
     ok(r1.body.code === 'stale-snapshot' && /刷新/.test(r1.body.hint || ''), `D1 老快照（无指纹字段）→ stale-snapshot + 刷新提示（实得 ${r1.body.code}：${r1.body.hint}）`)
+    fs.writeFileSync(STATE(tmp), snapText, 'utf8')
+
+    // D3 探针升级前的快照：指纹新鲜、**只缺 probeVersion** → 判词是「探针」那句，
+    // 且与 D1「代码又改过」那句**分开**（两种过期原因两句话 —— 2026-09-24 缺陷：只比指纹时
+    // 这种快照会被当"新鲜"，拿着旧判词拦人）
+    const oldProbe = JSON.parse(snapText)
+    delete oldProbe.probeVersion
+    fs.writeFileSync(STATE(tmp), JSON.stringify(oldProbe, null, 2) + '\n', 'utf8')
+    const r3 = await post({ lesson: 'demo/0001', done: true })
+    ok(r3.body.code === 'stale-snapshot' && /探针/.test(r3.body.hint || ''),
+      `D3 缺 probeVersion（指纹新鲜）→ stale-snapshot + 探针那句（实得 ${r3.body.code}：${r3.body.hint}）`)
+    ok(r3.body.hint !== r1.body.hint, `D3 的 hint 与 D1「代码又改过」那句不同（${r3.body.hint}）`)
     fs.writeFileSync(STATE(tmp), snapText, 'utf8')
 
     // D2 快照之后改一个字节 → 指纹必变（反空转的现场版）
