@@ -286,6 +286,78 @@ try {
   ok(clientSrc.includes("borderBottom: '.5px solid var(--dsw-alias-border-l2)'"), '行分隔线照原生：.5px solid border-l2')
   ok(/fontSize: '16px', fontWeight: 500/.test(clientSrc), '分区标题照原生：16px / 500')
   ok(/function btn\(kind, size\)/.test(clientSrc) && /BTN_SIZE/.test(clientSrc), '行内按钮走一份配方（36/18 与 28/14 两档，照原生 primaryButton/secondaryButton）')
+
+  // ── ⑨ 产物闸门：0 圈的包不许报「缺 starmap/static.svg」（板 A–H 的 D 条）────────
+  // 红窗口 = 「建包之后、建第一个圈之前」：static.svg 的唯一产出链（tools/build-starmap.js →
+  // build-starmap-svg.js）对 0 个圆圈**刻意拒绝产出**（反空转），所以 verify.js ⑤ 必须
+  // 有条件：有圆圈才要求它。下面三条正好把这个条件的**两侧**都钉死（不是把检查废掉）：
+  //   判据 1        0 圈 / 无 svg → 不是 bad，且 checks/drift 里没有那句话
+  //   判据 2（反空转 A）1 圈 / 无 svg → **必须 bad**（忘了重建照样抓）
+  //   判据 3（反空转 B）0 圈 / 有 svg → ok（有文件就过，不论圆圈数）
+  // 全程只在 os.tmpdir() 影副本上动手；真包只读，并在本节前后逐文件对拍（判据 5）。
+  console.log('\n⑨ 产物闸门（0 圈不许报缺 starmap/static.svg）')
+  const { execFileSync } = require_('node:child_process')
+  const { verifyPack } = await import('../lib/verify.js')
+  const BAD_LINE = '缺 starmap/static.svg'
+  const snapPack = (dir) => walk(dir).sort().map((rel) => {
+    const st = fs.statSync(path.join(dir, rel))
+    return `${rel}\t${st.size}\t${Math.round(st.mtimeMs)}`
+  }).join('\n')
+  const realBefore = snapPack(PACK)
+  const fresh = () => {
+    const d = emptyDir()
+    const r = writeScaffold(d)
+    if (!r.ok) throw new Error('⑨ 建包失败：' + r.error)
+    return d
+  }
+  const check5 = (d) => verifyPack(d, readPack(d)).checks.find((c) => c.name.startsWith('静态版 SVG'))
+
+  // 判据 1：真建一个空包（writeScaffold → os.tmpdir()）→ ⑤ 不许是 bad
+  const p0 = fresh()
+  const v0 = verifyPack(p0, readPack(p0))
+  const c0 = check5(p0)
+  ok(!!c0 && c0.ok === true, `判据1：0 圈空包的 ⑤ 不是 bad（${c0 ? c0.name : '没有这一条'}）`)
+  ok(!v0.checks.some((c) => String(c.detail || '').includes(BAD_LINE)) && !v0.drift.some((s) => s.includes(BAD_LINE)),
+    `判据1：整包 checks/drift 里没有「${BAD_LINE}」（drift 实得 ${v0.drift.length} 条）`)
+
+  // 判据 2（反空转 A）：往空包里加一个圆圈（lessons/<圈>/halo.json）但**不建** static.svg → ⑤ 必须 bad
+  const p1 = fresh()
+  fs.mkdirSync(path.join(p1, 'lessons', 'math'), { recursive: true })
+  fs.writeFileSync(path.join(p1, 'lessons', 'math', 'halo.json'), JSON.stringify({ name: '数学', color: '#5b8ff9' }), 'utf8')
+  const v1 = verifyPack(p1, readPack(p1))
+  const c1 = check5(p1)
+  ok(!!c1 && c1.ok === false && c1.detail === BAD_LINE, `判据2（反空转A）：有圆圈没 svg → bad「${c1 ? c1.detail : '没有这一条'}」`)
+  ok(v1.drift.some((s) => s.includes(BAD_LINE)), '判据2：drift 里指名「缺 starmap/static.svg」（不是把检查废掉了）')
+
+  // 判据 3（反空转 B）：空包里**手写**一个 starmap/static.svg → ⑤ 必须 ok（有文件就过，不论圆圈数）
+  const p2 = fresh()
+  fs.writeFileSync(path.join(p2, 'starmap', 'static.svg'), '<svg xmlns="http://www.w3.org/2000/svg"></svg>', 'utf8')
+  const c2 = check5(p2)
+  ok(!!c2 && c2.ok === true && c2.name === '静态版 SVG（M3）', `判据3（反空转B）：0 圈有 svg → ok（${c2 ? c2.name : '没有这一条'}）`)
+  fs.writeFileSync(path.join(p1, 'starmap', 'static.svg'), '<svg xmlns="http://www.w3.org/2000/svg"></svg>', 'utf8')
+  const c1b = check5(p1)
+  ok(!!c1b && c1b.ok === true, `判据3b：有圆圈也有 svg → ok（${c1b ? c1b.name : '没有这一条'}）`)
+
+  // 判据 4：端到端跑包闸门 tools/gate.mjs → **红清单**里不许有「缺 starmap/static.svg」。
+  // ⚠️ 新包骨架**本身不含 tools/gate.mjs**（lib/pack-scaffold.js 的 README 明说）——
+  // 所以先如实跑一次「空包原样」，再把真包的 gate.mjs **只读拷贝**进影副本跑一次（真包零改动）。
+  const runGate = (cwd) => {
+    try {
+      return execFileSync(process.execPath, ['tools/gate.mjs'], { cwd, encoding: 'utf8', timeout: 180_000 })
+    } catch (e) {
+      return `${e.stdout || ''}\n${e.stderr || ''}`
+    }
+  }
+  const gateShipped = runGate(p0)
+  ok(!gateShipped.includes(BAD_LINE), `判据4a：空包原样跑 tools/gate.mjs → 没有「${BAD_LINE}」`)
+  fs.copyFileSync(path.join(PACK, 'tools', 'gate.mjs'), path.join(p0, 'tools', 'gate.mjs'))
+  const gateOut = runGate(p0)
+  const redList = gateOut.split('\n').filter((l) => /^\s*✗ /.test(l))
+  ok(!gateOut.includes(BAD_LINE), `判据4b：拷进真包 gate.mjs 再跑 → ${redList.length} 条红里没有「${BAD_LINE}」`)
+  ok(!fs.existsSync(path.join(p0, 'starmap', 'static.svg')), '判据4：闸门跑完也没写出 static.svg（--check 只读，空包形态保持不变）')
+
+  // 判据 5：全程只动 os.tmpdir() 影副本 —— 真包逐文件 path+size+mtime 对拍，一个字节都不许动
+  ok(snapPack(PACK) === realBefore, `判据5：真包零改动（${realBefore.split('\n').length} 个文件 path+size+mtime 全同）`)
 } finally {
   fs.rmSync(tmpRoot, { recursive: true, force: true })
 }
