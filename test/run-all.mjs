@@ -39,6 +39,7 @@ const SUITES = [
   ['brief', '上下文包：六段对拍一致，建议随数据变'],
   ['goals', '终点契约：schema 校验 / 键序钉死 / 无时间戳 / append-only 留痕 / 失败回滚 / 空态回落'],
   ['goal-tool', 'whale_goal：必填严拒 / 原文逐字 / 裸名补圆圈 / append-only / from 接摸底 / 真包不动'],
+  ['teaching-io', '教学参数：可枚举 + 档位默认 / 可调集拦得住 / 教学纪律锁死 / 上限拒写提示合并 / propose 不写盘 · write 要点头'],
   ['visual', '视觉检查：PNG/DOM 断言（有服务就真跑浏览器）'],
   ['practice', '实践区：数据与探针一致、可判漂移、真浏览器里显示'],
   ['mirror-parity', '镜像对拍：文本助手一致 + 两个写入口产出同形记录（共用一本台账）'],
