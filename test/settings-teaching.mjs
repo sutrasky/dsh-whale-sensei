@@ -298,6 +298,28 @@ try {
 		ok(all.includes('这个圆圈还没声明可调项'), '圆圈没声明 spec 时，渲染结果里如实说（不假装能调）')
 	}
 
+	// ── ⑨ 作用域守卫：点按钮那条路，渲染桩走不到 ──
+	//
+	// `tellTeacher()` 只在**点「发给老师」**时才跑（渲染桩不点按钮），所以它用的
+	// `readJson` / `pushToComposer` / `copyPrompt` 要是被挪出工厂作用域，
+	// **点了才炸、而所有判据全绿** —— 那是最坏的一类漏。这里机械地钉一下。
+	{
+		const lines = fs.readFileSync(path.join(PLUGIN, 'lib', 'client.js'), 'utf8').split(/\r?\n/)
+		const start = lines.findIndex((l) => /factory:\s*\(require\)/.test(l))
+		let end = -1
+		for (let i = start + 1; i < lines.length; i++) {
+			if (/^\t\},?\s*$/.test(lines[i]) || /^\}\s*;?\s*$/.test(lines[i])) { end = i; break }
+		}
+		const deps = ['function TeachingPanel', 'function setAt', 'function TeachingRow',
+			'function pushToComposer', 'function copyPrompt', 'function btn(', 'var STATE_COLOR', 'function readJson']
+		const outside = deps.filter((d) => {
+			const i = lines.findIndex((l) => l.includes(d))
+			return i <= start || i >= end
+		})
+		ok(start > 0 && end > start && outside.length === 0,
+			`教学卡依赖的东西都在工厂作用域里（跑到外面去的：${outside.join(' / ') || '无'}）`)
+	}
+
 	ok(!fs.existsSync(path.join(ROOT, 'learning-records', 'teaching.jsonl')), '真包上没有被创建 teaching.jsonl（判据只在副本上跑）')
 } finally {
 	fs.rmSync(tmp, { recursive: true, force: true })
