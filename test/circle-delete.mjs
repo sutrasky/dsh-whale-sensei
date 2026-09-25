@@ -10,7 +10,8 @@
  *   [3] 不 confirm → 拒绝，带 plan 但目录原封不动
  *   [4] confirm 不是 true（false/'yes'）→ 拒绝（不给默认值）
  *   [5] 找不到的 id → 拒绝，什么都没动
- *   [6] 真删：目录 + lessons/src/<dir> 一起没了，响应列出两条 deleted + 4 条重建命令
+ *   [6] 真删：目录 + lessons/src/<dir> 一起没了，响应列出两条 deleted + 5 条重建命令，
+ *       且**真起重建**（回执带 rebuild.jobId 作业号，链 = 圆圈五脚本链）
  *   [7] 删后 readPack 里没有它；再删一次 → 拒绝
  *   [8] 进度清理：learned 里属于它的课次被清掉，别的圆圈那条**不许动**
  *   [9] 学生代码 code/ 只报不删（清单列出它，删完目录还在）
@@ -26,6 +27,7 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { packRoot } from './_pack.mjs'
+import { waitRebuild } from '../lib/rebuild-job.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const SRC = path.resolve(HERE, '..')
@@ -103,6 +105,15 @@ try {
       return !EXCLUDE.includes(path.relative(PACK, src).split(path.sep)[0])
     },
   })
+
+  // 重建链脚本在影副本里换成**桩**：判据只看回执里的作业号与链清单，不许在影副本里
+  // 真跑六条重建脚本（真脚本会往 tmpPack 写产物、还可能拖到用例跑完之后）。
+  const CIRCLE_CHAIN = ['tools/circle-bands.js', 'tools/build-lessons.js', 'tools/build-starmap.js', 'assets/build-glossary.js', 'tools/build-glossary-tree.js', 'tools/build-notes.js']
+  for (const s of CIRCLE_CHAIN) {
+    const stub = path.join(tmpPack, ...s.split('/'))
+    fs.mkdirSync(path.dirname(stub), { recursive: true })
+    fs.writeFileSync(stub, 'process.exit(0)\n', 'utf8')
+  }
 
   // ── 自造"待删"圆圈 victim：1 个知识点 + 1 门课 + 学生代码目录 + 一条进度 ──
   const victim = path.join(tmpPack, 'lessons', 'victim')
@@ -224,6 +235,15 @@ try {
       `[6] 响应列出删掉的两个目录：${JSON.stringify(d.deleted)}`)
     ok(Array.isArray(d.needsRebuild) && d.needsRebuild.length === 5 && d.needsRebuild.every((c) => c.startsWith('node ')),
       `[6] 回了 5 条重建命令（含 circle-bands）：${JSON.stringify(d.needsRebuild)}`)
+    // 删圈接重建（批3-3.2）：删掉的圈必须从星图/课程页/色带/术语/笔记页里消失 —— 回执得**真起重建**
+    ok(typeof d.rebuild?.jobId === 'string' && d.rebuild.jobId.length > 0,
+      `[6] 删圈成功回执**真起重建**：rebuild.jobId = ${JSON.stringify(d.rebuild?.jobId)}（字符串作业号，前端据此轮询）`)
+    ok(JSON.stringify(d.rebuild?.scripts) === JSON.stringify(CIRCLE_CHAIN),
+      `[6] 重建链 = 圆圈五脚本链（与建圈同一条）：${JSON.stringify(d.rebuild?.scripts)}`)
+    ok(d.needsRebuild != null && d.rebuild != null, '[6] needsRebuild（清单）与 rebuild（动作）两个都留')
+    const job = await waitRebuild(d.rebuild.jobId)
+    ok(job?.done === true && job?.rebuild?.ok === true,
+      `[6] 重建作业跑完且全绿（done=${job?.done}, ok=${job?.rebuild?.ok}）`)
 
     const { readPack } = await import(pathToFileURL(path.join(SRC, 'lib', 'pack-model.js')).href)
     const pack = readPack(tmpPack)
