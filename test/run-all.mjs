@@ -23,6 +23,7 @@ const SUITES = [
   ['deadlink-parity', '死链/缺产物互补对拍：活源扫链（带行号）↔ 构建产物 href 存在性 —— 两个最小复现钉成已知差异（豁免表 + 双方实况 + 真包不动）'],
   ['exec-hint', 'shell-out 的 EPERM 人话：EPERM/EACCES/超时/找不到 各说各的 + 正常退出不叫狼来了 + runAsync 不再把 error 变成未捕获异常'],
   ['lesson-blocks-parity', 'lesson-blocks.css 两个生成器对拍（#10 缺口②）：真跑课程包 --extract，产物与插件 mergeBlocks 逐字节相同 + 去重语义一致 + 真包不动'],
+  ['mode-parity', '主题状态机对拍（#10 缺口④）：真跑包侧 assets/theme.js（vm + 最小 DOM 桩）与 resolveMode 逐格比 20 格 + 存储键/写路径 + 两处源文本变异必须变红'],
   ['plan-gate', '知识点地图：判据矩阵 / 写口拒坏图 / 大纲闸（禁 force 绕） / 真包不动'],
   ['ask-route', '课程疑问：提交 / 拉取 / 坏样本一动不动'],
   ['ask-answer', '解答写回：台账外科手术式追加 + 真跑重建'],
