@@ -21,7 +21,7 @@ import crypto from 'node:crypto'
 import { plugin as teachingPlugin } from '../lib/mods/teaching.js'
 import {
 	readTeaching, recordTeaching, resolveParams, defaultsFor, validateTeaching,
-	TEACHING_KEYS, TEACHING_PARAMS, TEACHING_DISCIPLINE, FREE_TEXT_MAX, FREE_TEXT_MAX_CHARS, teachingPath,
+	TEACHING_KEYS, TEACHING_PARAMS, TEACHING_DISCIPLINE, FREE_TEXT_MAX, FREE_TEXT_MAX_CHARS, teachingPath, subjectsHit,
 } from '../lib/teaching-io.js'
 import { TIERS } from '../lib/goal-io.js'
 import { packRoot } from './_pack.mjs'
@@ -108,6 +108,17 @@ try {
 			`写「${locked.label}」→ 拒写并点名是教学纪律（${r.error}）`)
 		const before = fs.readFileSync(teachingPath(tmp), 'utf8')
 		ok(!before.includes(locked.id), '被拒的那一版一个字节都没落盘')
+
+		// ⚠️ 锁死集**必须学科中立**（主人 2026-09-25 裁定）：鲸师面向全方面知识目标，不是编程专用。
+		//    判法：命中**恰好 1 个**学科 = 特化（红）；命中 ≥2 = 跨学科举例（放行）；0 = 中立（放行）。
+		//    学科特化（编程的注释密度……）挂在**生成对应知识圆圈时**的提示词上，不写在全范围。
+		const specialized = TEACHING_DISCIPLINE.filter((d) => subjectsHit(d.label + d.why).length === 1)
+		ok(specialized.length === 0,
+			`锁死集是学科中立的（没有哪一条只对一个学科成立）${specialized.length ? ' —— 实得：' + specialized.map((d) => d.id + '(' + subjectsHit(d.label + d.why).join(',') + ')').join(' / ') : ''}`)
+		ok(subjectsHit(TEACHING_DISCIPLINE[0].why).length >= 2,
+			`第一条的 why 是**跨学科举例**（命中 ${subjectsHit(TEACHING_DISCIPLINE[0].why).join(' / ')} 个学科），不是只对一个学科成立`)
+		ok(TEACHING_DISCIPLINE.some((d) => d.id === 'readStudentWorkFirst'),
+			'第一条是「先看学生的产出」（不是编程专用的「先读学生代码」）')
 	}
 
 	// ── ⑤ 上限 + 合并（自由补充 5 × 40）──
@@ -187,7 +198,7 @@ try {
 		ok(reset.ok === true && !('commentDims' in reset.record.params),
 			`params 给 null = 显式落回默认（v${reset.record?.v} 里不再有 commentDims）`)
 
-		const badKey = await tool.execute({ op: 'write', params: { readStudentCodeFirst: false }, confirm: true, root: tmp })
+		const badKey = await tool.execute({ op: 'write', params: { readStudentWorkFirst: false }, confirm: true, root: tmp })
 		ok(badKey.ok === false && /教学纪律/.test(badKey.error), '工具面也拦得住教学纪律（不是只有底层拦）')
 		let threw = ''
 		try { validateTeaching({ tier: 2, params: { nope: 1 } }, { strict: true }) } catch (e) { threw = e.message }

@@ -19,6 +19,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { subjectsHit } from '../lib/teaching-io.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const DIR = path.resolve(HERE, '..', 'preset', 'whale-mode')
@@ -79,10 +80,21 @@ let prefix = ''
 	}
 	ok(prefix.length > 300, `prefix 是一段真的人设（${prefix.length} 字）`)
 	ok(/老师/.test(prefix) && /学生/.test(prefix), 'prefix 里有老师身份与学生关系（不是通用助手口吻）')
-	for (const d of ['先读学生代码', '先查资料给出处', '不拿口头确认判过']) {
+	// ⚠️ 锁死集**必须学科中立**（主人 2026-09-25 裁定）：鲸师面向全方面知识目标，不是编程专用。
+	//    判法见 lib/teaching-io.js 的 subjectsHit()：命中恰好 1 个学科 = 特化（红）；≥2 = 跨学科举例（放行）。
+	for (const d of ['先看学生的产出', '先查资料给出处', '不拿口头确认判过']) {
 		ok(prefix.includes(d), `三条教学纪律在：${d}`)
 	}
 	ok(/锁死|说改也不改/.test(prefix), '写明这三条是**锁死**的（学生说改也不改）')
+	{
+		// 只扫**纪律那一段**（人设别处拿编程举例是可以的 —— 举例不是把特化写进纪律）
+		const at = prefix.indexOf('三条教学纪律')
+		const stop = prefix.indexOf('不在可调集里', at)
+		const seg = at >= 0 ? prefix.slice(at, stop > 0 ? stop : at + 600) : ''
+		const specialized = subjectsHit(seg).length === 1
+		ok(!specialized, `纪律那一段是**学科中立**的（不是只对一个学科成立）${specialized ? ' —— 实得：' + subjectsHit(seg).join(',') : ''}`)
+	}
+	ok(/学科中立|不写在这里|圆圈/.test(prefix), '人设写明"学科特化挂在圆圈上、不写在全范围"（防止下次又长回来）')
 	ok(/可调项/.test(prefix) && /注释密度/.test(prefix) && /tier/.test(prefix), '教学方式的可调项与"默认随档位变"都写进了人设')
 	ok(/whale_teaching/.test(prefix) && /预览/.test(prefix) && /点头/.test(prefix), '「翻译 → 预览 → 点头才写」三步写进了人设')
 	for (const s of ['whale-system', 'whale-lesson', 'whale-practice', 'whale-qa', 'whale-record']) {
