@@ -145,6 +145,29 @@ let prefix = ''
 	ok(hit.length === 0, `预设里没有写死的本机盘符路径${hit.length ? ' —— 实得：' + hit.join(' / ') : ''}`)
 }
 
+// ── ⑨ 禁词表：**全范围层**不许只对一个学科成立（主人 2026-09-25 裁定）──
+//    扫三处「全范围」面：① 预设人设（纪律段）② 插件的全局可调项表 + 锁死集 ③ 课程包的总控技能。
+//    判法同一份（`subjectsHit`）：命中**恰好 1 个**学科 = 特化（红）；≥2 = 跨学科举例（放行）。
+{
+	const { TEACHING_PARAMS, TEACHING_DISCIPLINE } = await import('../lib/teaching-io.js')
+	const surfaces = [
+		['插件 · 全局可调项表', JSON.stringify(TEACHING_PARAMS)],
+		['插件 · 锁死集', TEACHING_DISCIPLINE.map((d) => d.label + d.why).join('；')],
+	]
+	// 课程包的总控技能（**全范围层**：它跟所有学科打交道，不是某个圆圈的特化）
+	const packSkill = path.resolve(HERE, '..', '..', 'study', 'skills', 'whale-system', 'SKILL.md')
+	if (fs.existsSync(packSkill)) {
+		surfaces.push(['课程包 · 总控技能 whale-system', fs.readFileSync(packSkill, 'utf8')])
+	} else {
+		console.log(`   ⚠️ 跳过「课程包 · 总控技能」（${packSkill} 不在 —— 开发布局才有）`)
+	}
+	for (const [name, text] of surfaces) {
+		const hit = subjectsHit(text)
+		ok(hit.length !== 1, `禁词表 · ${name}：不是只对一个学科成立（命中 ${hit.length} 个：${hit.join('/') || '无'}）`)
+	}
+	ok(typeof subjectsHit === 'function', '禁词表判据与实现同一份（`lib/teaching-io.js` 的 subjectsHit）')
+}
+
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
 console.log('✅ 预设名对 · 三行组合齐 · 老师人设含纪律与教学方式与 5 技能 · 双权威没被抄 · 技能目录是占位符 · 不藏其他技能')

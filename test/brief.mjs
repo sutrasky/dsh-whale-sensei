@@ -27,7 +27,7 @@ import { readQueue, askPaths } from '../lib/ask-io.js'
 import { loadGlossaryLedger, glossarySummary } from '../lib/glossary-io.js'
 import { listLearningRecords } from '../lib/brief-io.js'
 import { recordGoal } from '../lib/goal-io.js'
-import { recordTeaching } from '../lib/teaching-io.js'
+import { recordTeaching, GLOBAL_CIRCLE } from '../lib/teaching-io.js'
 import { assertLosslessJson } from '../lib/state.js'
 import { plugin as briefPlugin } from '../lib/mods/brief.js'
 import { NEXT_ACTIONS } from '../lib/brief.js'
@@ -454,21 +454,32 @@ try {
     ok(!!sec0 && sec0.lines.some((l) => /还没有教学参数/.test(l)), '⑪ 空态：没有 teaching.jsonl → 这一段在、写「还没有教学参数」、不崩')
     ok(sec0.lines.some((l) => /锁死/.test(l)), '⑪ 空态也明示锁死集（学生知道哪些不能改）')
 
+    // 2026-09-25 主人裁定后：台账**按圆圈分节** —— 全局层（学科中立）与每个圆圈各说各的
+    const sp = recordTeaching(tmp, {
+      circle: 'programming', kind: 'spec',
+      spec: [{ id: 'commentDensity', label: '注释密度', values: [{ id: 'line', directive: '逐行加注释。' }, { id: 'block', directive: '按块加注释。' }], defaultByTier: { 1: 'line', 2: 'line', 3: 'block', 4: 'block' } }],
+      source: 'agent',
+    })
+    ok(sp.ok === true, `⑪ 影副本里给 programming 声明 spec（v${sp.record?.v}）`)
     const t1 = recordTeaching(tmp, {
-      tier: 2,
+      circle: 'programming', kind: 'values', tier: 2,
       params: { commentDensity: 'block' },
       freeText: [{ text: '别先给定义，先给例子', confirmed: true }],
       source: 'student',
     })
-    ok(t1.ok === true, `⑪ 影副本里落一版教学参数（v${t1.record?.v}）`)
+    ok(t1.ok === true, `⑪ 影副本里落一版**圆圈**教学参数（v${t1.record?.v}）`)
+    const t2 = recordTeaching(tmp, { circle: GLOBAL_CIRCLE, kind: 'values', tier: 2, params: { explainOrder: 'detail-first' }, source: 'student' })
+    ok(t2.ok === true, '⑪ 全局层也落一版（学科中立的参数）')
     const withRes = await tool2.execute({ root: tmp })
     const withT = withRes.brief
     const sec1 = withT.sections.find((s) => s.title === '教学方式')
-    ok(/tier 2 · 学生改过 1 项/.test(sec1.lines[0]), `⑪ 档位与"改过几项"在头一行（${sec1.lines[0]}）`)
-    ok(/注释密度 block＊/.test(sec1.lines[1]), '⑪ 学生改过的项打 ＊（一眼看出哪些是他要的）')
-    ok(/术语 on(?!＊)/.test(sec1.lines[1]), '⑪ 没改过的项不打 ＊（是档位默认）')
+    ok(/^全局（学科中立）tier 2：/.test(sec1.lines[0]) && /讲解顺序 detail-first＊/.test(sec1.lines[0]),
+      `⑪ 头一行是**全局层**（学科中立），改过的打 ＊（${sec1.lines[0]}）`)
+    ok(sec1.lines.some((l) => /^· programming：/.test(l) && /注释密度 block＊/.test(l)),
+      '⑪ 每个圆圈**自己一行**（该圆圈的特化与取值）')
+    ok(sec1.lines.some((l) => /术语 on(?!＊)/.test(l)), '⑪ 没改过的项不打 ＊（是档位默认）')
     ok(sec1.lines.some((l) => /自由补充/.test(l) && l.includes('别先给定义')), '⑪ 自由补充也念出来')
-    ok(sec1.lines.length <= 5, `⑪ 这一段不超过 5 行（实得 ${sec1.lines.length} 行）`)
+    ok(sec1.lines.length <= 6, `⑪ 这一段不超过 6 行（实得 ${sec1.lines.length} 行）${sec1.lines.length > 6 ? ' —— ' + sec1.lines.map((l) => l.slice(0, 40)).join(' ｜ ') : ''}`)
     ok(withRes.markdown !== beforeRes.markdown, `⑪ 改了参数 → brief **真变**（建议随学生数据变，不是写死的）${withRes.markdown === beforeRes.markdown ? ' —— 两边一样，首处差：' + firstDiff(beforeRes.markdown, withRes.markdown) : ''}`)
     const twiceRes = await tool2.execute({ root: tmp })
     ok(twiceRes.markdown === withRes.markdown, `⑪ 有教学参数时两次渲染逐字节相同（确定性没破）${twiceRes.markdown !== withRes.markdown ? ' —— 首处差：' + firstDiff(withRes.markdown, twiceRes.markdown) : ''}`)

@@ -1,18 +1,18 @@
 /**
- * teaching-io.mjs —— 教学参数（`learning-records/teaching.jsonl` + `whale_teaching`）
+ * teaching-io.mjs —— 教学参数（按圆圈分节）的判据
  * ==================================================================
- * 主人的要求（`_board/01-鲸师.md:278-280`）：学生可以按自己接受到的教学提要求，
- * agent 据此改**可调项** —— 不是通用解，最终进提示词。
+ * 主人的两条裁定（2026-09-25）：
+ *   ① **全范围层必须学科中立** —— 鲸师面向全方面的知识目标，不是编程专用；
+ *   ② **教学特化挂在圆圈上** —— 台账按圆圈分节，每个圆圈有自己独立的教学方法，
+ *      学科知识**数据驱动**（圆圈自己的 spec），**不许硬编码**。
  *
- * 覆盖面（每条对着一个设计建议，`01:286-292`）：
- *   ① **可枚举 + 默认值随档位**（建议 1 / 7）：四档都有默认值，缺一档就红；
- *   ② **可调集**：取值域拦得住；多值项非空、去重、**顺序钉死**（同输入同字节）；
- *   ③ **锁死集**（建议 2）：写教学纪律 → **拒写并点名**（学生说改也不改）；
- *   ④ **上限 + 合并**（建议 6）：自由补充 5 条 × 40 字，超了拒写 + 提示合并，不静默丢；
- *   ⑤ append-only：v / replaces 由台账算，不覆盖旧版；**绝不写时间字段**；键序钉死；
- *   ⑥ 读侧容错：坏行进 problems 不抛、不静默丢；文件不存在 = 正常空态；
- *   ⑦ 工具面：read / propose（预览不写盘）/ write（**必须 confirm:true**）；
- *   ⑧ 真包一字未动。
+ * 覆盖面：
+ *   ① 全局可调项：三个学科中立参数，每个取值都带**指令句**，四档默认齐；
+ *   ② **学科中立判据**（`subjectsHit`）：全局参数表与锁死集，命中恰好 1 个学科 = 红；
+ *   ③ 圆圈 spec：合法写入 / 缺 directive 拒 / defaultByTier 缺档拒 / 与全局同名拒；
+ *   ④ 取值：必须在 spec ∪ 全局的取值域里；多余键拒；上限 + 合并 + 确认制；
+ *   ⑤ append-only：**每个 (圆圈, kind) 各有一条版本线**；绝不写时间字段；键序钉死；
+ *   ⑥ 读侧容错 + 拒写回滚；⑦ 工具面（read / propose / write 都要带 circle）；⑧ 真包一字未动。
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -20,8 +20,9 @@ import os from 'node:os'
 import crypto from 'node:crypto'
 import { plugin as teachingPlugin } from '../lib/mods/teaching.js'
 import {
-	readTeaching, recordTeaching, resolveParams, defaultsFor, validateTeaching,
-	TEACHING_KEYS, TEACHING_PARAMS, TEACHING_DISCIPLINE, FREE_TEXT_MAX, FREE_TEXT_MAX_CHARS, teachingPath, subjectsHit,
+	readTeaching, recordTeaching, resolveFor, defaultsFor, validateTeaching, validateSpec,
+	TEACHING_KEYS, TEACHING_PARAMS, TEACHING_DISCIPLINE, GLOBAL_CIRCLE,
+	FREE_TEXT_MAX, FREE_TEXT_MAX_CHARS, teachingPath, subjectsHit,
 } from '../lib/teaching-io.js'
 import { TIERS } from '../lib/goal-io.js'
 import { packRoot } from './_pack.mjs'
@@ -61,102 +62,100 @@ try {
 	const install = (mod) => { mod.install({ paths: { packRoot: tmp }, log: fakeLog, registerTool: (d) => tools.push(d) }); return tools[tools.length - 1] }
 	const tool = install(teachingPlugin)
 
-	// ── ① 可枚举 + 默认值随档位（四档缺一档就红）──
+	// ── ① 全局可调项：学科中立 + 每档有指令句 + 四档默认齐 ──
 	ok(tool?.name === 'whale_teaching', 'whale_teaching 装得上')
 	{
+		const items = Object.entries(TEACHING_PARAMS)
+		ok(items.length === 3, `全局可调项就三个（${items.map(([id]) => id).join(' / ')}）`)
 		let complete = true
-		for (const [id, def] of Object.entries(TEACHING_PARAMS)) {
-			for (const t of TIERS) if (def.defaultByTier[t] === undefined) complete = false
-			if (!def.values.length) complete = false
+		for (const [, d] of items) {
+			for (const t of TIERS) if (d.defaultByTier[t] === undefined) complete = false
+			for (const v of d.values) if (!v.directive) complete = false
 		}
-		ok(complete, `每个参数在 1/2/3/4 四档都有默认值、且取值域非空（${Object.keys(TEACHING_PARAMS).length} 个参数）`)
-		ok(defaultsFor(1).commentDensity === 'line' && defaultsFor(3).commentDensity === 'block' && defaultsFor(4).commentDensity === 'key',
-			'注释密度随档位变（tier1/2 逐行 · tier3 逐块 · tier4 只关键行）')
-		ok(JSON.stringify(defaultsFor(1).commentDims) === JSON.stringify(['what', 'link', 'req', 'why']),
-			'多值项默认全开（做了什么 + 和谁联动 + 对应哪条需求 + 为什么这么设计）')
-		ok(defaultsFor(3).commentDensity === defaultsFor(2).commentDensity || defaultsFor(1).commentDensity === defaultsFor(2).commentDensity,
-			'相邻档位可以同值（默认值是**查表**得来的，不是按 tier 现算的）')
+		ok(complete, '每个取值都有**指令句**、四档默认值都齐（注入直接用它，代码里不另写话术）')
 	}
 
-	// ── ② 空态 + 工具 read ──
+	// ── ② 学科中立判据：全局参数表与锁死集 ──
 	{
-		const empty = await tool.execute({ op: 'read', root: tmp })
-		ok(empty.ok === true && empty.version === null, '空台账：read 回 version=null、不炸')
-		ok(empty.current.tier === 1 && empty.current.params.commentDensity === 'line', '空台账 → 全部落回 tier 1 默认')
-		ok(empty.discipline.length === 3, `锁死集在 read 里明示（${empty.discipline.map((d) => d.label).join(' / ')}）`)
-		ok(!fs.existsSync(teachingPath(tmp)), 'read 不写盘')
+		const globalText = JSON.stringify(TEACHING_PARAMS)
+		ok(subjectsHit(globalText).length !== 1, `全局可调项表是学科中立的（命中 ${subjectsHit(globalText).length || 0} 个学科）`)
+		const spec = TEACHING_DISCIPLINE.filter((d) => subjectsHit(d.label + d.why).length === 1)
+		ok(spec.length === 0, `锁死集是学科中立的（没有哪一条只对一个学科成立）${spec.length ? ' —— 实得：' + spec.map((d) => d.id).join(' / ') : ''}`)
+		ok(subjectsHit(TEACHING_DISCIPLINE[0].why).length >= 2, '第一条的 why 是**跨学科举例**（不是只对一个学科成立）')
+		ok(TEACHING_DISCIPLINE.some((d) => d.id === 'readStudentWorkFirst'), '第一条是「先看学生的产出」（不是编程专用的「先读学生代码」）')
 	}
 
-	// ── ③ 可调集：取值域拦得住 + 多值项顺序钉死 ──
+	// ── ③ 圆圈 spec：合法 / 拒坏 ──
+	const GOOD_SPEC = [
+		{ id: 'commentDensity', label: '注释密度', values: [{ id: 'line', directive: '逐行加注释。' }, { id: 'block', directive: '按块加注释。' }, { id: 'key', directive: '只在关键行加注释。' }], defaultByTier: { 1: 'line', 2: 'line', 3: 'block', 4: 'key' } },
+	]
 	{
-		const bad = recordTeaching(tmp, { tier: 2, params: { commentDensity: 'verbose' }, source: 'student' })
-		ok(bad.ok === false && /取值不认识/.test(bad.error), `取值域外的值拒写（${bad.error}）`)
-		const bad2 = recordTeaching(tmp, { tier: 2, params: { commentDims: [] }, source: 'student' })
-		ok(bad2.ok === false && /非空数组/.test(bad2.error), `多值项给空数组拒写（${bad2.error}）`)
-		const r1 = recordTeaching(tmp, { tier: 2, params: { commentDims: ['why', 'what'] }, source: 'student' })
-		ok(r1.ok === true, '合法多值写入成功')
-		ok(JSON.stringify(r1.record.params.commentDims) === JSON.stringify(['what', 'why']),
-			`多值项**顺序钉死**成参数表顺序（写 ['why','what'] 落盘是 ${JSON.stringify(r1.record.params.commentDims)}）`)
-		ok(Object.keys(r1.record).join(',') === TEACHING_KEYS.join(','), '键序钉死（落盘顺序 == TEACHING_KEYS）')
+		const s1 = recordTeaching(tmp, { circle: 'programming', kind: 'spec', spec: GOOD_SPEC, source: 'agent' })
+		ok(s1.ok === true, `圆圈 spec 写入成功（${s1.record?.circle}/spec v${s1.record?.v}）`)
+		ok(s1.record.spec[0].values.length === 3, 'spec 把取值域与指令句都收下了')
+		const badDir = recordTeaching(tmp, { circle: 'programming', kind: 'spec', spec: [{ id: 'x', label: 'X', values: [{ id: 'a' }], defaultByTier: { 1: 'a', 2: 'a', 3: 'a', 4: 'a' } }], source: 'agent' })
+		ok(badDir.ok === false && /缺 directive/.test(badDir.error), `取值缺指令句 → 拒写（${badDir.error}）`)
+		const badTier = recordTeaching(tmp, { circle: 'programming', kind: 'spec', spec: [{ id: 'y', label: 'Y', values: [{ id: 'a', directive: 'd' }], defaultByTier: { 1: 'a' } }], source: 'agent' })
+		ok(badTier.ok === false && /缺 tier/.test(badTier.error), `defaultByTier 缺档 → 拒写（${badTier.error}）`)
+		const clash = recordTeaching(tmp, { circle: 'programming', kind: 'spec', spec: [{ id: 'termPairing', label: 'X', values: [{ id: 'a', directive: 'd' }], defaultByTier: { 1: 'a', 2: 'a', 3: 'a', 4: 'a' } }], source: 'agent' })
+		ok(clash.ok === false && /与全局可调项同名/.test(clash.error), `与全局参数同名 → 拒写（${clash.error}）`)
+		const globalSpec = recordTeaching(tmp, { circle: GLOBAL_CIRCLE, kind: 'spec', spec: GOOD_SPEC, source: 'agent' })
+		ok(globalSpec.ok === false && /必须挂在/.test(globalSpec.error), `全局层不许写 spec（${globalSpec.error}）`)
 	}
 
-	// ── ④ 锁死集：写教学纪律 → 拒写并点名 ──
+	// ── ④ 取值：落在 spec ∪ 全局的域里 ──
+	{
+		const r1 = recordTeaching(tmp, { circle: 'programming', kind: 'values', tier: 2, params: { commentDensity: 'block' }, source: 'student' })
+		ok(r1.ok === true, '圆圈取值写入成功（取值来自该圆圈的 spec）')
+		const bad = recordTeaching(tmp, { circle: 'programming', kind: 'values', tier: 2, params: { commentDensity: 'verbose' }, source: 'student' })
+		ok(bad.ok === false && /取值不认识/.test(bad.error), `spec 域外的值拒写（${bad.error}）`)
+		const g = recordTeaching(tmp, { circle: GLOBAL_CIRCLE, kind: 'values', tier: 3, params: { explainOrder: 'detail-first' }, source: 'student' })
+		ok(g.ok === true, '全局取值写入成功（取值来自代码里的全局表）')
+		const cross = recordTeaching(tmp, { circle: GLOBAL_CIRCLE, kind: 'values', tier: 3, params: { commentDensity: 'block' }, source: 'student' })
+		ok(cross.ok === false && /多余键/.test(cross.error), `全局层写圆圈特化的参数 → 拒（${cross.error}）`)
+		const missing = recordTeaching(tmp, { circle: 'math', kind: 'values', tier: 1, params: { commentDensity: 'block' }, source: 'student' })
+		ok(missing.ok === false && /多余键/.test(missing.error), '别的圆圈（没声明过 spec）也拒 —— 特化**不串圈**')
+	}
+
+	// ── ⑤ 锁死集 + 上限 + 确认制 ──
 	{
 		const locked = TEACHING_DISCIPLINE[0]
-		const r = recordTeaching(tmp, { tier: 2, params: { [locked.id]: false }, source: 'student' })
-		ok(r.ok === false && /教学纪律/.test(r.error) && r.error.includes(locked.id),
-			`写「${locked.label}」→ 拒写并点名是教学纪律（${r.error}）`)
-		const before = fs.readFileSync(teachingPath(tmp), 'utf8')
-		ok(!before.includes(locked.id), '被拒的那一版一个字节都没落盘')
-
-		// ⚠️ 锁死集**必须学科中立**（主人 2026-09-25 裁定）：鲸师面向全方面知识目标，不是编程专用。
-		//    判法：命中**恰好 1 个**学科 = 特化（红）；命中 ≥2 = 跨学科举例（放行）；0 = 中立（放行）。
-		//    学科特化（编程的注释密度……）挂在**生成对应知识圆圈时**的提示词上，不写在全范围。
-		const specialized = TEACHING_DISCIPLINE.filter((d) => subjectsHit(d.label + d.why).length === 1)
-		ok(specialized.length === 0,
-			`锁死集是学科中立的（没有哪一条只对一个学科成立）${specialized.length ? ' —— 实得：' + specialized.map((d) => d.id + '(' + subjectsHit(d.label + d.why).join(',') + ')').join(' / ') : ''}`)
-		ok(subjectsHit(TEACHING_DISCIPLINE[0].why).length >= 2,
-			`第一条的 why 是**跨学科举例**（命中 ${subjectsHit(TEACHING_DISCIPLINE[0].why).join(' / ')} 个学科），不是只对一个学科成立`)
-		ok(TEACHING_DISCIPLINE.some((d) => d.id === 'readStudentWorkFirst'),
-			'第一条是「先看学生的产出」（不是编程专用的「先读学生代码」）')
-	}
-
-	// ── ⑤ 上限 + 合并（自由补充 5 × 40）──
-	{
+		const r = recordTeaching(tmp, { circle: GLOBAL_CIRCLE, kind: 'values', tier: 2, params: { [locked.id]: false }, source: 'student' })
+		ok(r.ok === false && /教学纪律/.test(r.error) && r.error.includes(locked.id), `写「${locked.label}」→ 拒写并点名（${r.error}）`)
 		const many = Array.from({ length: FREE_TEXT_MAX + 1 }, (_, i) => `偏好${i + 1}`)
-		const r = recordTeaching(tmp, { tier: 2, freeText: many, source: 'student' })
-		ok(r.ok === false && /上限 5 条/.test(r.error) && /合并/.test(r.error), `超 ${FREE_TEXT_MAX} 条拒写 + 提示合并（${r.error}）`)
-		const long = '这是一句很长的偏好'.repeat(10).slice(0, FREE_TEXT_MAX_CHARS + 1)
-		const r2 = recordTeaching(tmp, { tier: 2, freeText: [{ text: long, confirmed: true }], source: 'student' })
-		ok(r2.ok === false && /单条上限/.test(r2.error), `单条超 ${FREE_TEXT_MAX_CHARS} 字拒写（${r2.error}）`)
-		const r3 = recordTeaching(tmp, { tier: 2, freeText: [{ text: '没点头', confirmed: false }], source: 'student' })
-		ok(r3.ok === false && /点头才写/.test(r3.error), '没 confirmed:true → 拒写（写入闸 = 确认制）')
-		const r4 = recordTeaching(tmp, { tier: 2, freeText: [{ text: '别先给定义，先给例子', confirmed: true }], source: 'student' })
-		ok(r4.ok === true && r4.record.freeText[0].confirmed === true, '合规自由补充写入（confirmed 记成 true）')
+		const r2 = recordTeaching(tmp, { circle: GLOBAL_CIRCLE, kind: 'values', tier: 2, freeText: many.map((t) => ({ text: t, confirmed: true })), source: 'student' })
+		ok(r2.ok === false && /上限 5 条/.test(r2.error), `自由补充超上限拒写 + 提示合并（${r2.error}）`)
+		const long = '很长的一句偏好'.repeat(10).slice(0, FREE_TEXT_MAX_CHARS + 1)
+		const r3 = recordTeaching(tmp, { circle: GLOBAL_CIRCLE, kind: 'values', tier: 2, freeText: [{ text: long, confirmed: true }], source: 'student' })
+		ok(r3.ok === false && /单条上限/.test(r3.error), `单条超 ${FREE_TEXT_MAX_CHARS} 字拒写`)
+		const r4 = recordTeaching(tmp, { circle: GLOBAL_CIRCLE, kind: 'values', tier: 2, freeText: [{ text: '没点头', confirmed: false }], source: 'student' })
+		ok(r4.ok === false && /点头才写/.test(r4.error), '没 confirmed:true → 拒写（写入闸 = 确认制）')
 	}
 
-	// ── ⑥ append-only：v / replaces 由台账算；无时间戳 ──
+	// ── ⑥ append-only：每个 (圆圈, kind) 各一条版本线；无时间戳；键序钉死 ──
 	{
-		const { entries, latest } = readTeaching(tmp)
-		ok(entries.length === 2 && latest.v === 2, `append-only：台账 ${entries.length} 行，最新 v${latest.v}`)
-		ok(latest.replaces === 1, 'replaces = 被取代的那一版（1）')
-		const dup = recordTeaching(tmp, { v: 99, tier: 2, params: { termPairing: 'off' }, source: 'student' })
+		const d = readTeaching(tmp)
+		ok(d.entries.length === 3, `台账 ${d.entries.length} 行（programming/spec 1 + programming/values 1 + 全局/values 1；被拒的都没落盘）`)
+		ok(d.circles.programming?.specV === 1 && d.circles.programming?.valuesV === 1, '圆圈 programming 的 spec 与 values **各有一条版本线**（各自从 v1 起）')
+		ok(d.global.v === 1 && d.global.values?.tier === 3, '全局层也有自己的版本线（v1）—— 三条线互不干扰')
+		const dup = recordTeaching(tmp, { v: 99, circle: 'programming', kind: 'values', tier: 2, params: { commentDensity: 'key' }, source: 'student' })
 		ok(dup.ok === false && /v 由台账算出/.test(dup.error), `显式 v 与台账不符 → 拒写（${dup.error}）`)
 		const text = fs.readFileSync(teachingPath(tmp), 'utf8')
-		ok(!/\d{4}-\d{2}-\d{2}T/.test(text) && !/"ts"|"createdAt"|"date"/.test(text), '**绝不写时间字段**（与 goals.jsonl 同一条纪律）')
-		ok(text.split('\n').filter(Boolean).every((l) => JSON.parse(l).schema === 'whale-teaching/1'), '每行都带 schema')
+		ok(!/\d{4}-\d{2}-\d{2}T/.test(text) && !/"ts"|"createdAt"/.test(text), '**绝不写时间字段**')
+		ok(text.split('\n').filter(Boolean).every((l) => Object.keys(JSON.parse(l)).join(',') === TEACHING_KEYS.filter((k) => k in JSON.parse(l)).join(',')), '键序钉死（落盘顺序 == TEACHING_KEYS）')
 	}
 
-	// ── ⑦ 生效值 = 档位默认 ⊕ 覆盖 ──
+	// ── ⑦ 生效值：全局 ⊕ 圆圈，各算各的 ──
 	{
-		const { entries, latest } = readTeaching(tmp)
-		const cur = resolveParams(latest)
-		ok(cur.params.termPairing === 'on' && !cur.overridden.includes('termPairing'), '没写过的项落回档位默认（不是"没有值"）')
-		const v1 = resolveParams(entries[0])
-		ok(v1.params.commentDims.length === 2 && v1.overridden.includes('commentDims'), 'v1 写过的项生效并记进 overridden')
-		ok(cur.overridden.length === 0, '最新一版没提 params ⇒ 生效值全落回默认（**最新一条是全部真相**，append-only 的读法）')
-		const t4 = resolveParams({ tier: 4, params: {} })
-		ok(t4.params.commentDensity === 'key', '换档位 = 默认值跟着变（tier4 只关键行）')
+		const d = readTeaching(tmp)
+		const p = resolveFor(d, 'programming')
+		ok(p.params.commentDensity === 'block', `圆圈取值生效（commentDensity=${p.params.commentDensity}）`)
+		ok(p.params.explainOrder === 'detail-first', '全局取值也叠进来了（explainOrder=detail-first）')
+		ok(p.overridden.includes('commentDensity') && p.overridden.includes('explainOrder'), '两层改过的都记进 overridden')
+		const m = resolveFor(d, 'math')
+		ok(m.params.commentDensity === undefined, '**别的圆圈看不到 programming 的特化**（特化不串圈）')
+		ok(m.params.explainOrder === 'detail-first', '但全局取值对所有圆圈都生效')
+		ok(defaultsFor(4, d.circles.programming.spec).commentDensity === 'key', '圆圈 spec 的档位默认生效（tier4 → key）')
 	}
 
 	// ── ⑧ 读侧容错 + 拒写回滚 ──
@@ -165,53 +164,43 @@ try {
 		const before = fs.readFileSync(file, 'utf8')
 		fs.appendFileSync(file, '这不是合法JSON{{{]\n', 'utf8')
 		const r = readTeaching(tmp)
-		ok(r.problems.some((p) => /解析失败/.test(p)) && r.entries.length === 2, '坏行进 problems、不抛、不静默丢（合规行照读）')
+		ok(r.problems.some((p) => /解析失败/.test(p)) && r.entries.length === 3, '坏行进 problems、不抛、不静默丢')
 		fs.writeFileSync(file, before, 'utf8')
-		const bad = recordTeaching(tmp, { tier: 9, params: {}, source: 'student' })
-		ok(bad.ok === false && /tier/.test(bad.error), `坏 tier 拒写（${bad.error}）`)
-		ok(fs.readFileSync(file, 'utf8') === before, '拒写在 append 之前 ⇒ 文件逐字节未变（回滚判据）')
+		const bad = recordTeaching(tmp, { circle: 'programming', kind: 'values', tier: 9, params: {}, source: 'student' })
+		ok(bad.ok === false && /tier/.test(bad.error), '坏 tier 拒写')
+		ok(fs.readFileSync(file, 'utf8') === before, '拒写在 append 之前 ⇒ 文件逐字节未变')
 	}
 
-	// ── ⑨ 工具面：propose 预览不写盘 / write 要 confirm ──
+	// ── ⑨ 工具面：read 带圆圈 / propose 不写盘 / write 要 confirm ──
 	{
 		const file = teachingPath(tmp)
 		const before = fs.readFileSync(file, 'utf8')
-		const prop = await tool.execute({ op: 'propose', params: { commentDensity: 'block' }, freeText: ['例子多一点'], root: tmp })
-		ok(prop.ok === true && typeof prop.previewLine === 'string' && prop.previewLine.includes('whale-teaching/1'),
-			'propose 回一份"会落盘的那一行"预览')
+		const rd = await tool.execute({ op: 'read', circle: 'programming', root: tmp })
+		ok(rd.ok === true && rd.current.params.commentDensity === 'block', 'read 按圆圈回生效参数')
+		ok(rd.spec.length === 1 && rd.spec[0].id === 'commentDensity', 'read 把该圆圈的 spec 一并回（agent 才知道能改什么）')
+
+		const prop = await tool.execute({ op: 'propose', circle: 'programming', params: { commentDensity: 'key' }, root: tmp })
+		ok(prop.ok === true && typeof prop.previewLine === 'string' && prop.previewLine.includes('whale-teaching/1'), 'propose 回一份"会落盘的那一行"预览')
 		ok(fs.readFileSync(file, 'utf8') === before, 'propose **不写盘**')
-		ok(prop.current.params.commentDensity === 'block', 'propose 顺带回"改完会长什么样"（生效值）')
 
-		const noConfirm = await tool.execute({ op: 'write', params: { commentDensity: 'block' }, root: tmp })
-		ok(noConfirm.ok === false && /confirm:true/.test(noConfirm.error), `write 没 confirm → 拒写（${noConfirm.error}）`)
-		ok(fs.readFileSync(file, 'utf8') === before, '没点头的那次也没写盘')
-
-		const wrote = await tool.execute({ op: 'write', params: { commentDensity: 'block' }, freeText: ['例子多一点'], confirm: true, root: tmp })
-		ok(wrote.ok === true && wrote.teachingSaved === true && wrote.record.v === 3, `confirm:true → 落盘 v${wrote.record?.v}`)
-		const after = readTeaching(tmp).latest
-		ok(after.params.commentDensity === 'block' && after.freeText[0].text === '例子多一点', '落盘内容与 propose 预览同形')
-		// ⚠️ 累积合并：这一版只提了 commentDensity，**不许**把 v1 调过的 commentDims 静默丢掉
-		ok(JSON.stringify(after.params.commentDims) === JSON.stringify(['what', 'why']),
-			`只改一个参数不会把别的覆盖丢掉（commentDims 仍是 ${JSON.stringify(after.params.commentDims)}）`)
-		// 显式重置：params 里给 null = 落回档位默认（取消覆盖的唯一出口）
-		const reset = await tool.execute({ op: 'write', params: { commentDims: null }, confirm: true, root: tmp })
-		ok(reset.ok === true && !('commentDims' in reset.record.params),
-			`params 给 null = 显式落回默认（v${reset.record?.v} 里不再有 commentDims）`)
-
-		const badKey = await tool.execute({ op: 'write', params: { readStudentWorkFirst: false }, confirm: true, root: tmp })
-		ok(badKey.ok === false && /教学纪律/.test(badKey.error), '工具面也拦得住教学纪律（不是只有底层拦）')
-		let threw = ''
-		try { validateTeaching({ tier: 2, params: { nope: 1 } }, { strict: true }) } catch (e) { threw = e.message }
-		ok(/多余键/.test(threw), `validateTeaching 对多余键抛错（${threw}）`)
+		const noConfirm = await tool.execute({ op: 'write', circle: 'programming', params: { commentDensity: 'key' }, root: tmp })
+		ok(noConfirm.ok === false && /confirm:true/.test(noConfirm.error), 'write 没 confirm → 拒写')
+		const wrote = await tool.execute({ op: 'write', circle: 'programming', params: { commentDensity: 'key' }, confirm: true, root: tmp })
+		ok(wrote.ok === true && wrote.teachingSaved === true, `confirm:true → 落盘（v${wrote.record?.v}）`)
+		// 累积合并：这一版只提了 commentDensity，**不许**把之前的全局取值丢掉
+		const after = readTeaching(tmp)
+		ok(after.global.values?.params?.explainOrder === 'detail-first', '改圆圈参数不会动到全局层的取值')
+		const reset = await tool.execute({ op: 'write', circle: 'programming', params: { commentDensity: null }, confirm: true, root: tmp })
+		ok(reset.ok === true && !('commentDensity' in reset.record.params), 'params 给 null = 显式落回档位默认')
 	}
 
 	// ── ⑩ 真包一字未动 ──
 	ok(hashTree(path.join(ROOT, 'learning-records')) === realBefore, '真包 learning-records/ 一字未动')
-	ok(!fs.existsSync(teachingPath(ROOT)), '真包上没有被创建 teaching.jsonl（全部动作都在拷贝里）')
+	ok(!fs.existsSync(teachingPath(ROOT)), '真包上没有被创建 teaching.jsonl')
 } finally {
 	fs.rmSync(tmp, { recursive: true, force: true })
 }
 
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
-console.log('✅ 可枚举 + 档位默认 · 可调集拦得住 · 教学纪律锁死 · 上限拒写提示合并 · append-only 无时间戳 · propose 不写盘 / write 要点头')
+console.log('✅ 按圆圈分节 · 全局学科中立 · 特化数据驱动（spec 带指令句）· 不串圈 · append-only 无时间戳 · propose 不写盘 / write 要点头')
