@@ -293,6 +293,26 @@ try {
       `adjustments.jsonl 键序钉死 ts,lesson,title,adjust,lit,gaps（${Object.keys(recs[0]).join(',')}）`)
     ok(recs.every((r) => typeof r.lit === 'boolean' && Array.isArray(r.gaps)), 'lit 是布尔、gaps 是数组')
   }
+
+  // ── H 旧台账末尾缺 \n：append 前先补一个（今天在 questions/pending.jsonl 上踩过的坑）──
+  // 粘连形态 =「旧那条没有收尾换行 + 直接 append」⇒ 两条并成一行坏 JSON，
+  // drain-questions.js / build-questions.js 就解析不出那条真数据。这里故意造一份末尾无 \n
+  // 的旧台账再写一条，断言回来仍是**逐条合法**的记录（不是一条坏 JSON）。
+  {
+    const raw = fs.readFileSync(ADJ(tmp), 'utf8')
+    const before = raw.split('\n').filter((l) => l.trim()).length
+    fs.writeFileSync(ADJ(tmp), raw.replace(/\n+$/, ''), 'utf8')   // 故意造「末尾无 \n」的旧台账
+    const r = await post({ lesson: 'demo/0003', done: false, adjust: 'H：末尾没换行的旧台账' })
+    ok(r.status === 200 && r.body && r.body.ok === true, `H 写入成功（实得 ${r.status}/${r.body && r.body.ok}）`)
+    const lines = fs.readFileSync(ADJ(tmp), 'utf8').split('\n').filter((l) => l.trim())
+    const good = []
+    const bad = []
+    for (const l of lines) { try { good.push(JSON.parse(l)) } catch { bad.push(l) } }
+    ok(bad.length === 0 && good.length === before + 1,
+      `H 末尾缺 \\n 的旧台账再写一条 → ${good.length} 条全合法、${bad.length} 条坏账（期望 ${before + 1} 条合法）——粘连行在这里红`)
+    ok(good.length > 0 && good[good.length - 1].adjust === 'H：末尾没换行的旧台账',
+      'H 新那条逐字带回来了（没被粘进上一条）')
+  }
 } finally {
   if (child && !child.killed) { try { child.kill() } catch { /* 已退 */ } }
   fs.rmSync(tmp, { recursive: true, force: true })

@@ -42,6 +42,7 @@ import { fileURLToPath } from 'node:url'
 import { stripBom, splitLines } from '../lib/text.js'
 import { digestTree, PROBE_VERSION } from '../lib/fingerprint.js'
 import { appendNote } from '../lib/notes-io.js'
+import { plugin as noteRoutePlugin } from '../lib/mods/note.js'   // 只为取插件路由的 HTTP 状态码
 import { handleAsk } from '../lib/ask-io.js'
 import { writeScaffold } from '../lib/pack-scaffold.js'
 import { validatePlan, planFrontier } from '../lib/plan.js'
@@ -152,6 +153,81 @@ try {
   }
   const seqText = fs.readFileSync(SEQ, 'utf8')
   ok(seqText.trim() === '2', `notes/seq.txt 是**一个**计数器、终值 2（实得 ${JSON.stringify(seqText)}）`)
+
+  // ── 超限笔记：两个写入口必须**同判**（同收或同拒 + 同口径的拒法）──────────────
+  // 为什么要有这条：包侧 `/note` 一直有 16KB 闸，插件 `notes-io.appendNote` 曾经**一条大小
+  // 判断都没有** ⇒ 同一本 notes/notes.jsonl 两个入口一个收一个拒。阈值 / 单位 / 状态码 /
+  // 拒法四样都对齐才算同判。样本取中文（一字 3 字节）：8000 字 = 24000 字节超限，**字符数
+  // 8000 却没超** ⇒ 单位改回字符数，两侧都会放行、这里就红。
+  // 「同收」的那一半就是上面 A、B 两条正常笔记：两侧都收下了 —— 同判 = 同收 + 同拒。
+  {
+    const OVER = '超'.repeat(8000)
+    ok(Buffer.byteLength(OVER, 'utf8') > 16 * 1024 && OVER.length < 16 * 1024,
+      '超限样本按**字节**超、按字符没超（夹具自检：单位改回字符数 ⇒ 两侧都会放行）')
+    const res = await fetch(`http://127.0.0.1:${port}/note`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text: OVER, anchor: '第1课' }),
+    })
+    const jb = await res.json()
+
+    // 插件侧的**状态码**住在路由层（appendNote 只负责抛）—— 真起插件路由拿它的 HTTP 码来比，
+    // 不能拿"抛了"当"413"糊过去。路由是薄壳：走到 catch 就回，不会触发产物重建。
+    const cap = []
+    noteRoutePlugin.install({
+      log: { info: () => {}, warn: () => {}, error: () => {} },
+      paths: { packRoot: tmp },
+      registerTool: () => {},
+      inject: (names, cb) => { if (names.includes('connection')) cb({ get: () => ({ fetch: { register: (r) => cap.push(r) } }) }) },
+    })
+    const noteFetch = cap[0].fetch
+    const pres = await noteFetch(new Request('http://127.0.0.1:3090/api/whale/note', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text: OVER, anchor: '第1课' }),
+    }))
+    const pbody = await pres.json()
+
+    let threw = ''
+    try { appendNote({ root: tmp, text: OVER, anchor: 'spring-boot/0001' }) } catch (e) { threw = e.message }
+    ok(res.status === 413 && jb.ok === false, `包侧超限笔记 → 413 + ok:false（实得 ${res.status}）`)
+    ok(pres.status === 413 && pbody.ok === false, `插件路由超限笔记 → ${pres.status} + ok:false（实得 ${pres.status}/${pbody.ok}）`)
+    ok(res.status === pres.status,
+      `两侧**状态码**相同：同一份超限笔记，包侧 ${res.status} ／ 插件路由 ${pres.status}`)
+    ok(threw.length > 0, `插件侧 appendNote 当场抛出、不写盘（实得 ${JSON.stringify(threw)}）`)
+    ok(jb.error === pbody.error && pbody.error === threw,
+      `两侧**同口径的拒法**：文案逐字相同（包侧 ${JSON.stringify(jb.error)} ／ 插件 ${JSON.stringify(pbody.error)}）`)
+    ok(readLines().length === 2 && fs.readFileSync(SEQ, 'utf8').trim() === '2',
+      `两侧都**写前拒**：台账一条没多、计数器没动（实得 ${readLines().length} 条 / seq ${JSON.stringify(fs.readFileSync(SEQ, 'utf8'))}）`)
+  }
+
+  // ── 已知差异登记（照 test/judge-parity.mjs 的 EXEMPT 做法）：**双方实况**一起钉住 ──
+  // 这不是漂移，是两层职责本身决定的：包侧测**请求体**字节（传输层守卫，还没解析完就得先把
+  // 请求体挡住），插件侧测**正文**字节（内容层守卫）⇒ 16KB 顶端两者约差 35 字节（JSON 外壳开销）。
+  // 2026-09-25 裁定**不追平**：抹平要动 `lib/mods/note.js` 的入参形状按 `raw` 判，收益（35 字节
+  // 的边界）远小于风险。下面这条样本正好落在那条灰带里，**同时**断言两侧各自的实况 ——
+  // 包侧改判正文、或插件改判请求体，哪一边变了这节就红，逼人重新裁定（而不是让它烂成漂移）。
+  {
+    const EDGE = '边'.repeat(5461)                 // 正文 16383 字节（<16KB）／ 请求体 16413 字节（>16KB）
+    const payload = { text: EDGE, anchor: '第1课' }
+    ok(Buffer.byteLength(EDGE, 'utf8') < 16 * 1024 && Buffer.byteLength(JSON.stringify(payload), 'utf8') > 16 * 1024,
+      '灰带样本夹具自检：正文在 16KB 内、请求体在 16KB 外（这就是那条已知差异）')
+    const res = await fetch(`http://127.0.0.1:${port}/note`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const jb = await res.json()
+    let r = null
+    let threwE = ''
+    try { r = appendNote({ root: tmp, text: EDGE, anchor: '第1课' }) } catch (e) { threwE = e.message }
+    ok(res.status === 413 && jb.ok === false,
+      `包侧实况＝按**请求体**判 → 413（正文没超也拒；实得 ${res.status}）`)
+    ok(!!r && r.ok === true && r.id === '0003',
+      `插件侧实况＝按**正文**判 → 收下（正文没超；实得 ${r ? r.ok + '/' + r.id : '抛出 ' + threwE}）`)
+    ok(readLines().length === 3,
+      `两侧判据确实不是同一个量：同一份笔记一边拒一边收（台账 ${readLines().length} 条）—— 两边收敛了就删这一节`)
+  }
 } finally {
   if (child && !child.killed) { try { child.kill() } catch { /* 已退 */ } }
   fs.rmSync(tmp, { recursive: true, force: true })
