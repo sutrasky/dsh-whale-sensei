@@ -54,7 +54,7 @@ const show = (v) => (v === undefined ? 'undefined' : j(v))
  */
 const EXEMPT = [
   {
-    id: 'E1', cases: ['ok（全过；auto:false 走 needsReview）', 'ok（required 还缺：不阻塞、照实回执）'], field: 'code',
+    id: 'E1', cases: ['ok（全过；auto:false 走 needsReview）', 'ok（required 还缺：不阻塞、照实回执）', 'ok（证据补到档了）'], field: 'code',
     plugIs: (v) => v === 'ok',
     packIs: (v) => v === null,
     插件: "code:'ok'",
@@ -118,6 +118,16 @@ const EXEMPT = [
     why: 'UI 计数字段，包侧回执不需要；口径已同源（都只算可机判的题，auto:false 不计入）。'
       + '判词本身（criteria-not-met + gaps）两边一致。',
   },
+  {
+    id: 'E8', cases: ['evidence-insufficient（只贴了口头确认）'], field: 'achievedTotal',
+    plugIs: (v) => Array.isArray(v) && v[0] === 3 && v[1] === 3,
+    packIs: (v) => Array.isArray(v) && v[0] === null && v[1] === null,
+    插件: '带 achieved/total（这里 3/3：可机判的三题全过，卡住的是证据档）',
+    包侧: '无这两个字段',
+    why: '与 E7 同一个理由（UI 计数字段包侧不需要），但**形状不同**：证据不够时可机判的题是**全过**的'
+      + '（3/3，不是部分），所以 E7 那条"achieved < total"的判据在这里不成立 —— 单开一行，'
+      + '免得把 E7 的判据放宽成"只要有两个数就行"（那会让 E7 变成橡皮图章）。',
+  },
 ]
 const exemptOf = (c, field) => EXEMPT.find((e) => e.field === field && e.cases.includes(c))
 
@@ -168,6 +178,13 @@ const findLesson = (doc, id) => {
   return null
 }
 
+/** 把证据档判词塞进快照的那道题（两侧都读 `challenges[].evidence`，见 lib/gate.js / ask-server.js） */
+const setEvidence = (doc, lesson, no, ev) => {
+  const c = (findLesson(doc, lesson)?.challenges || []).find((x) => x.no === no)
+  if (!c) throw new Error(`夹具里找不到 ${lesson} 第 ${no} 题`)
+  c.evidence = ev
+}
+
 const CASES = [
   { name: 'no-snapshot（快照读不到）', lesson: 'demo/0001', number: 1, want: 'no-snapshot', noSnapshot: true },
   { name: 'unknown-lesson（快照里没这课）', lesson: 'demo/0009', number: 9, want: 'unknown-lesson' },
@@ -179,6 +196,15 @@ const CASES = [
   {
     name: 'ok（required 还缺：不阻塞、照实回执）', lesson: 'demo/0001', number: 1, want: 'ok',
     mutate: (d) => { findLesson(d, 'demo/0001').missing = [{ id: 'any', hint: '要有 @Demo' }] },
+  },
+  // ── 证据档（P0-4 戊1b，2026-09-25）：两侧同批加的**同一个分支**，所以必须在这里对拍 ──
+  {
+    name: 'evidence-insufficient（只贴了口头确认）', lesson: 'demo/0001', number: 1, want: 'evidence-insufficient',
+    mutate: (d) => { setEvidence(d, 'demo/0001', 4, { min: 'test', have: 'verbal', haveRank: 1, needRank: 3, ok: false, hint: '第4题还差一档证据（现在只有「口头确认」）：补上 学生自己写的测试 或 运行结果 任意一档' }) },
+  },
+  {
+    name: 'ok（证据补到档了）', lesson: 'demo/0001', number: 1, want: 'ok',
+    mutate: (d) => { setEvidence(d, 'demo/0001', 4, { min: 'test', have: 'test', haveRank: 3, needRank: 3, ok: true, hint: '' }) },
   },
 ]
 
@@ -211,7 +237,7 @@ try {
           { no: 1, deliverable: '有一个 @Demo 标的类', checks: [{ id: 'c1', kind: 'annotation', value: 'Demo' }] },
           { no: 2, deliverable: '有 GET /hello 端点', checks: [{ id: 'c2', kind: 'endpoint', value: 'GET /hello' }] },
           { no: 3, deliverable: '配置里有 server.port', checks: [{ id: 'c3', kind: 'configKey', value: 'server.port' }] },
-          { no: 4, deliverable: '讲清楚为什么这么写', auto: false, hint: '要口头讲一遍，机器判不了' },
+          { no: 4, deliverable: '讲清楚为什么这么写', auto: false, hint: '要口头讲一遍，机器判不了', minEvidence: 'test' },
         ],
       },
       {
@@ -309,6 +335,11 @@ try {
       `${c.name}：needsReview 一致（${j(judge.needsReview ?? [])}）`)
     judged('requiredGaps', judge.requiredGaps ?? [], resp.requiredGaps ?? [],
       `${c.name}：requiredGaps 一致（${j(judge.requiredGaps ?? [])}）`)
+    // 证据档（P0-4）：逐条"还差哪一档"两边必须逐字一致；回退开关也要一致
+    judged('evidenceGaps', judge.evidenceGaps ?? [], resp.evidenceGaps ?? [],
+      `${c.name}：evidenceGaps 一致（${j(judge.evidenceGaps ?? [])}）`)
+    judged('evidenceFallback', judge.evidenceFallback ?? false, resp.evidenceFallback ?? false,
+      `${c.name}：evidenceFallback 一致（${show(judge.evidenceFallback ?? false)}）`)
     judged('achievedTotal', [judge.achieved ?? null, judge.total ?? null], [resp.achieved ?? null, resp.total ?? null],
       `${c.name}：achieved/total 一致（${j([judge.achieved ?? null, judge.total ?? null])}）`)
 
@@ -321,6 +352,12 @@ try {
       `${c.name}：包侧写盘点与判词自洽（learned 含本课 = ${show(packWrite)}、ok = ${show(resp.ok)}）`)
     ok(resp.lit === (readJson(PROGRESS(tmp)).learned || []).length,
       `${c.name}：包侧回执 lit = learned 计数（${show(resp.lit)}，不是布尔）`)
+    // 判据 ②（P0-4 戊1b）：**只落 `kind:"verbal"`（口头确认）时点亮必须失败**。
+    // 这里验的是**真写盘点**（progress.json 的 learned 里没有这一课），不是回执字段。
+    if (c.want === 'evidence-insufficient') {
+      ok(packWrite === false && resp.ok === false,
+        `${c.name}：**点亮必须失败**（判据 ②：只贴口头确认不算过）—— learned 里没有这一课、ok:false`)
+    }
     const ra = field('allowed', plugAllowed, packWrite)
     ok(ra.equal || !!ra.exempt,
       `${c.name}：三元组② allowed 两边一致（插件 ${show(plugAllowed)}、包侧 ${show(packWrite)}）`)

@@ -725,7 +725,7 @@ console.log(`\n[settings-catalog] 课程包：${PACK}`)
   // 收进来只会让下面的注册集合更完整，[8c] 的"⊆"仍然是真的。
   // 完整性由 [8b2] 的源码级判据守着（漏一个就红，不会静默缩小覆盖面）。
   const allRegisteredPaths = new Set()
-  const mods = ['status.js', 'catalog.js', 'create.js', 'starter.js', 'pack.js', 'teaching.js', 'ask.js', 'note.js']
+  const mods = ['status.js', 'catalog.js', 'create.js', 'starter.js', 'pack.js', 'teaching.js', 'ask.js', 'note.js', 'evidence.js']
   // 反陈旧（2026-09-25 补）：这张名单是手写的，新增一个挂路由的模块很容易忘了加进来 ——
   // 那时 [8c] 的覆盖面会**静默缩小**（不是变红）。所以先用源码级判据把名单钉住：
   // 凡是源码里出现 `fetch.register` 的模块，都必须在这张名单里。
