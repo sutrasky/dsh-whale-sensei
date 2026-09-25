@@ -1,0 +1,3 @@
+name: 鲸师模式
+description: 教学法成层的学习会话：老师人设 + 三条教学纪律（锁死）+ 教学方式可调项；挂载课程包 skills/ 的 5 个技能（whale-system 总控常驻 + whale-lesson / whale-practice / whale-qa / whale-record 按需）。不藏你已有的其他技能。
+order: 2

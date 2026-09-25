@@ -41,6 +41,7 @@ param(
     [switch] $SkipHostCheck,
     [switch] $SkipSnapshot,
     [switch] $PackRootOnly,
+    [switch] $SkipPreset,
     [switch] $DryRun
 )
 
@@ -195,8 +196,49 @@ if ($PackRoot) {
     }
 }
 
-# --- 2) add as link: ---------------------------------------------------------
-if ($PackRootOnly) {
+# --- 1c) agent preset: 鲸师模式 -> $DSH_HOME/.agent-presets/whale-mode --------
+# Why a PRESET and not a profile patch: in the `web` profile the host rows
+# `skill-filesystem` and `tool-skill` are DISABLED (dsh-web-app's bundle patch:
+# "presets own local discovery"), so a profile-level skill registration would
+# silently do nothing.  A preset owns those rows itself.
+# ⚠️ We do NOT write `includeDefaultRoots: false` -- that would hide every other
+#    skill in this profile.  The pack's five skills are ADDED, not substituted.
+if (-not $SkipPreset) {
+    Write-Host ''
+    Say '== agent preset 鲸师模式 (.agent-presets/whale-mode) ==' 'Cyan'
+    $presetSrc  = Join-Path $PackageDir 'preset\whale-mode'
+    $presetRoot = Join-Path $DshHome '.agent-presets\whale-mode'
+    if (-not (Test-Path (Join-Path $presetSrc 'agent.cordis.yml'))) {
+        Say "SKIP: 模板不在（$presetSrc\agent.cordis.yml）—— 先跑 node preset/whale-mode/build-preset.mjs" 'Yellow'
+    } elseif (-not $PackRoot) {
+        Say 'SKIP: 预设要把技能目录指到课程包，所以得同时给 -PackRoot' 'Yellow'
+    } else {
+        $skillsDir = Join-Path $rootFull 'skills'
+        if (-not (Test-Path -LiteralPath $skillsDir)) {
+            Say "WARN: 课程包里没有 skills\（$skillsDir）—— 预设挂上去也看不到技能" 'Yellow'
+        }
+        $skillsYaml = $skillsDir.Replace('\', '/')
+        if ($DryRun) {
+            Say "DRY RUN -- 会写 $presetRoot（__WHALE_SKILLS__ -> $skillsYaml）" 'Yellow'
+        } else {
+            New-Item -ItemType Directory -Force -Path $presetRoot | Out-Null
+            Copy-Item (Join-Path $presetSrc 'preset.yml') $presetRoot -Force
+            $yml = [System.IO.File]::ReadAllText((Join-Path $presetSrc 'agent.cordis.yml'))
+            if ($yml -notmatch '__WHALE_SKILLS__') { throw 'preset 模板里没有 __WHALE_SKILLS__ 占位符' }
+            $yml = $yml.Replace('__WHALE_SKILLS__', $skillsYaml)
+            [System.IO.File]::WriteAllText((Join-Path $presetRoot 'agent.cordis.yml'), $yml, (New-Object System.Text.UTF8Encoding($false)))
+            $after = [System.IO.File]::ReadAllText((Join-Path $presetRoot 'agent.cordis.yml'))
+            if ($after -match '__WHALE_SKILLS__' -or $after -notmatch [regex]::Escape($skillsYaml)) {
+                Say 'FAIL 占位符没替换干净 —— 手工看一眼' 'Red'
+            } else {
+                Say "OK   wrote: $presetRoot（技能目录 $skillsYaml）" 'Green'
+                Say '     -> 重启 DeepSeek Harness，开会话时选「鲸师模式」' 'Green'
+            }
+        }
+    }
+}
+
+# --- 2) add as link: ---------------------------------------------------------if ($PackRootOnly) {
     Write-Host ''
     Say '(-PackRootOnly: plugin install skipped -- only packRoot was touched.)' 'DarkGray'
     Write-Host ''
