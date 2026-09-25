@@ -20,6 +20,7 @@ const SUITES = [
   ['lightup', '点亮换钉子：判据快照先判后写 / 失败关闭五分支 / 判据拒绝与不可达分离 / 真包不动'],
   ['challenge-gate', '开新课门禁：上一课挑战逐条判 / 无判据放行有告警 / author 拦住且 force 留痕'],
   ['judge-parity', '判词表对拍：插件 judgeSnapshot ↔ 包侧 judgeLightup 同输入同判词（code/hint/gaps）+ 放行三元组 + 豁免表反核账'],
+  ['deadlink-parity', '死链/缺产物互补对拍：活源扫链（带行号）↔ 构建产物 href 存在性 —— 两个最小复现钉成已知差异（豁免表 + 双方实况 + 真包不动）'],
   ['plan-gate', '知识点地图：判据矩阵 / 写口拒坏图 / 大纲闸（禁 force 绕） / 真包不动'],
   ['ask-route', '课程疑问：提交 / 拉取 / 坏样本一动不动'],
   ['ask-answer', '解答写回：台账外科手术式追加 + 真跑重建'],
