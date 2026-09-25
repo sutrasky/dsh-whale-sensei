@@ -386,6 +386,54 @@ ok(/达成 1 \/ 共 1/.test(summaryText), '摘要按「达成 k / 共 n」写')
 ok(/另有 1 项需人工确认/.test(summaryText), '需人工确认的项**显式列出**（不混进达成数）')
 ok(!/%/.test(summaryText), '摘要里**没有百分比**（有"需人工确认"时百分比必然是假的）')
 
+// ── ⑪ 挑战序号对位（镜像包侧 R6）：no 集合必须恰好 = 课程源 `<!--@challenges-->` 的 <li> 条数 ──
+// 病灶：R6 原本只在课程包闸门跑、插件侧看不见 ⇒ 手写坏的 EXPECT.json（no 与源里题目数
+// 对不上）会让插件的 k/n **说谎**。这里走**全链**：state-scan 读源数 <li> → state.js 纯比较。
+// 口径：E:\workplace\study\tools\check-lesson-content.js 的 challengeAlignment()（R6 主流程）。
+{
+  const tmpR6 = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-r6-'))
+  try {
+    // 课程源：<!--@challenges--> 区块里 3 条 <li>
+    const srcDir = path.join(tmpR6, 'lessons', 'src', 'demo', 'pt')
+    fs.mkdirSync(srcDir, { recursive: true })
+    fs.writeFileSync(path.join(srcDir, '0001-a.html'),
+      '<!doctype html><html><body><!--@challenges--><li>第 1 题</li><li>第 2 题</li><li>第 3 题</li><!--/@challenges--></body></html>\n', 'utf8')
+    // 学生实践区：code/pt/EXPECT.json（项目标志 = EXPECT.json）
+    fs.mkdirSync(path.join(tmpR6, 'code', 'pt'), { recursive: true })
+    const expectPath = path.join(tmpR6, 'code', 'pt', 'EXPECT.json')
+    const mkCh = (no) => ({ no, deliverable: `第 ${no} 题产出`, checks: [{ id: `c${no}`, kind: 'file', value: `0001-${no}.md` }] })
+    const writeExpect = (nos, extra = []) => fs.writeFileSync(expectPath, JSON.stringify({
+      lessons: [
+        { id: 'pt/0001', title: '对位课', required: [{ id: 'r1', kind: 'file', value: 'x.md' }], challenges: nos.map(mkCh) },
+        ...extra,
+      ],
+    }, null, 2) + '\n', 'utf8')
+    const lessonOf = (id) => probeState(tmpR6, STUB_PACK).state.projects[0].lessons.find((l) => l.id === id)
+
+    // (a) 不等 ⇒ 必须报出来（原文进 challengeAlign.message，也进摘要）
+    writeExpect([1, 2])
+    const mis = lessonOf('pt/0001')
+    ok(mis.challengeAlign?.ok === false && /序号对位错开了/.test(mis.challengeAlign.message || ''),
+      `[R6-a] no={1,2} vs 源里 3 条 <li> ⇒ **报出来**：${mis.challengeAlign?.message}`)
+    const misSummary = summarizeState(probeState(tmpR6, STUB_PACK).state).join('\n')
+    ok(!!mis.challengeAlign?.message && misSummary.includes(mis.challengeAlign.message), '[R6-a] 告警原文也进了人看的摘要（⚠️ 一行，不只躺 state.json）')
+
+    // (b) 相等 ⇒ 不报
+    writeExpect([1, 2, 3])
+    const eq3 = lessonOf('pt/0001')
+    ok(eq3.challengeAlign?.ok === true && eq3.challengeAlign.message === null,
+      `[R6-b] no={1,2,3} == 源里 3 条 <li> ⇒ **不报**（message=${eq3.challengeAlign?.message}）`)
+
+    // (c) 读不到源 ⇒ 不崩、也不静默（明说这条校验跳过）
+    writeExpect([1], [{ id: 'pt/0002', title: '没源课', required: [{ id: 'r1', kind: 'file', value: 'y.md' }], challenges: [mkCh(1)] }])
+    const l2 = lessonOf('pt/0002')
+    ok(l2.challengeAlign?.ok === null && /读不到源，这条校验跳过/.test(l2.challengeAlign.message || ''),
+      `[R6-c] 读不到课程源 ⇒ 不崩且明说跳过：${l2.challengeAlign?.message}`)
+  } finally {
+    fs.rmSync(tmpR6, { recursive: true, force: true })
+  }
+}
+
 // ── ⑧ codeDir 不存在 ──
 const none = scanWorkspace(ROOT, { codeDir: '不存在的目录' })
 // 2026-09-24 D1 起：扫描根不存在**不再静默** —— 0 个项目（不炸）**且**有一条点名它的 warning
