@@ -21,6 +21,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { TEMPLATE_DIR, TEMPLATE_FILES, looksLikePack, isEmptyDir, planScaffold, writeScaffold } from '../lib/pack-scaffold.js'
+import { LEDGER_ANCHOR, insertLedgerEntry, serializeLedgerEntry } from '../lib/ask.js'
 import { FROM_PACK, FROM_SKILL, FROM_PACK_BINARY, DERIVED, SANITIZE, sanitizeText, templatePaths } from './pack-template-rules.mjs'
 import { patchPackRootYml, findProfileDir, writeProfilePackRoot } from '../lib/profile-packroot.js'
 import { pickFolder } from '../lib/pick-folder.js'
@@ -196,6 +197,28 @@ try {
   const q = require_(path.join(target, 'assets', 'questions-data.js'))
   ok(typeof g === 'object' && Object.keys(g).length === 0, 'glossary-data.js 是**空骨架**（0 个名词 —— 不含任何人的课程内容）')
   ok(typeof q === 'object' && Object.keys(q).length === 0, 'questions-data.js 是空台账（0 条答疑）')
+
+  // ── ③b 空台账骨架 ↔ 真本的**形状契约**（B2）────────────────────────────
+  // 写入插桩 `insertLedgerEntry` 靠**收尾锚点**切片插入，而建包骨架生成的就是那个被插入的文件。
+  // 两处各写各的 = 同一个契约的两份表达 —— 锚点漂了，两边测试还都绿。这里钉住三件：
+  //   ① 骨架与**课程包真本**都满足同一个锚点契约；② 两者的 UMD 闭包逐字节相同；
+  //   ③ 往空骨架里写**第一条**，产物仍合法（那是新包第一次答疑的真实路径）。
+  const qSrc = fs.readFileSync(path.join(target, 'assets', 'questions-data.js'), 'utf8')
+  const realQSrc = fs.readFileSync(path.join(PACK, 'assets', 'questions-data.js'), 'utf8')
+  const anchorHits = (s) => s.split(LEDGER_ANCHOR).length - 1
+  ok(anchorHits(qSrc) === 1, `空台账骨架满足锚点契约（LEDGER_ANCHOR 出现 1 次，实得 ${anchorHits(qSrc)}）`)
+  ok(anchorHits(realQSrc) === 1, `课程包**真本**满足同一个锚点契约（实得 ${anchorHits(realQSrc)}）—— 这条把真本钉死在代码的锚点上`)
+  const umdOf = (s) => s.slice(s.indexOf('(function (root, factory)'), s.indexOf('\n  return {'))
+  ok(umdOf(qSrc) === umdOf(realQSrc) && umdOf(qSrc).length > 100,
+    '骨架与真本的 UMD 闭包**逐字节相同**（头注释与条目有意不同，不算）')
+  const qFirst = insertLedgerEntry(qSrc, '0001', serializeLedgerEntry({
+    id: '0001', date: '2026-09-25', lesson: '演示', question: '原话', answer: '解答', answerHtml: '<p>解答</p>',
+  }))
+  const qFile = path.join(tmpRoot, 'questions-after-first-write.js')
+  fs.writeFileSync(qFile, qFirst)
+  const qLoaded = require_(qFile)
+  ok(!!qLoaded && !!qLoaded['0001'] && qLoaded['0001'].id === '0001' && Object.keys(qLoaded).length === 1,
+    '往**空骨架**里写第一条 → 产物合法、取得到、且只有那一条（新包第一次答疑的真实路径）')
 
   // ── ④ profile 层配置：就地改一行，其它字段一个不丢 ──────────────────────
   console.log('\n④ profile 配置')
