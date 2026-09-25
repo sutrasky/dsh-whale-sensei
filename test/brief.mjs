@@ -27,6 +27,7 @@ import { readQueue, askPaths } from '../lib/ask-io.js'
 import { loadGlossaryLedger, glossarySummary } from '../lib/glossary-io.js'
 import { listLearningRecords } from '../lib/brief-io.js'
 import { recordGoal } from '../lib/goal-io.js'
+import { recordTeaching } from '../lib/teaching-io.js'
 import { assertLosslessJson } from '../lib/state.js'
 import { plugin as briefPlugin } from '../lib/mods/brief.js'
 import { NEXT_ACTIONS } from '../lib/brief.js'
@@ -40,6 +41,14 @@ function ok(cond, msg) {
   if (cond) { pass++; console.log('ok   ' + msg) } else { fails.push(msg); console.log('FAIL ' + msg) }
 }
 const sha = (b) => crypto.createHash('sha256').update(b).digest('hex').slice(0, 16)
+/** 两段文本的首处差异（诊断用：只说"不一样"等于没说） */
+const firstDiff = (a, b) => {
+	const A = String(a).split('\n'); const B = String(b).split('\n')
+	for (let i = 0; i < Math.max(A.length, B.length); i++) {
+		if (A[i] !== B[i]) return `第 ${i + 1} 行：${JSON.stringify(A[i] ?? '(缺)')} ≠ ${JSON.stringify(B[i] ?? '(缺)')}`
+	}
+	return `（行数相同但整体不同：${A.length} 行）`
+}
 const hashTree = (dir) => {
   const out = []
   const walk = (d, rel) => {
@@ -434,6 +443,36 @@ try {
     ok(!/卡在|差 \d+ 档/.test(offTier.next.why), '⑩ 关开关后 why 里没有新尾注的任何痕迹')
     const twice = (await tool2.execute({ root: tmp })).brief
     ok(twice.markdown === withTier.markdown, '⑩ 有新数据时两次渲染仍逐字节相同（确定性没破）')
+  }
+
+  // ── ⑪ ③ 教学方式段（teaching.jsonl，丁3）──
+  //    「每次开课先读的那一页」上要能一眼看到"现在按什么方式教" —— 参数是学生提的要求，
+  //    渲染在这儿他才看得见"到底生效了没有"。
+  {
+    const beforeRes = await tool2.execute({ root: tmp })
+    const sec0 = beforeRes.brief.sections.find((s) => s.title === '教学方式')
+    ok(!!sec0 && sec0.lines.some((l) => /还没有教学参数/.test(l)), '⑪ 空态：没有 teaching.jsonl → 这一段在、写「还没有教学参数」、不崩')
+    ok(sec0.lines.some((l) => /锁死/.test(l)), '⑪ 空态也明示锁死集（学生知道哪些不能改）')
+
+    const t1 = recordTeaching(tmp, {
+      tier: 2,
+      params: { commentDensity: 'block' },
+      freeText: [{ text: '别先给定义，先给例子', confirmed: true }],
+      source: 'student',
+    })
+    ok(t1.ok === true, `⑪ 影副本里落一版教学参数（v${t1.record?.v}）`)
+    const withRes = await tool2.execute({ root: tmp })
+    const withT = withRes.brief
+    const sec1 = withT.sections.find((s) => s.title === '教学方式')
+    ok(/tier 2 · 学生改过 1 项/.test(sec1.lines[0]), `⑪ 档位与"改过几项"在头一行（${sec1.lines[0]}）`)
+    ok(/注释密度 block＊/.test(sec1.lines[1]), '⑪ 学生改过的项打 ＊（一眼看出哪些是他要的）')
+    ok(/术语 on(?!＊)/.test(sec1.lines[1]), '⑪ 没改过的项不打 ＊（是档位默认）')
+    ok(sec1.lines.some((l) => /自由补充/.test(l) && l.includes('别先给定义')), '⑪ 自由补充也念出来')
+    ok(sec1.lines.length <= 5, `⑪ 这一段不超过 5 行（实得 ${sec1.lines.length} 行）`)
+    ok(withRes.markdown !== beforeRes.markdown, `⑪ 改了参数 → brief **真变**（建议随学生数据变，不是写死的）${withRes.markdown === beforeRes.markdown ? ' —— 两边一样，首处差：' + firstDiff(beforeRes.markdown, withRes.markdown) : ''}`)
+    const twiceRes = await tool2.execute({ root: tmp })
+    ok(twiceRes.markdown === withRes.markdown, `⑪ 有教学参数时两次渲染逐字节相同（确定性没破）${twiceRes.markdown !== withRes.markdown ? ' —— 首处差：' + firstDiff(withRes.markdown, twiceRes.markdown) : ''}`)
+    ok(!/\d{4}-\d{2}-\d{2}T/.test(withRes.markdown), '⑪ 教学参数段里没有时间戳（台账本身也不写）')
   }
 
   // ── ⑥ 落盘 ──

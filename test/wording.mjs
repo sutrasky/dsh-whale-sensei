@@ -63,6 +63,16 @@ let SEGMENTS = []
   ok(prompt.includes('顺序就是依赖'), '协议明说「顺序就是依赖」—— 三段不是并列菜单，是依赖链')
   ok(prompt.includes('whale_author 会被闸门拦下'), '② 段末尾写明闸门后果（漏落盘会被 whale_author 拦下，别用 force 绕）')
 
+  // ③ 教学方式的三步话术（丁3）：**翻译 → 预览 → 点头**，且必须落在 ② 段内（写课前的输入）
+  {
+    const i2 = prompt.indexOf('② 看挑战'), i3 = prompt.indexOf('③ 生成课程')
+    const seg2 = i2 >= 0 && i3 > i2 ? prompt.slice(i2, i3) : ''
+    const marks = ['翻译成参数取值', '预览', '他点头', 'whale_teaching', '不在可调集里']
+    const miss = missing(seg2, marks)
+    ok(miss.length === 0, `② 段里有「翻译 → 预览 → 点头」三步话术 + 指向 whale_teaching + 锁死集提醒${miss.length ? ' — 缺：' + miss.join('、') : ''}`)
+    ok(!prompt.includes('教学方式') || seg2.includes('教学方式'), '教学方式这段话术只出现在 ② 段（不散在协议别处）')
+  }
+
   // 回执（HINT）与协议同源：三段箭头结构必须一致
   ok(/①.*→.*②.*→.*③/.test(STARTER_HINT), `STARTER_HINT 与协议同源（三段箭头结构）：${STARTER_HINT.slice(0, 40)}…`)
 }
