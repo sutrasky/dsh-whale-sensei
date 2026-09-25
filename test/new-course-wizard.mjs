@@ -467,6 +467,28 @@ function renderAndAct(initialState, fetchResponseQueue, srcOverride) {
 	ok(hasText(textsStep1, '+ 新建知识点'), `[6] canCreate=true, step=1 → 渲染了「+ 新建知识点」`)
 }
 
+/* ── [6b] 卡片「两种放行」不许共用一句话（P1-11）─────────────────────────────
+ * `allowed: true` + `warning` 有**两种来源**：`no-criteria`（没写判据）与 `unknown-lesson`
+ * （课次 id 在判据快照里对不上）。客户端原来把两者都渲染成「该课未声明判据（已按无闸放行）」——
+ * 那会把 id 写错的人指去"补判据"（**修法指错了**，正是这轮要消灭的错指引）。这条钉住两句必须分开。 */
+{
+	const mkState = (gate) => ({
+		phase: 'ready', entry: { form: { fields: [], title: '新课程', intro: '', submitLabel: '发送', cancelLabel: '取消' } },
+		values: {}, why: null, step: 1,
+		catalog: { ok: true, canCreate: true, circles: [] },
+		selectedCircle: { id: 'programming', name: '编程', points: [{ id: 'spring-boot', name: 'Spring Boot', fileBase: 0, nextNumber: 3, lessons: [{}, {}] }] },
+		selectedPoint: null, catalogWhy: null,
+		newCircle: { open: false, name: '', id: '', saving: false, error: null },
+		newPoint: { open: false, name: '', id: '', saving: false, error: null },
+		gates: { 'spring-boot': gate },
+	})
+	const tUnknown = renderWithState(mkState({ allowed: true, verdict: { code: 'unknown-lesson', warning: '《Spring Boot》在判据快照里找不到' } }))
+	const tNoCrit = renderWithState(mkState({ allowed: true, verdict: { code: 'no-criteria', warning: '《Spring Boot》没有声明挑战判据' } }))
+	ok(hasText(tUnknown, '课次 id 对不上'), '[6b] unknown-lesson 的卡片说的是「课次 id 对不上」')
+	ok(!hasText(tUnknown, '该课未声明判据'), '[6b] unknown-lesson 卡片**不许**出现「该课未声明判据」（那是指错修法）')
+	ok(hasText(tNoCrit, '该课未声明判据'), '[6b] no-criteria 仍是原来那句（没被改坏）')
+}
+
 /* ── [7] catalog 拿不到：留在第 1 屏 + 原因可见（**不跳表单屏** —— 那屏已删）──── */
 {
 	const whyText = '无法读取课程包目录'

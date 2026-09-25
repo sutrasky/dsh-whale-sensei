@@ -8,7 +8,8 @@
  *
  *   A 缺 lesson            → 400，什么都没落
  *   B 快照缺失/读不懂/无 projects → `no-snapshot`（不写 learned，adjust 照落）
- *   C 无判据（课找不到 / challenges 为空 / 判据结构不合法）→ `no-criteria`
+ *   C 课次 id 在快照里找不到 → `unknown-lesson`（hint 点名那个 id；不是"没写判据"）
+ *   C2 无判据（challenges 为空 / 判据结构不合法）→ `no-criteria`
  *   D 快照过期（内容指纹对不上 / 老快照没有指纹字段）→ `stale-snapshot`
  *   E 判据未全过            → `criteria-not-met` + `gaps:[{no,deliverable,missing}]`
  *   F 通过                  → 唯一写盘点：`learned.push` + `writeProgress`；
@@ -182,13 +183,15 @@ try {
     ok(recs.length === 2 && recs[1].lit === false && recs[1].gaps.length === 0, 'B1：拒绝时 adjust 仍落账且 lit:false')
   }
 
-  // ── C 无判据 → no-criteria ───────────────────────────────────────────
+  // ── C 对位键（P1-11）：「快照里没这课」≠「没声明判据」→ 两个 code、两句 hint ──
   {
     fs.writeFileSync(STATE(tmp), snapText, 'utf8')
     const r1 = await post({ lesson: 'demo/9999', done: true, adjust: 'C1：没这课' })
-    ok(r1.body.code === 'no-criteria' && r1.body.ok === false, `C1 快照里没这课 → no-criteria（实得 ${r1.body.code}）`)
+    ok(r1.body.code === 'unknown-lesson' && r1.body.ok === false, `C1 快照里没这课 → unknown-lesson（实得 ${r1.body.code}）`)
+    ok(r1.body.code !== 'no-criteria', 'C1 判词不是 no-criteria（id 找不到 ≠ 没写判据 —— 两个分支别混）')
+    ok(/demo\/9999/.test(r1.body.hint || ''), `C1 回执文案点名那个 id（${r1.body.hint}）`)
     const r2 = await post({ lesson: 'demo/0003', done: true })
-    ok(r2.body.code === 'no-criteria', `C2 challenges 为空 → no-criteria（实得 ${r2.body.code}）`)
+    ok(r2.body.code === 'no-criteria', `C2 反空转：课真在快照里、只是没声明 challenges → 仍必须 no-criteria（实得 ${r2.body.code}）`)
     // C3 判据结构不合法（快照被写坏）→ 也算「没有可用判据」
     const bad = JSON.parse(snapText)
     bad.projects[0].lessons.find((l) => l.id === 'demo/0001').challenges = [{ no: 1 }]

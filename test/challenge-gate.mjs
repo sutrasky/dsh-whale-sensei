@@ -7,7 +7,8 @@
  *
  * 覆盖面：
  *   ① 「上一课」= 该知识点现有的最后一课（首课 → null）
- *   ② 判词矩阵：no-snapshot / no-criteria / stale-snapshot / criteria-not-met / ok
+ *   ② 判词矩阵：no-snapshot / unknown-lesson / no-criteria / stale-snapshot / criteria-not-met / ok
+ *      （对位键 P1-11：快照里没这课 ≠ 没写判据 —— 两个 code 必须分开，hint 各说各的修法）
  *   ③ 真包现状：三课都没做完 ⇒ 三处都该被拦，且逐条列 #编号
  *   ④ 无判据课 → **放行 + 显式告警**（防死锁，绝不静默）
  *   ⑤ author 接线：commit 被拦（needsChallenge）；force 放行但**留痕**说清绕过了哪道闸
@@ -73,7 +74,14 @@ const TODO = { no: 2, deliverable: '没做完', done: false, missing: [{ id: 'c'
 const REVIEW = { no: 3, deliverable: '人工看', done: null, needsReview: true }
 
 ok(judgeSnapshot(null, ROOT, 'pt/0001').code === 'no-snapshot', '没有快照 → no-snapshot（fail-closed 的前一站）')
-ok(judgeSnapshot({ projects: [] }, ROOT, 'pt/0001').code === 'no-criteria', '找不到课 / 没声明判据 → no-criteria')
+ok(judgeSnapshot({ projects: [] }, ROOT, 'pt/0001').code === 'unknown-lesson', '快照里没这门课 → unknown-lesson（不是 no-criteria）')
+{
+  const v = judgeSnapshot({ projects: [] }, ROOT, 'pt/0001')
+  ok(v.code !== 'no-criteria' && /pt\/0001/.test(v.hint || ''),
+    `unknown-lesson 的 hint 点名那个 id、且与 no-criteria 分开（${v.hint}）`)
+}
+ok(judgeSnapshot(mkDoc(null, realDigest), ROOT, 'pt/0001').code === 'no-criteria',
+  '反空转：课真在快照里、只是没声明 challenges → 仍必须 no-criteria（两个分支别混）')
 ok(judgeSnapshot(mkDoc([DONE], '错的指纹'), ROOT, 'pt/0001').code === 'stale-snapshot', '内容指纹对不上 → stale-snapshot（不是 mtime）')
 const good = judgeSnapshot(mkDoc([DONE, REVIEW], realDigest), ROOT, 'pt/0001')
 // code 必须是词汇表里的 'ok'（不是 undefined）：漏了它会掉进兜底 fail-closed 分支，
@@ -222,7 +230,7 @@ const CODE_HINT = '代码在快照之后又变了：先跑 whale_state write:tru
 //    ① 别的套同时读真包的 `state.json` → 互相干扰（2026-08-24 实测：全量跑时 bom-tolerance /
 //       brief / practice 集体转红，单独跑全绿）；
 //    ② 本套自己那句"真包一字未动"就成了假话。所以门禁一律在副本上跑，真包只读。
-const KNOWN_CODES = ['no-snapshot', 'no-criteria', 'stale-snapshot', 'criteria-not-met', 'ok', 'first-lesson']
+const KNOWN_CODES = ['no-snapshot', 'unknown-lesson', 'no-criteria', 'stale-snapshot', 'criteria-not-met', 'ok', 'first-lesson']
 const tmp3 = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-gate3-'))
 try {
   fs.cpSync(ROOT, tmp3, { recursive: true })
@@ -255,11 +263,30 @@ try {
   fs.rmSync(tmp3, { recursive: true, force: true })
 }
 
-// ── ④ 无判据课 → 放行 + 显式告警（防死锁，绝不静默降级）──
+// ── ④ 判不了的上一课 → 放行 + 显式告警（防死锁，绝不静默降级）：两种病、两句 warning ──
 const stub = { lessons: [{ id: 'pt/0001', point: 'pt', number: 1 }] }
-const noCrit = challengeGate({ root: ROOT, pack: stub, point: 'pt' })
-ok(noCrit.allowed === true && noCrit.code === 'no-criteria', '无判据 → **放行**（否则永久死锁）')
-ok(!!noCrit.warning && /无闸放行/.test(noCrit.warning), '而且带一句显式告警（不静默）')
+// ④-a 对位键（P1-11）：快照里**没这门课**（真包快照只有 spring-boot/vue/alge）→ unknown-lesson
+const noHit = challengeGate({ root: ROOT, pack: stub, point: 'pt' })
+ok(noHit.allowed === true && noHit.code === 'unknown-lesson',
+  `快照里找不到上一课 → unknown-lesson 且**放行**（防死锁；实得 ${noHit.code}）`)
+ok(!!noHit.warning && /无闸放行/.test(noHit.warning) && /id/i.test(noHit.warning),
+  `unknown-lesson 的告警点名「核对 id / 刷新快照」那条修法（${noHit.warning}）`)
+// ④-b 反空转：课**真在快照里**、只是没声明 challenges → 仍必须 no-criteria（也放行，但告警说的是补判据）
+const tmpP4 = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-gate-nocrit-'))
+try {
+  fs.mkdirSync(path.join(tmpP4, 'learning-records'), { recursive: true })
+  fs.writeFileSync(path.join(tmpP4, 'learning-records', 'state.json'), JSON.stringify({
+    version: 1, probeVersion: PROBE_VERSION,
+    projects: [{ dir: 'code/demo', sourceDigest: 'x', lessons: [{ id: 'pt/0001', challenges: null, missing: [] }] }],
+  }, null, 2) + '\n', 'utf8')
+  const noCrit = challengeGate({ root: tmpP4, pack: stub, point: 'pt', probe: false })
+  ok(noCrit.allowed === true && noCrit.code === 'no-criteria', '无判据（课在快照里）→ 仍必须 no-criteria 且**放行**（否则永久死锁）')
+  ok(!!noCrit.warning && /无闸放行/.test(noCrit.warning) && /challenges|判据/.test(noCrit.warning),
+    `no-criteria 的告警说的是「补判据」那条修法（${noCrit.warning}）`)
+  ok(noHit.warning !== noCrit.warning, '两种病的 warning **不是同一句**（各说各的修法 —— 别把 id 写错的人指去补判据）')
+} finally {
+  fs.rmSync(tmpP4, { recursive: true, force: true })
+}
 const first = challengeGate({ root: ROOT, pack: stub, point: 'never-seen' })
 ok(first.allowed === true && first.code === 'first-lesson', '首课（没有上一课）→ 放行，不受门禁影响')
 
@@ -387,4 +414,4 @@ ok(hashTree(path.join(ROOT, 'lessons')) + '|' + hashTree(path.join(ROOT, 'code')
 
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
-console.log('✅ 开新课门禁：上一课挑战逐条判、无判据放行有告警、author 拦住且 force 留痕')
+console.log('✅ 开新课门禁：上一课挑战逐条判、判不了的（无判据 / 快照里没这课）都放行有告警且两句分开、author 拦住且 force 留痕')

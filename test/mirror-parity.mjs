@@ -12,6 +12,9 @@
  *      与插件 `lib/notes-io.js` 的 `appendNote` —— 它们共用 `notes/notes.jsonl` 与 `notes/seq.txt`，
  *      所以记录必须**同形**、编号必须**同一计数器**、锚点必须**同样归一**。
  *      （除了这一套，别处只有"各自静态钉子"；本套是真跑两遍再比。）
+ *   ②b **两个写入口、同一本 `questions/pending.jsonl`**（学生答疑台账）：包侧 `POST /ask`
+ *      与插件 `lib/ask-io.js` 的 `handleAsk` —— 记录形状 / 序号宽度 / 行尾一漂，
+ *      `drain-questions.js` 与 `assets/build-questions.js` 就解析坏账（坏的是真学生答疑数据）。
  *   ③ **内容指纹算法**：`lib/fingerprint.js` ↔ 包侧 `tools/fingerprint.js`（+ 模板逐字副本）——
  *      点亮换钉子的新鲜度判据。两侧一漂 = 永远 `stale-snapshot` = 点亮全废（R13），
  *      所以除了逐案例相等，还自带**反空转**（多文件 / 改字节 / 换行编码 → 指纹必变且两边仍相等）。
@@ -39,6 +42,7 @@ import { fileURLToPath } from 'node:url'
 import { stripBom, splitLines } from '../lib/text.js'
 import { digestTree, PROBE_VERSION } from '../lib/fingerprint.js'
 import { appendNote } from '../lib/notes-io.js'
+import { handleAsk } from '../lib/ask-io.js'
 import { writeScaffold } from '../lib/pack-scaffold.js'
 import { validatePlan, planFrontier } from '../lib/plan.js'
 import { labelAnchorId } from '../lib/pack-model.js'
@@ -151,6 +155,150 @@ try {
 } finally {
   if (child && !child.killed) { try { child.kill() } catch { /* 已退 */ } }
   fs.rmSync(tmp, { recursive: true, force: true })
+}
+
+/* ── ②b 两个写入口、同一本 **questions/pending.jsonl**（学生答疑台账）：真跑两遍再比 ──
+ * 与 ② 同一条纪律，对象换成**答疑数据**：包侧 `tools/ask-server.js` 的 `POST /ask`
+ * 与插件 `lib/ask-io.js` 的 `handleAsk` 共用 `questions/pending.jsonl` + `questions/seq.txt`。
+ * 形状 / 序号宽度 / 行尾一漂，`drain-questions.js` 与 `assets/build-questions.js` 就解析坏账 ——
+ * 坏的是**真学生答疑数据**，所以每条判据都必须能被造假触发（不是"能读盘"）：
+ *   · 掩掉 id / at / question 的值之后两条记录**逐字节相同**（键序、转义、其余字段全在内）
+ *   · 键序就是约定值；id 四位零填充、同一计数器递进；seq.txt 每次写后的**原始字节**钉死
+ *   · at 两侧各自验 ISO-8601 UTC 毫秒（值不比 —— 两次写的时刻天然不同）
+ *   · question 逐字往返（换行 / 引号 / 反斜杠 / emoji 一个不丢）+ 超长截断宽度两侧一致（4000）
+ *   · 行尾 LF、文件以 \n 结尾、零 \r（坏行尾正是"粘连行/半行"坏账的头号来源）
+ * 零副作用：全程在临时副本里跑，真包一个字节都不动。 */
+{
+  const mkBody = (mark, question) => ({
+    question: mark + question,
+    lesson: 'spring-boot/0001',
+    page: 'lessons/programming/spring-boot/0001-spring-boot-hello-world.html',
+    title: '第1课',
+  })
+  const TRICKY = '：为什么 @RestController 能直接返回 JSON？\n第二行 "引号" \\反斜杠 😀 结尾'
+  const maskQ = (line) => String(line)
+    .replace(/"id":"[^"]*"/, '"id":"<ID>"')
+    .replace(/"at":"[^"]*"/, '"at":"<AT>"')
+    .replace(/"question":"(?:[^"\\]|\\.)*"/, '"question":"<Q>"')
+  const ISO_AT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+
+  const tmpQ = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-mirror-q-'))
+  let childQ = null
+  try {
+    // 只拷需要的：tools（包侧写入口）/ lessons + code（课次映射表要它）
+    for (const d of ['tools', 'lessons', 'code']) {
+      fs.cpSync(path.join(ROOT, d), path.join(tmpQ, d), { recursive: true })
+    }
+    const QDIR = path.join(tmpQ, 'questions')
+    const PENDING = path.join(QDIR, 'pending.jsonl')
+    const SEQ = path.join(QDIR, 'seq.txt')
+    fs.mkdirSync(QDIR, { recursive: true })
+    fs.writeFileSync(SEQ, '0\n', 'utf8')   // 与 ② 一样：计数器已有初值（不从空文件起步）
+    const seqRaw = () => fs.readFileSync(SEQ, 'utf8')
+
+    // ── 写入者 A：包侧真服务器（stdio:'ignore' —— 不碰管道，也就没有 EPERM/缓冲的坑）
+    const port = await freePort()
+    childQ = spawn(process.execPath, [path.join(tmpQ, 'tools', 'ask-server.js'), '--port', String(port)], { stdio: 'ignore' })
+    const upQ = await waitUp(port)
+    ok(upQ, `包侧 ask-server 在临时副本里起来了（端口 ${port}）`)
+    const postPack = async (body) => {
+      const res = await fetch(`http://127.0.0.1:${port}/ask`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+      })
+      return { status: res.status, body: await res.json() }
+    }
+    const rA1 = upQ ? await postPack(mkBody('MIRROR-ASK 包侧写', TRICKY)) : { status: 0, body: {} }
+    ok(rA1.status === 200 && rA1.body.ok === true && rA1.body.id === '0001', `包侧 POST /ask → ${rA1.status} { ok:${rA1.body.ok}, id:"${rA1.body.id}" }`)
+    ok(seqRaw() === '1', `包侧写完 seq.txt 的**原始字节** = "1"（不补零、不带换行；实得 ${JSON.stringify(seqRaw())}）`)
+
+    // ── 写入者 B：插件 handleAsk（同一副本、同一台账、同一计数器）
+    const rB1 = await handleAsk(tmpQ, { raw: JSON.stringify(mkBody('MIRROR-ASK 插件写', TRICKY)) })
+    ok(rB1.status === 200 && rB1.body.ok === true && rB1.body.id === '0002',
+      `插件 handleAsk → ${rB1.status} { ok:${rB1.body.ok}, id:"${rB1.body.id}" }（接着包侧那条往下排 —— 同一计数器）`)
+    ok(seqRaw() === '2', `插件写完 seq.txt 的原始字节 = "2"（实得 ${JSON.stringify(seqRaw())}）`)
+
+    // ── 截断宽度对：同一根 5000 字长问题，两个入口都必须截到 4000
+    const LONG = '问'.repeat(5000)
+    const rA2 = upQ ? await postPack(mkBody('A2', LONG)) : { status: 0, body: {} }
+    const rB2 = await handleAsk(tmpQ, { raw: JSON.stringify(mkBody('B2', LONG)) })
+    ok(rA2.body.id === '0003' && rB2.body.id === '0004', `长问题一对接着排号（包侧 ${rA2.body.id} / 插件 ${rB2.body.id}）`)
+    ok(seqRaw() === '4', `四条后排到 4（实得 ${JSON.stringify(seqRaw())}）`)
+
+    const raw = fs.readFileSync(PENDING, 'utf8')
+    const lines = raw.split('\n').filter((l) => l.trim())
+    ok(lines.length === 4, `台账里恰好四条（${lines.length}）—— A、B 各两条，写进的是**同一本** pending.jsonl`)
+    ok(raw.endsWith('\n') && !raw.includes('\r'), '行尾 = LF、文件以 \\n 结尾、零 \\r')
+    const parsed = lines.map((l) => { try { return JSON.parse(l) } catch { return null } })
+    ok(parsed.every(Boolean), '四条都是合法 JSON（没有粘连行 / 半行）')
+
+    if (parsed.every(Boolean)) {
+      // 反空转：两条必须真的来自两个不同写入者，否则"同形"是白得的
+      ok(parsed[0].question.includes('包侧写') && parsed[1].question.includes('插件写'),
+        `两条确实来自两个不同写入者（${JSON.stringify(parsed[0].question.slice(0, 12))} / ${JSON.stringify(parsed[1].question.slice(0, 12))}）`)
+      // 同形：键集与键序
+      const k0 = Object.keys(parsed[0]).join(',')
+      const k1 = Object.keys(parsed[1]).join(',')
+      ok(k0 === k1, `记录**键序**一致（包侧 ${k0} ／ 插件 ${k1}）`)
+      ok(k0 === 'id,at,lesson,page,title,question,status', `键序就是约定值（${k0}）`)
+      // 掩掉 id / at / question 的值后逐字节同（键序、转义风格、其余字段值全在内）
+      ok(maskQ(lines[0]) === maskQ(lines[1]), '第一对：掩掉 id/at/question 的值后两条记录**逐字节相同**')
+      if (maskQ(lines[0]) !== maskQ(lines[1])) {
+        console.log('     A: ' + maskQ(lines[0]))
+        console.log('     B: ' + maskQ(lines[1]))
+      }
+      ok(maskQ(lines[2]) === maskQ(lines[3]), '第二对（长问题）：掩码后同样逐字节相同')
+      // at：两侧各自验格式（值不比 —— 两次写的时刻天然不同）
+      ok(parsed.every((p) => ISO_AT.test(p.at)), `四条 at 全是 ISO-8601 UTC 毫秒（如 ${parsed[0].at}）`)
+      // 其余字段同值 + question 逐字往返（转义对称）
+      ok(parsed[0].lesson === parsed[1].lesson && parsed[0].page === parsed[1].page && parsed[0].title === parsed[1].title
+        && parsed[0].status === parsed[1].status && parsed[1].status === 'pending',
+        'lesson/page/title/status 两侧同值（同一份请求体的两个写入口）')
+      ok(parsed[0].question === 'MIRROR-ASK 包侧写' + TRICKY && parsed[1].question === 'MIRROR-ASK 插件写' + TRICKY,
+        'question 逐字往返：换行 / 引号 / 反斜杠 / emoji 一个不丢')
+      ok(parsed[2].question.length === 4000 && parsed[3].question.length === 4000,
+        `超长 question 两侧都截到 4000（包侧 ${parsed[2].question.length} / 插件 ${parsed[3].question.length}）`)
+      // 编号：同一计数器、4 位同宽
+      ok(parsed.map((p) => p.id).join(',') === '0001,0002,0003,0004',
+        `编号同一计数器、4 位零填充（${parsed.map((p) => p.id).join(',')}）`)
+    }
+
+    // ── 判据①（2026-09-25 裁定）：超长中文问题 → 两侧都拒、都不写账
+    // 闸门必须**同口径按字节**：约 18KB 的中文按字符数只有 6000，旧包侧会放行而插件拒 ——
+    // 同一个问题两个写入口一个收一个拒，收下的那条就带着别人拒掉的长度落进同一本账。
+    const OVER = { question: '很'.repeat(6000) }
+    const rA3 = upQ ? await postPack(OVER) : { status: 0, body: {} }
+    const rB3 = await handleAsk(tmpQ, { raw: JSON.stringify(OVER) })
+    ok(rA3.status >= 400 && rA3.status < 500 && rA3.body.ok === false,
+      `超长中文（约 18KB）包侧拒（${rA3.status} ${rA3.body.error || ''}）—— 闸门按**字节**算，与插件同口径`)
+    ok(rB3.status === 413 && rB3.body.ok === false, `超长中文插件拒（${rB3.status} ${rB3.body.error || ''}）`)
+    ok(fs.readFileSync(PENDING, 'utf8') === raw && seqRaw() === '4',
+      '两侧拒收之后：台账与序号**一动不动**（都不写账、不空跳号）')
+
+    // ── 判据②（2026-09-25 裁定）：台账被外部写坏（末尾缺 \n）→ 追加后每行仍可 JSON.parse
+    // 直接 append 会把新记录与上一行**粘连成一行坏 JSON**（包侧旧写法就这样），
+    // 坏的是真学生答疑数据 —— 所以两侧各自都要先补 \n 再追加（插件 appendPending 同款）。
+    // 两侧各打一次**独立的坏台账**：拿掉任何一侧的补换行，它那半边就必红。
+    const corruptTail = () => fs.writeFileSync(PENDING, fs.readFileSync(PENDING, 'utf8').replace(/\n$/, ''), 'utf8')
+    const parseable = (label, wantLines) => {
+      const ls = fs.readFileSync(PENDING, 'utf8').split('\n').filter((l) => l.trim())
+      const bad = []
+      ls.forEach((l, i) => { try { JSON.parse(l) } catch { bad.push(i + 1) } })
+      ok(bad.length === 0 && ls.length === wantLines && fs.readFileSync(PENDING, 'utf8').endsWith('\n'),
+        `坏台账（末尾缺 \\n）经${label}追加后 ${ls.length}/${wantLines} 行**全部**可 JSON.parse、文件回到 \\n 结尾（粘连坏行：${bad.length ? '第 ' + bad.join(',') + ' 行' : '无'}）`)
+    }
+    corruptTail()
+    const rA4 = upQ ? await postPack(mkBody('A4', '：缺尾换行后的包侧追加')) : { status: 0, body: {} }
+    ok(rA4.body.id === '0005', `坏台账上包侧接着排号（${rA4.body.id}）`)
+    parseable('包侧', 5)
+    corruptTail()
+    const rB4 = await handleAsk(tmpQ, { raw: JSON.stringify(mkBody('B4', '：缺尾换行后的插件追加')) })
+    ok(rB4.body.id === '0006', `坏台账上插件接着排号（${rB4.body.id}）`)
+    parseable('插件', 6)
+    ok(seqRaw() === '6', `坏台账不影响计数器：两条之后 seq.txt 原始字节 = "6"（实得 ${JSON.stringify(seqRaw())}）`)
+  } finally {
+    if (childQ && !childQ.killed) { try { childQ.kill() } catch { /* 已退 */ } }
+    fs.rmSync(tmpQ, { recursive: true, force: true })
+  }
 }
 
 /* ── ③ 内容指纹：lib/fingerprint.js ↔ 包侧 tools/fingerprint.js（算法逐字同源）── */
