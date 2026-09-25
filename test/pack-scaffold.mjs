@@ -21,7 +21,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { TEMPLATE_DIR, TEMPLATE_FILES, looksLikePack, isEmptyDir, planScaffold, writeScaffold } from '../lib/pack-scaffold.js'
-import { FROM_PACK, FROM_SKILL, DERIVED, SANITIZE, sanitizeText, templatePaths } from './pack-template-rules.mjs'
+import { FROM_PACK, FROM_SKILL, FROM_PACK_BINARY, DERIVED, SANITIZE, sanitizeText, templatePaths } from './pack-template-rules.mjs'
 import { patchPackRootYml, findProfileDir, writeProfilePackRoot } from '../lib/profile-packroot.js'
 import { pickFolder } from '../lib/pick-folder.js'
 import { choosePack, plugin as packPlugin } from '../lib/mods/pack.js'
@@ -92,6 +92,17 @@ try {
   ok(missedRules.length === 0, `中性化规则全部命中（${SANITIZE.length} 条）${missedRules.length ? '：' + missedRules.join('；') : ''}`)
   ok(tplDrift.length === 0, `模板 == 课程包原件经中性化（${FROM_PACK.length - DERIVED.length} 个）${tplDrift.length ? '：' + tplDrift.join('、') : ''}`)
 
+  // —— 二进制件（字体 / favicon）：不走 utf8 文本管线，判据 = Buffer **逐字节**相等 ——
+  const binDrift = []
+  for (const rel of FROM_PACK_BINARY) {
+    const src = path.join(PACK, rel)
+    const tpl = path.join(TEMPLATE_DIR, rel)
+    if (!fs.existsSync(src)) { binDrift.push(`${rel}（课程包里没有原件）`); continue }
+    const got = fs.existsSync(tpl) ? fs.readFileSync(tpl) : null
+    if (!got || !got.equals(fs.readFileSync(src))) binDrift.push(`${rel}（不是逐字节一致）`)
+  }
+  ok(binDrift.length === 0, `二进制件与课程包原件**逐字节**一致（${FROM_PACK_BINARY.length} 个）${binDrift.length ? '：' + binDrift.join('、') : ''}`)
+
   // 派生件：模板里的 theme.css 必须**就是**对模板目录现场合成的结果
   const tplTheme = fs.readFileSync(path.join(TEMPLATE_DIR, 'assets', 'theme.css'), 'utf8')
   const composed = composeTheme(TEMPLATE_DIR).css
@@ -129,15 +140,36 @@ try {
   const target = emptyDir()
   const built = writeScaffold(target)
   ok(built.ok === true, `空目录建包成功（${built.created?.length} 个文件 / ${built.bytes} 字节）`)
-  const expectCount = TEMPLATE_FILES.length + 11 // 11 = 骨架文件（台账 / 配置 / 空星图 2 件 / README / .git* 等）
+  const expectCount = TEMPLATE_FILES.length + 11 // 11 = 骨架文件（台账 / 配置 / 空星图数据 / **空实践区数据** / README / .git* 等；页面壳已改从模板拷）
   ok(built.created?.length === expectCount, `文件数 = 模板 ${TEMPLATE_FILES.length} + 骨架 11 = ${expectCount}（实得 ${built.created?.length}）`)
   ok(fs.existsSync(path.join(target, 'assets', 'questions-data.js')) && fs.existsSync(path.join(target, 'lesson.config.json')), '骨架文件落地（questions-data.js / lesson.config.json）')
+  // 2026-09-25 实测的真缺陷：`assets/_frame.html:142` 引用 practice-data.js，但它不在模板清单里
+  // ⇒ 新包首课那个脚本 404、实践区不渲染（要跑过一次 whale_practice write=true 才有）。
+  // 照「空星图」先例：建包就生成 0 项空骨架，契约与 whale_practice 的产出**同形**（复用真生成器序列化）。
+  const pdata = require_(path.join(target, 'assets', 'practice-data.js'))
+  ok(
+    pdata.version === 2 && pdata.keyScheme === 'lesson-id' && Object.keys(pdata.lessons || {}).length === 0 && Object.keys(pdata.byFile || {}).length === 0,
+    `骨架文件落地（practice-data.js：0 项空骨架，version=${pdata.version} keyScheme=${pdata.keyScheme}）`
+  )
   ok(fs.existsSync(path.join(target, 'lessons', 'src')) && fs.existsSync(path.join(target, 'code')) && fs.existsSync(path.join(target, 'questions')), '目录树落地（lessons/src、code、questions）')
 
-  // —— star 工具齐全 + 空星图已生成（2026-09-24 批3：新包长出来就要有星图）——
-  const STAR_FILES = ['tools/build-starmap.js', 'tools/build-starmap-svg.js', 'tools/galaxy-shapes.cjs', 'tools/lesson-map.js', 'starmap/data-layer.js']
+  // 页面壳引用的本地脚本必须**件件都在**（上面那条 404 的通用判据：清单漏一件，学生页就静默少一块）
+  const frameHtml = fs.readFileSync(path.join(target, 'assets', '_frame.html'), 'utf8')
+  const frameSrcs = [...frameHtml.matchAll(/<script[^>]+src="([^"]+)"/g)]
+    .map((m) => m[1].replace(/\{\{PAGE_UP\}\}/g, '').replace(/^\.\//, ''))
+    .filter((s) => !/^https?:/.test(s))
+  const frameMissing = frameSrcs.filter((s) => !fs.existsSync(path.join(target, s)) && !fs.existsSync(path.join(target, 'assets', s)))
+  ok(
+    frameMissing.length === 0,
+    `_frame.html 引用的本地脚本件件都在（${frameSrcs.length} 件）${frameMissing.length ? '（缺：' + frameMissing.join('、') + '）' : ''}`
+  )
+
+  // —— star 工具齐全 + 空星图已生成 + **交互版**三件随包（2026-09-24「交互版星图随包」）——
+  const STAR_FILES = ['tools/build-starmap.js', 'tools/build-starmap-svg.js', 'tools/galaxy-shapes.cjs', 'tools/lesson-map.js', 'tools/plan-map.js',
+    'starmap/data-layer.js', 'starmap/main.js', 'starmap/vendor/three/three.module.js', 'starmap/vendor/three/three.core.js',
+    'starmap/fonts/Lanxi-JingHei.woff2', 'starmap/fonts/Lanxi-HeiTiLight.woff2']
   const starMissing = STAR_FILES.filter((rel) => !fs.existsSync(path.join(target, rel)))
-  ok(starMissing.length === 0, `star 工具齐全（${STAR_FILES.length} 件）${starMissing.length ? '（缺：' + starMissing.join('、') + '）' : ''}`)
+  ok(starMissing.length === 0, `star 工具齐全（${STAR_FILES.length} 件，含交互版 main.js / vendor / 字体）${starMissing.length ? '（缺：' + starMissing.join('、') + '）' : ''}`)
 
   ok(fs.existsSync(path.join(target, 'starmap', 'content.js')) && fs.existsSync(path.join(target, 'starmap', 'index.html')), '空星图已生成（starmap/content.js + index.html，**不等第一次建圈**）')
   const starWin = {}
@@ -149,6 +181,8 @@ try {
   ok(starHtml.includes('<!--@static-map-->') && starHtml.includes('<!--/@static-map-->'), '空星图页留了 <!--@static-map--> 标记区（build-starmap-svg.js 只认这一对）')
   ok(/<svg\b/.test(starHtml) && /fill="#05070e"/.test(starHtml), '页面有**底图**（SVG + 深空底色）—— 打开不是白屏')
   ok(starHtml.includes('建第一个圈'), '页面给了明确的「建第一个圈」引导')
+  ok(starHtml.includes('./main.js') && starHtml.includes('./content.js'),
+    '页面壳是**交互版**（探针按需加载 main.js + 读 content.js）—— 新包不再只有静态 SVG')
 
   const theme = composeTheme(target)
   ok(!!theme.css && theme.css.length > 1000, `whale_style 的合成不抛且出 css（${theme.css.length} 字符，slug=${theme.slug}）`)

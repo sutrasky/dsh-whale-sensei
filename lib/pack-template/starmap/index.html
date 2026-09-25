@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>知识星图</title>
+<meta name="theme-color" content="#05070e">
+<!-- 应用窗口/任务栏的图标：与桌面快捷方式用的是同一颗四角星（tools/make-icon.js 生成） -->
+<link rel="icon" type="image/x-icon" href="../assets/starmap.ico">
+<link rel="stylesheet" href="../assets/theme.css">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  /* ── 星图自己的调色板 ────────────────────────────────────────────────
+     集中在这一个 :root 里：将来整块搬进 presets/whale-sensei.css，
+     页面与 JS 一个裸色值都不用改（JS 按令牌名读，读不到才用兜底）。 */
+  /* 界面字体：HeiTiLight —— 比"静黑超细"重一档，12px 下才读得清
+     （超细在小字号 + 深底上会糊成一片，这是实测结论，不是审美偏好）*/
+  @font-face {
+    font-family: 'LanxiJingHei';
+    src: url('./fonts/Lanxi-JingHei.woff2') format('woff2');
+    font-weight: 100 900;
+    font-display: swap;      /* 不能 block：block 会在字体到达前把文字藏起来（面板会"缺一半字"）*/
+  }
+  @font-face {
+    font-family: 'LanxiUI';
+    src: url('./fonts/Lanxi-HeiTiLight.woff2') format('woff2');
+    font-weight: 100 900;
+    font-display: swap;
+  }
+  :root {
+    --sm-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --starmap-void: #05070e;            /* 深空底（比 DSH 画布更深一档）*/
+    --starmap-nebula-1: #26398f;        /* 星云 · 靛 */
+    --starmap-nebula-2: #5f3585;        /* 星云 · 紫 */
+    --starmap-nebula-3: #176b7a;        /* 星云 · 青 */
+    --starmap-band: #7f96c8;            /* 银河带星尘 */
+    --starmap-dust: #9fb4d8;            /* 普通星尘 */
+    --starmap-halo-core: #fff6e2;       /* 恒星核心 */
+    --starmap-star-warm: #ffd9a8;       /* 已学 · 暖 */
+    --starmap-star-cool: #9ec8ff;       /* 已学 · 冷 */
+    --starmap-star-dim: #7c8aa5;        /* 未学 */
+    --starmap-link: #6f8ac0;
+    --starmap-link-active: #ffe066;
+    --starmap-label: #dbe4f5;
+    /* 知识点（大分支）的色相：同一个圆圈里，一条分支一个色 */
+    --starmap-branch-1: #ffc978;        /* Spring Boot · 暖琥珀 */
+    --starmap-branch-2: #7ee0c0;        /* Vue · 青绿 */
+    --starmap-branch-3: #c9a0ff;        /* 备用 · 紫 */
+    --starmap-branch-4: #ff9fb0;        /* 备用 · 粉 */
+  }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--starmap-void);
+    color: var(--dsw-alias-label-primary); font: 13px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif; }
+  #app { position: fixed; inset: 0; }
+  /* 暗角：把注意力收到中心和横带，纵深靠它撑起来 */
+  .vignette { position: fixed; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(120% 80% at 50% 42%, transparent 38%, #05070eb0 78%, #05070ef2 100%),
+      linear-gradient(180deg, #05070e00 55%, #05070ecc 100%); }
+  .hint { position: fixed; left: 14px; bottom: 12px; max-width: 72%; padding: 6px 10px; display: flex; gap: 8px; align-items: center;
+    border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px;
+    background: #2c2c2ed9;
+    background: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 85%, transparent);
+    color: var(--dsw-alias-label-tertiary);
+    font: 12px/1.4 'LanxiUI', system-ui, sans-serif; pointer-events: auto; backdrop-filter: blur(8px);
+    animation: sm-unfold .3s cubic-bezier(.2, .8, .2, 1) both; }
+  /* 模式开关：不能只靠 Esc —— Esc 会被浏览器自己吃掉（实测无效），所以给一个能点的 */
+  .hint__mode { font: 11.5px/1 'LanxiUI', system-ui, sans-serif; letter-spacing: .04em;
+    color: var(--starmap-star-cool); background: #9ec8ff1a; border: 1px solid #9ec8ff4d;
+    border-radius: 4px; padding: 3px 7px; cursor: pointer; }
+  .hint__mode:hover { background: #9ec8ff2e; }
+  /* ── 悬浮面板：对齐参考图（小标题栏 / 等宽名字 / chip / 键值表 / 细分隔线）── */
+  /* ⚠️ 缩放走 CSS 变量：如果直接写 inline transform，会跟下面的展开动效抢 transform，动画一结束缩放就被抹掉 */
+  .tip { position: fixed; z-index: 10; width: 318px; display: none; padding: 0; border-radius: 6px;
+    border: 1px solid var(--dsw-alias-border-l2);
+    background: #2c2c2ef7;                                        /* 兜底 = DSH --dsw-alias-bg-layer-2 */
+    background: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 97%, transparent);
+    color: var(--dsw-alias-label-secondary);
+    font: 12.5px/1.6 'LanxiUI', system-ui, sans-serif; letter-spacing: .03em;
+    box-shadow: 0 14px 44px #00000099; overflow: hidden; pointer-events: none;
+    transform-origin: 0 0;
+    transform: scale(var(--sm-zoom, 1)); }
+  .tip__head { cursor: move; user-select: none; }                 /* 拖标题栏 = 移动面板 */
+  /* 右下角的放大手柄 */
+  .tip__resize { position: absolute; right: 4px; bottom: 4px; width: 13px; height: 13px;
+    cursor: nwse-resize; opacity: .55;
+    background: linear-gradient(135deg, transparent 46%, var(--starmap-star-cool) 46%, var(--starmap-star-cool) 58%, transparent 58%); }
+  /* 科幻折角：左上 + 右下各一道细折线，**离真正的角落留 5px** */
+  .tip::before, .tip::after { content: ''; position: absolute; width: 14px; height: 14px; pointer-events: none; }
+  .tip::before { left: 5px; top: 5px; border-left: 1px solid var(--starmap-star-cool); border-top: 1px solid var(--starmap-star-cool); }
+  .tip::after { right: 5px; bottom: 5px; border-right: 1px solid var(--starmap-star-cool); border-bottom: 1px solid var(--starmap-star-cool); }
+  /* 展开效果：面板第一次出现时从左上折角「摊开」（钉住/首次悬停各播一次） */
+  @keyframes sm-unfold { from { opacity: 0; transform: scale(calc(var(--sm-zoom, 1) * .98)) translateY(-3px); } to { opacity: 1; transform: scale(var(--sm-zoom, 1)); } }
+  .tip.is-open { animation: sm-unfold .34s cubic-bezier(.2, .8, .2, 1) both; }
+  @media (prefers-reduced-motion: reduce) { .tip.is-open, .corner, .hint { animation: none; } }
+  .tip__head { display: flex; justify-content: space-between; align-items: center;
+    padding: 7px 10px; border-bottom: 1px solid #ffffff1a; background: #ffffff08; }
+  .tip__kind { font-family: var(--sm-mono); font-size: 10.5px; letter-spacing: .18em;
+    text-transform: uppercase; color: #93a8cd; }
+  .tip__mode { font-family: var(--sm-mono); font-size: 10px; letter-spacing: .16em; color: #5f7392; }
+  .tip.is-pinned { pointer-events: auto; }
+  .tip.is-pinned .tip__mode { color: var(--starmap-star-cool); }
+  .tip__body { padding: 9px 10px 10px; }
+  /* 3D 标签改成 DOM 覆盖层：真文字，任意缩放都锐利（canvas 贴图缩放必糊）*/
+  .hlabel { position: fixed; z-index: 9; display: none; pointer-events: none; white-space: nowrap;
+    font-family: 'LanxiUI', system-ui, sans-serif; text-shadow: 0 1px 8px #05070e, 0 0 3px #05070e; }
+  .hlabel__name { font-size: 14px; font-weight: 600; letter-spacing: .04em; color: #eaf1ff; }
+  .hlabel__sub { font-size: 11.5px; letter-spacing: .05em; color: #9fb0cc; }
+  /* 钉住时的引线（从面板指向节点）*/
+  #lead { position: fixed; inset: 0; z-index: 8; pointer-events: none; display: none; }
+
+  /* ── 四角 UI（对齐参考图的四角布局）────────────────────────────────── */
+  /* 统一面板形制：底 = DSH 的中性灰面板色（不再自造深蓝），边 = DSH 描边，装饰 = 淡蓝 */
+  .corner { position: fixed; z-index: 5; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--dsw-alias-border-l2);
+    background: #2c2c2ef2;                                        /* 兜底 = DSH --dsw-alias-bg-layer-2 */
+    background: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 95%, transparent);
+    color: var(--dsw-alias-label-secondary); backdrop-filter: blur(8px);
+    font: 11.5px/1.6 'LanxiUI', system-ui, sans-serif;
+    animation: sm-unfold .3s cubic-bezier(.2, .8, .2, 1) both; }
+  /* 右上：搜索与全屏是**两个独立按钮**，各自一个框、各带自己的折角 */
+  .tr-stack { position: fixed; right: 14px; top: 12px; z-index: 5; display: flex; gap: 8px; align-items: center; }
+  .tr-stack .corner { position: static; }
+  /* 这两个只要**纯胶囊**：不要描边细线、不要折角 */
+  .tr-stack .corner { border-color: transparent; border-radius: 999px; padding: 0 6px; }
+  .tr-stack .corner::before { display: none; }
+  .tr-stack .search { border: 0; background: transparent; width: 168px; }
+  .corner--btn { cursor: pointer; padding: 9px 15px; }
+  .corner--btn:hover { background: #353638f2; background: color-mix(in srgb, var(--dsw-alias-bg-layer-3) 95%, transparent); }
+  .corner::before { content: ''; position: absolute; left: 5px; top: 5px; width: 12px; height: 12px;
+    border-left: 1px solid var(--starmap-star-cool); border-top: 1px solid var(--starmap-star-cool); opacity: .75; }
+  .corner--tl { left: 14px; top: 12px; width: 186px; }
+  .corner--bl { left: 14px; bottom: 48px; max-height: 42vh; overflow: auto; min-width: 176px; }
+  .corner--br { right: 14px; bottom: 12px; }
+  .corner__hd { font-family: var(--sm-mono); font-size: 10px; letter-spacing: .18em;
+    text-transform: uppercase; color: #6f86ab; margin-bottom: 5px; }
+  .asset { display: flex; justify-content: space-between; gap: 14px; }
+  .asset b { color: #dbe4f5; font-family: var(--sm-mono); font-weight: 500; }
+  .pbar { height: 3px; margin-top: 7px; background: #ffffff14; border-radius: 2px; overflow: hidden; }
+  .pbar i { display: block; height: 100%; background: var(--starmap-star-cool); }
+  .search { width: 152px; padding: 5px 7px; background: #ffffff0f; border: 1px solid #ffffff24;
+    border-radius: 3px; color: #dbe4f5; font: 11.5px/1 'LanxiUI', system-ui, sans-serif; }
+  .search::placeholder { color: #61708c; }
+  .cbtn { padding: 5px 8px; background: #ffffff0f; border: 1px solid #ffffff24; border-radius: 3px;
+    color: #a9b8d4; font: 11.5px/1 'LanxiUI', system-ui, sans-serif; cursor: pointer; }
+  .cbtn:hover { background: #ffffff1a; }
+  .trow { display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 3px;
+    cursor: pointer; white-space: nowrap; }
+  .trow:hover { background: #ffffff12; }
+  .trow.is-active { background: #9ec8ff26; color: #eaf1ff; }
+  /* 三级缩进：圆圈(0) → 知识点(14) → 课程(28) */
+  .trow--halo { margin-top: 3px; color: var(--dsw-alias-label-primary); font-weight: 600; }
+  .trow--point { padding-left: 14px; }
+  .trow--lesson { padding-left: 28px; }
+  /* 折叠箭头：收起时向右、展开时朝下 */
+  .caret { flex: 0 0 auto; width: 0; height: 0; opacity: .75;
+    border-left: 4px solid currentColor; border-top: 3.5px solid transparent; border-bottom: 3.5px solid transparent;
+    transition: transform .15s ease; }
+  .caret.is-open { transform: rotate(90deg); }
+  .trow b { margin-left: auto; padding-left: 10px; color: #6f86ab; font-family: var(--sm-mono); font-size: 10px; }
+  .g { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
+  .g--line { width: 13px; height: 2px; border-radius: 0; background: var(--starmap-link-active); }
+  .g--dash { width: 13px; height: 0; border-radius: 0; border-top: 1px dashed var(--starmap-link-active); }
+  /* 异常是全图唯一的高饱和色（"白光为主，库色轻点，红黄专坏"） */
+  .g--red { background: #ff3b4e; }
+  .g--yellow { background: #ffd633; }
+  .legend { list-style: none; margin: 0; padding: 0; }
+  /* 图例一长就压观感 → 标题可点，收起 / 展开（默认展开，刷新即恢复，不做持久化） */
+  .corner__hd--btn { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 0;
+    color: inherit; font: inherit; letter-spacing: inherit; cursor: pointer; }
+  .corner__hd--btn::before { content: '▾ '; opacity: .7; }
+  .corner--br.is-folded .corner__hd--btn::before { content: '▸ '; }
+  .corner--br.is-folded .legend { display: none; }
+  /* #4 图例里的圆圈开关：一行一个圆圈，点了隐藏/显示（铁律：与渲染同一份真相） */
+  .legend--circles { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--dsw-alias-border-l2); }
+  .legend__circle { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left;
+    background: none; border: 0; padding: 2px 0; color: inherit; font: inherit; cursor: pointer; }
+  .legend__circle:hover { color: var(--starmap-star-cool); }
+  .legend__circle b { margin-left: auto; font-weight: 400; opacity: .55; }
+  .legend__circle.is-hidden { opacity: .45; }
+  .legend__circle.is-hidden b { opacity: .9; }
+  .trow--halo.is-off { opacity: .45; }
+  .legend li { display: flex; align-items: center; gap: 6px; }
+  .tip__name { font-family: var(--sm-mono); font-size: 13.5px; font-weight: 600;
+    color: #e8eefb; line-height: 1.3; word-break: break-word; }
+  .tip__sub { color: #9fb0cc; margin-top: 3px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+  .chip { border: 1px solid #ffffff2b; border-radius: 3px; padding: 1px 6px; font-size: 10.5px;
+    letter-spacing: .06em; color: #a9b8d4; }
+  .chip--on { background: var(--starmap-star-cool); border-color: transparent; color: #0b1220; font-weight: 600; }
+  .tip__sec { margin-top: 10px; padding-top: 8px; border-top: 1px solid #ffffff14;
+    font-family: var(--sm-mono); font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: #6f86ab; }
+  .kv { margin: 5px 0 0; }
+  .kv > div { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0;
+    border-bottom: 1px solid #ffffff0d; }
+  .kv > div:last-child { border-bottom: 0; }
+  .kv dt { color: #7f8ca6; flex: 0 0 auto; }
+  .kv dd { margin: 0; color: #d7e0f2; font-family: var(--sm-mono); text-align: right; }
+  .tip__go { margin-top: 9px; color: var(--starmap-star-cool); }
+  .tip__go a { color: inherit; text-decoration: none; }
+  /* 上下游导航：能点的入口（键盘快捷键只作补充）*/
+  .tip__nav { display: flex; gap: 6px; margin-top: 8px; }
+  .tip__nav button { flex: 1; font: 11.5px/1 'LanxiUI', system-ui, sans-serif; letter-spacing: .04em;
+    color: var(--starmap-link-active); background: #ffe0661a; border: 1px solid #ffe0664d;
+    border-radius: 3px; padding: 5px 4px; cursor: pointer; }
+  .tip__nav button:hover { background: #ffe0662e; }
+  .tip__nav button[disabled] { opacity: .35; cursor: default; }
+  /* ── M3 静态降级 ─────────────────────────────────────────────────
+     三条路：① 打印（纯 CSS）② prefers-reduced-motion（纯 CSS）③ 无 WebGL（探针加 .static）
+     静态版是**构建期内联**的 SVG（见 tools/build-starmap-svg.js）——无 JS 时靠 <noscript> 里的
+     <style> 把它显示出来，所以"无 JS 也能看、也能点课程"成立。 */
+  #staticmap { display: none; position: fixed; inset: 0; z-index: 3; overflow: auto; }
+  #staticmap svg { width: 100%; height: 100%; display: block; }
+  html.static #app { display: none; }
+  html.static #staticmap { display: block; }
+  html.static .hint, html.static .corner, html.static #lead, html.static #hlabel { display: none; }
+  /* ── 静态降级必须"会说话"（2026-09-21）──────────────────────────────
+     现场：右键平移失效、右键弹出浏览器自带菜单。真因不是右键坏了，是**整个交互版没加载**
+     （探针 noGL/calm 走了 .static，canvas 与那句 contextmenu 拦截都不存在）。
+     静默降级 = bug，所以这里补一条可见告警：说清模式、原因、以及"最近一次逃生门按钮"。 */
+  #staticnote { display: none; }
+  html.static #staticnote {
+    display: block; position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 20;
+    max-width: min(820px, calc(100vw - 36px)); padding: 10px 14px; border-radius: 10px;
+    border: 1px solid var(--starmap-link); border-left: 4px solid var(--starmap-link-active);
+    background: var(--starmap-void); color: var(--dsw-alias-label-primary);
+    font: 12px/1.75 'LanxiUI', system-ui, sans-serif; box-shadow: 0 14px 44px #00000099;
+  }
+  html.static #staticnote b { color: var(--starmap-link-active); }
+  html.static #staticnote code { font-family: var(--sm-mono); }
+  html.static #staticnote button {
+    margin-left: 8px; padding: 3px 10px; border-radius: 6px; cursor: pointer; font: inherit;
+    border: 1px solid var(--starmap-link-active); background: transparent; color: var(--starmap-link-active);
+  }
+  /* 逃生门：用户明确要交互版时，连那段 prefers-reduced-motion 的纯 CSS 也一起压掉 */
+  html.force-gl #app { display: block !important; }
+  html.force-gl #staticmap { display: none !important; }
+  html.force-gl .hint, html.force-gl .corner, html.force-gl #lead, html.force-gl #hlabel { display: revert !important; }
+  @media print {
+    #app, .hint, .corner, #lead, #hlabel { display: none !important; }
+    #staticmap { display: block !important; position: static; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #app { display: none; }
+    #staticmap { display: block; }
+    .hint, .corner, #lead, #hlabel { display: none; }
+  }</style>
+</head>
+<body data-ds-dark-theme>
+<!--@static-map-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-400 -225 800 450" role="img" aria-label="知识星图（静态版）：0 个知识圆圈、0 个知识点、0 门课程（已点亮 0）；图还是空的 —— 建第一个圈" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+  <rect x="-400" y="-225" width="800" height="450" fill="#05070e" />
+    <circle cx="203.9" cy="31.4" r="0.93" fill="#7c8aa5" opacity="0.34" />
+    <circle cx="7.8" cy="-162.1" r="0.67" fill="#7c8aa5" opacity="0.47" />
+    <circle cx="-188.3" cy="94.3" r="1.10" fill="#7c8aa5" opacity="0.59" />
+    <circle cx="-384.4" cy="-99.3" r="0.83" fill="#7c8aa5" opacity="0.33" />
+    <circle cx="219.5" cy="157.1" r="0.56" fill="#7c8aa5" opacity="0.46" />
+    <circle cx="23.4" cy="-36.4" r="1.00" fill="#7c8aa5" opacity="0.58" />
+    <circle cx="-172.7" cy="220.0" r="0.73" fill="#7c8aa5" opacity="0.32" />
+    <circle cx="-368.8" cy="26.4" r="1.16" fill="#7c8aa5" opacity="0.45" />
+    <circle cx="235.1" cy="-167.1" r="0.89" fill="#7c8aa5" opacity="0.57" />
+    <circle cx="39.0" cy="89.3" r="0.63" fill="#7c8aa5" opacity="0.31" />
+    <circle cx="-157.1" cy="-104.3" r="1.06" fill="#7c8aa5" opacity="0.44" />
+    <circle cx="-353.2" cy="152.1" r="0.79" fill="#7c8aa5" opacity="0.56" />
+    <circle cx="250.7" cy="-41.4" r="0.52" fill="#7c8aa5" opacity="0.30" />
+    <circle cx="54.6" cy="215.0" r="0.96" fill="#7c8aa5" opacity="0.43" />
+    <circle cx="-141.5" cy="21.4" r="0.69" fill="#7c8aa5" opacity="0.55" />
+    <circle cx="-337.6" cy="-172.1" r="1.12" fill="#7c8aa5" opacity="0.29" />
+    <circle cx="266.3" cy="84.3" r="0.85" fill="#7c8aa5" opacity="0.42" />
+    <circle cx="70.2" cy="-109.3" r="0.59" fill="#7c8aa5" opacity="0.54" />
+    <circle cx="-125.9" cy="147.1" r="1.02" fill="#7c8aa5" opacity="0.28" />
+    <circle cx="-322.0" cy="-46.4" r="0.75" fill="#7c8aa5" opacity="0.41" />
+    <circle cx="281.9" cy="210.0" r="1.19" fill="#7c8aa5" opacity="0.53" />
+    <circle cx="85.8" cy="16.4" r="0.92" fill="#7c8aa5" opacity="0.27" />
+    <circle cx="-110.3" cy="-177.2" r="0.65" fill="#7c8aa5" opacity="0.40" />
+    <circle cx="-306.3" cy="79.3" r="1.08" fill="#7c8aa5" opacity="0.52" />
+    <circle cx="297.6" cy="-114.3" r="0.82" fill="#7c8aa5" opacity="0.26" />
+    <circle cx="101.5" cy="142.1" r="0.55" fill="#7c8aa5" opacity="0.39" />
+    <circle cx="-94.6" cy="-51.4" r="0.98" fill="#7c8aa5" opacity="0.51" />
+    <circle cx="-290.7" cy="205.0" r="0.71" fill="#7c8aa5" opacity="0.25" />
+    <circle cx="313.2" cy="11.4" r="1.15" fill="#7c8aa5" opacity="0.38" />
+    <circle cx="117.1" cy="-182.2" r="0.88" fill="#7c8aa5" opacity="0.50" />
+    <circle cx="-79.0" cy="74.3" r="0.61" fill="#7c8aa5" opacity="0.25" />
+    <circle cx="-275.1" cy="-119.3" r="1.04" fill="#7c8aa5" opacity="0.37" />
+    <circle cx="328.8" cy="137.1" r="0.78" fill="#7c8aa5" opacity="0.49" />
+    <circle cx="132.7" cy="-56.4" r="0.51" fill="#7c8aa5" opacity="0.24" />
+    <circle cx="-63.4" cy="200.0" r="0.94" fill="#7c8aa5" opacity="0.36" />
+    <circle cx="-259.5" cy="6.4" r="0.67" fill="#7c8aa5" opacity="0.48" />
+    <circle cx="344.4" cy="-187.2" r="1.11" fill="#7c8aa5" opacity="0.23" />
+    <circle cx="148.3" cy="69.3" r="0.84" fill="#7c8aa5" opacity="0.35" />
+    <circle cx="-47.8" cy="-124.3" r="0.57" fill="#7c8aa5" opacity="0.47" />
+    <circle cx="-243.9" cy="132.1" r="1.00" fill="#7c8aa5" opacity="0.60" />
+    <circle cx="360.0" cy="-61.4" r="0.74" fill="#7c8aa5" opacity="0.34" />
+    <circle cx="163.9" cy="195.0" r="1.17" fill="#7c8aa5" opacity="0.46" />
+    <circle cx="-32.2" cy="1.4" r="0.90" fill="#7c8aa5" opacity="0.59" />
+    <circle cx="-228.3" cy="-192.2" r="0.64" fill="#7c8aa5" opacity="0.33" />
+    <circle cx="375.6" cy="64.3" r="1.07" fill="#7c8aa5" opacity="0.45" />
+    <circle cx="179.5" cy="-129.3" r="0.80" fill="#7c8aa5" opacity="0.58" />
+    <circle cx="-16.6" cy="127.1" r="0.53" fill="#7c8aa5" opacity="0.32" />
+    <circle cx="-212.7" cy="-66.4" r="0.97" fill="#7c8aa5" opacity="0.44" />
+    <circle cx="391.2" cy="190.0" r="0.70" fill="#7c8aa5" opacity="0.57" />
+    <circle cx="195.1" cy="-3.6" r="1.13" fill="#7c8aa5" opacity="0.31" />
+    <circle cx="-1.0" cy="-197.2" r="0.86" fill="#7c8aa5" opacity="0.43" />
+    <circle cx="-197.1" cy="59.3" r="0.60" fill="#7c8aa5" opacity="0.56" />
+    <circle cx="-393.2" cy="-134.3" r="1.03" fill="#7c8aa5" opacity="0.30" />
+    <circle cx="210.7" cy="122.1" r="0.76" fill="#7c8aa5" opacity="0.42" />
+    <circle cx="14.6" cy="-71.5" r="1.19" fill="#7c8aa5" opacity="0.55" />
+    <circle cx="-181.5" cy="185.0" r="0.93" fill="#7c8aa5" opacity="0.29" />
+    <circle cx="-377.6" cy="-8.6" r="0.66" fill="#7c8aa5" opacity="0.41" />
+    <circle cx="226.3" cy="-202.2" r="1.09" fill="#7c8aa5" opacity="0.54" />
+    <circle cx="30.2" cy="54.3" r="0.82" fill="#7c8aa5" opacity="0.28" />
+    <circle cx="-165.9" cy="-139.3" r="0.56" fill="#7c8aa5" opacity="0.40" />
+    <circle cx="-362.0" cy="117.1" r="0.99" fill="#7c8aa5" opacity="0.53" />
+    <circle cx="241.9" cy="-76.5" r="0.72" fill="#7c8aa5" opacity="0.27" />
+    <circle cx="45.8" cy="180.0" r="1.16" fill="#7c8aa5" opacity="0.39" />
+    <circle cx="-150.3" cy="-13.6" r="0.89" fill="#7c8aa5" opacity="0.52" />
+    <circle cx="-346.4" cy="-207.2" r="0.62" fill="#7c8aa5" opacity="0.26" />
+    <circle cx="257.5" cy="49.3" r="1.05" fill="#7c8aa5" opacity="0.38" />
+    <circle cx="61.4" cy="-144.3" r="0.79" fill="#7c8aa5" opacity="0.51" />
+    <circle cx="-134.7" cy="112.1" r="0.52" fill="#7c8aa5" opacity="0.25" />
+    <circle cx="-330.8" cy="-81.5" r="0.95" fill="#7c8aa5" opacity="0.37" />
+    <circle cx="273.1" cy="175.0" r="0.68" fill="#7c8aa5" opacity="0.50" />
+    <circle cx="77.1" cy="-18.6" r="1.12" fill="#7c8aa5" opacity="0.24" />
+    <circle cx="-119.0" cy="-212.2" r="0.85" fill="#7c8aa5" opacity="0.36" />
+  <text x="0" y="-16" text-anchor="middle" fill="#dbe4f5" font-size="18" font-family="system-ui, sans-serif">星图还是空的：还没有任何知识圆圈</text>
+  <text x="0" y="14" text-anchor="middle" fill="#7c8aa5" font-size="12.5" font-family="system-ui, sans-serif">建第一个圈：用鲸师的建圈入口（DSH 设置页），或手写 lessons/&lt;圆圈&gt;/halo.json</text>
+  <text x="0" y="36" text-anchor="middle" fill="#7c8aa5" font-size="12.5" font-family="system-ui, sans-serif">然后跑 node tools/build-starmap.js —— 这里会长出第一颗恒星</text>
+</svg>
+<!--/@static-map-->
+<noscript>
+  <style>#app{display:none}#staticmap{display:block}.hint,.corner,#lead,#hlabel{display:none}</style>
+</noscript>
+<div id="app"></div>
+<div class="vignette"></div>
+
+<!-- 左上：课程资产盘点 -->
+<aside class="corner corner--tl">
+  <div class="corner__hd">课程资产</div>
+  <div class="asset"><span>知识圆圈</span><b id="as-halos">–</b></div>
+  <div class="asset"><span>知识点</span><b id="as-points">–</b></div>
+  <div class="asset"><span>课程</span><b id="as-lessons">–</b></div>
+  <div class="asset"><span>已点亮</span><b id="as-lit">–</b></div>
+  <div class="asset"><span>名词</span><b id="as-terms">–</b></div>
+  <div class="pbar"><i id="as-bar" style="width:0%"></i></div>
+</aside>
+
+<!-- 右上：搜索与全屏 —— 两个独立按钮 -->
+<div class="tr-stack">
+  <div class="corner"><input id="search" class="search" type="search" placeholder="搜索课程 / 知识点"></div>
+  <button id="fs" class="corner corner--btn" type="button">全屏</button>
+</div>
+
+<!-- 左下：知识点 → 课程（点哪门就选中哪门）-->
+<aside class="corner corner--bl" id="tree"></aside>
+
+<!-- 右下：图例 -->
+<aside class="corner corner--br">
+  <button type="button" class="corner__hd corner__hd--btn" id="legend-fold" aria-expanded="true" aria-controls="legend-list">图例</button>
+  <ul class="legend" id="legend-list">
+    <li><span class="g" style="background: var(--starmap-halo-core)"></span>恒星 = 知识圆圈</li>
+    <li><span class="g" style="background: var(--starmap-branch-1)"></span>大星 = 知识点（大分支）</li>
+    <li><span class="g" style="background: var(--starmap-star-cool)"></span>小星 = 课程（亮 = 已学过）</li>
+    <li><span class="g g--line"></span>亮黄线 = 上下关系（<b>点线可切换</b>）</li>
+    <li><span class="g g--dash"></span>虚线弧 = 前置（航道）</li>
+    <li><span class="g g--red"></span>红 = 有未解决的答疑</li>
+    <li><span class="g g--yellow"></span>黄 = 标记待补</li>
+    <li>↑↓ / 面板按钮 = 上下切换课程</li>
+  </ul>
+  <ul class="legend legend--circles" id="legend-circles"></ul>
+</aside>
+
+<div class="hint" id="hud"><button class="hint__mode" id="modebtn" type="button">中心视角</button><span id="hudextra">左拖旋转 · 右键平移 · WASD 移动 · 滚轮缩放</span></div>
+<div class="hlabel" id="hlabel"></div>
+<!-- 引线（对齐参考图）：极细、中性灰白、细密短划、**节点端不加点**（节点自己有锁定环） -->
+<svg id="lead" aria-hidden="true"><line x1="0" y1="0" x2="0" y2="0" stroke="rgba(255,255,255,0.42)" stroke-width="1" stroke-dasharray="2.5 4"/></svg>
+<div class="tip" id="tip"></div>
+
+<!-- 静态降级告警（默认隐藏，只有探针加了 html.static 才显示）。
+     为什么要有它：降级时 main.js 根本不加载 → canvas 与那句 contextmenu 拦截都不存在 →
+     右键落到浏览器/Edge 自己的菜单与手势上，看起来像"右键逻辑坏了"。静默降级 = bug。 -->
+<div id="staticnote" role="status" aria-live="polite">
+  <b>静态模式：交互版没有加载。</b>
+  <span id="staticwhy"></span>
+  旋转 / 点选 / ↑↓ 切换 / <b>右键平移</b> 都用不了 —— 所以右键会落到浏览器（或 Edge 的鼠标手势）那边。
+  你现在看到的是构建期快照 <code>static.svg</code>。
+  <button id="staticforce" type="button" hidden>仍然加载交互版</button>
+</div>
+
+<script src="./content.js"></script>
+<script>
+/* M3 探针：这一小段决定"要不要加载 three"。
+   无 WebGL 或用户开了"减少动效" → 加 .static（CSS 把 canvas 换成构建期内联的 SVG），
+   并且**根本不加载 main.js**（省 2 MB）；打印由纯 CSS 接管，不经过这里。 */
+(function () {
+  var noGL = true;
+  try {
+    var c = document.createElement('canvas');
+    noGL = !(c.getContext('webgl2') || c.getContext('webgl'));
+  } catch (e) { noGL = true; }
+  var calm = false;
+  try { calm = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { calm = false; }
+  /* 逃生门（2026-09-21）：降级一旦发生，必须让人能自己换回交互版 ——
+     否则"减少动效"这一个系统开关就等于把星图永久变成一张图（右键/旋转/点选全没）。 */
+  var force = false;
+  try {
+    force = localStorage.getItem('starmap-force-gl') === '1'
+      || /(^|[?&])motion=on(&|$)/.test(location.search);
+  } catch (e) { force = false; }
+  if (force) document.documentElement.classList.add('force-gl');
+
+  if (noGL || (calm && !force)) {
+    document.documentElement.classList.add('static');
+    var why = document.getElementById('staticwhy');
+    if (why) {
+      why.textContent = noGL
+        ? '原因：拿不到 WebGL 上下文（硬件加速被关 / GPU 进程崩过 / 显卡驱动）—— edge://gpu 可查。'
+        : '原因：系统开了「减少动效」（prefers-reduced-motion）。';
+    }
+    var btn = document.getElementById('staticforce');
+    if (btn && !noGL) {                     // noGL 时强上也是白搭，所以只给 calm 这条路
+      btn.hidden = false;
+      btn.addEventListener('click', function () {
+        try { localStorage.setItem('starmap-force-gl', '1'); } catch (e) {}
+        location.reload();
+      });
+    }
+  } else {
+    var s = document.createElement('script');
+    s.type = 'module';
+    s.src = './main.js';
+    document.head.appendChild(s);
+  }
+})();
+</script>
+<!-- main.js 由上面的探针按需加载（无 WebGL / 减动效时不加载）-->
+</body>
+</html>

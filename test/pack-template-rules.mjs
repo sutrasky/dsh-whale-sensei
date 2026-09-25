@@ -64,6 +64,14 @@ export const FROM_PACK = [
   'tools/build-starmap-svg.js',
   'tools/galaxy-shapes.cjs',
   'starmap/data-layer.js',
+  // —— **交互版**星图（2026-09-24 主人定「交互版星图随包」：插件要独立做到本机所有功能）——
+  //    缺这四件时新包只有静态 SVG（旋转 / 点选 / 悬停面板全没有）。index.html 走下面的
+  //    SANITIZE 规则把标记区换成「建第一个圈」引导 —— **绝不把作者包里的真图当假进度发出去**。
+  //    字体与 favicon 是二进制，见 FROM_PACK_BINARY（utf8 文本管线会毁掉字节）。
+  'starmap/main.js',
+  'starmap/index.html',
+  'starmap/vendor/three/three.module.js',
+  'starmap/vendor/three/three.core.js',
   // —— 建圈三件（2026-09-24 主人选 a 方案）：缺了它们，新包**连第一个圈都建不出来**
   //    （没有冻结表 → 取色被拒），而且建圈五条链的第 1、4 条在包里不存在 ——
   'assets/circle-bands-data.js',
@@ -90,6 +98,19 @@ export const FROM_PACK = [
 export const FROM_SKILL = ['assets/glossary-data.js']
 
 /**
+ * 逐字节取自课程包的**二进制**件（字体 / favicon）。
+ * 为什么不进 FROM_PACK：那条链是 utf8 文本管线（sanitizeText / 逐字符对拍）——
+ * 二进制过一趟 utf8 编解码就毁了。判据改为 **Buffer 逐字节相等**（pack-scaffold.mjs ①），
+ * 同步也走字节拷贝（_p0/sync-template.mjs）。字体缺了页面会回落系统字（能跑），
+ * 但「插件要独立做到本机所有功能」要求发出来 —— 所以照样进清单、照样有对拍。
+ */
+export const FROM_PACK_BINARY = [
+  'starmap/fonts/Lanxi-JingHei.woff2',
+  'starmap/fonts/Lanxi-HeiTiLight.woff2',
+  'assets/starmap.ico',            // 星图页的 favicon（tools/make-icon.js 生成的那份）
+]
+
+/**
  * **派生件**（不是"原件 + 替换"，而是现场算出来的）：
  * `assets/theme.css` = `composeTheme(templates/contract.css + presets/whale-sensei.css)` 的结果。
  * 所以它**不参与** `sanitize(原件) === 模板` 的对拍，改由两条判据钉住：
@@ -103,7 +124,37 @@ export const DERIVED = ['assets/theme.css']
  * 中性化规则：`path` 里的 `find` 全部换成 `replace`。
  * `must` = 至少命中几次（反空转：打空必须红）。
  */
+/** 空星图的「建第一个圈」引导（starmap/index.html 标记区的中性化替换物）：
+ *  确定性星场（R2 序列，与 starmap/data-layer.js 同一条「全仓无 Math.random」的纪律）
+ *  + 三行引导文字。作者包里的真图**不进模板** —— 那是内容，不是框架。 */
+const EMPTY_GUIDE_SVG = (() => {
+  const stars = []
+  for (let i = 1; i <= 72; i++) {
+    const x = (-400 + 800 * ((i * 0.7548776662466927) % 1)).toFixed(1)
+    const y = (-225 + 450 * ((i * 0.5698402909980532) % 1)).toFixed(1)
+    const r = (0.5 + 0.7 * ((i * 0.6180339887498949) % 1)).toFixed(2)
+    const o = (0.22 + 0.38 * ((i * 0.3247179572447458) % 1)).toFixed(2)
+    stars.push(`    <circle cx="${x}" cy="${y}" r="${r}" fill="#7c8aa5" opacity="${o}" />`)
+  }
+  return `<!--@static-map-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-400 -225 800 450" role="img" aria-label="知识星图（静态版）：0 个知识圆圈、0 个知识点、0 门课程（已点亮 0）；图还是空的 —— 建第一个圈" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+  <rect x="-400" y="-225" width="800" height="450" fill="#05070e" />
+${stars.join('\n')}
+  <text x="0" y="-16" text-anchor="middle" fill="#dbe4f5" font-size="18" font-family="system-ui, sans-serif">星图还是空的：还没有任何知识圆圈</text>
+  <text x="0" y="14" text-anchor="middle" fill="#7c8aa5" font-size="12.5" font-family="system-ui, sans-serif">建第一个圈：用鲸师的建圈入口（DSH 设置页），或手写 lessons/&lt;圆圈&gt;/halo.json</text>
+  <text x="0" y="36" text-anchor="middle" fill="#7c8aa5" font-size="12.5" font-family="system-ui, sans-serif">然后跑 node tools/build-starmap.js —— 这里会长出第一颗恒星</text>
+</svg>
+<!--/@static-map-->`
+})()
+
 export const SANITIZE = [
+  {
+    path: 'starmap/index.html',
+    find: /<!--@static-map-->[\s\S]*?<!--\/@static-map-->/g,
+    replace: EMPTY_GUIDE_SVG,
+    must: 1,
+    why: '标记区里是作者包的**真星图**（圆圈 / 课程名都是内容）—— 新包必须是「建第一个圈」引导，发真图 = 假进度',
+  },
   {
     path: 'tools/style-adapter.js',
     find: /\/\*\* 风格成品库的位置：配置优先 → 环境变量 → 工作区旁边的 raw-html-v2 \*\//g,
@@ -192,5 +243,5 @@ export function sanitizeText(rel, text) {
 
 /** 模板里全部文件的相对路径（POSIX） */
 export function templatePaths() {
-  return [...FROM_PACK, ...FROM_SKILL]
+  return [...FROM_PACK, ...FROM_SKILL, ...FROM_PACK_BINARY]
 }
