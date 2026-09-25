@@ -27,7 +27,7 @@ import { readQueue, askPaths } from '../lib/ask-io.js'
 import { loadGlossaryLedger, glossarySummary } from '../lib/glossary-io.js'
 import { listLearningRecords } from '../lib/brief-io.js'
 import { recordGoal } from '../lib/goal-io.js'
-import { recordTeaching, GLOBAL_CIRCLE } from '../lib/teaching-io.js'
+import { recordTeaching, GLOBAL_CIRCLE, teachingPath } from '../lib/teaching-io.js'
 import { assertLosslessJson } from '../lib/state.js'
 import { plugin as briefPlugin } from '../lib/mods/brief.js'
 import { NEXT_ACTIONS } from '../lib/brief.js'
@@ -114,6 +114,10 @@ ok(!/\d{4}-\d{2}-\d{2}T/.test(v1.markdown), 'brief 里没有时间戳（可对�
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-brief-'))
 try {
   fs.cpSync(ROOT, tmp, { recursive: true })
+  // ⚠️ 判据**不许依赖真包是不是空的**：真包现在有 teaching.jsonl（P2 给 programming 落了
+  //    spec + guide），而下面 ⑪ 有一条"空态"判据。所以先把影副本的台账清掉，空态由本判据
+  //    自己造出来 —— 否则真包一变，这条就红（实测踩过）。
+  fs.rmSync(teachingPath(tmp), { force: true })
   const tool2 = installAt(tmp)
   const proj = path.join(tmp, 'code', '_hello-spring-boot', 'hello-spring-boot')
   const pkg = path.join(proj, 'src', 'main', 'java', 'com', 'sutrasky', 'hello_spring_boot')
@@ -470,6 +474,12 @@ try {
     ok(t1.ok === true, `⑪ 影副本里落一版**圆圈**教学参数（v${t1.record?.v}）`)
     const t2 = recordTeaching(tmp, { circle: GLOBAL_CIRCLE, kind: 'values', tier: 2, params: { explainOrder: 'detail-first' }, source: 'student' })
     ok(t2.ok === true, '⑪ 全局层也落一版（学科中立的参数）')
+    // 固定做法（`kind=guide`）：**学生改不了**，但它是这个圆圈教法的另一半 ——
+    // 不念出来学生会以为"这个圆圈什么都没定"（P2 加的）。
+    const g1 = recordTeaching(tmp, { circle: 'programming', kind: 'guide', source: 'agent', guide: [
+      { title: '动笔前先看他的产出', lines: ['列源码树，忽略构建产物与编辑器噪音。'] },
+    ] })
+    ok(g1.ok === true, `⑪ 影副本里给 programming 落一版固定做法（v${g1.record?.v}）`)
     const withRes = await tool2.execute({ root: tmp })
     const withT = withRes.brief
     const sec1 = withT.sections.find((s) => s.title === '教学方式')
@@ -479,6 +489,8 @@ try {
       '⑪ 每个圆圈**自己一行**（该圆圈的特化与取值）')
     ok(sec1.lines.some((l) => /术语 on(?!＊)/.test(l)), '⑪ 没改过的项不打 ＊（是档位默认）')
     ok(sec1.lines.some((l) => /自由补充/.test(l) && l.includes('别先给定义')), '⑪ 自由补充也念出来')
+    ok(sec1.lines.some((l) => /^· programming：/.test(l) && /📌 固定做法 1 条：动笔前先看他的产出/.test(l)),
+      '⑪ 圆圈那一行把**固定做法**也念出来（有几条、都叫什么）—— 不念学生会以为这个圆圈什么都没定')
     ok(sec1.lines.length <= 6, `⑪ 这一段不超过 6 行（实得 ${sec1.lines.length} 行）${sec1.lines.length > 6 ? ' —— ' + sec1.lines.map((l) => l.slice(0, 40)).join(' ｜ ') : ''}`)
     ok(withRes.markdown !== beforeRes.markdown, `⑪ 改了参数 → brief **真变**（建议随学生数据变，不是写死的）${withRes.markdown === beforeRes.markdown ? ' —— 两边一样，首处差：' + firstDiff(beforeRes.markdown, withRes.markdown) : ''}`)
     const twiceRes = await tool2.execute({ root: tmp })

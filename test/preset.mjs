@@ -146,7 +146,12 @@ let prefix = ''
 }
 
 // ── ⑨ 禁词表：**全范围层**不许只对一个学科成立（主人 2026-09-25 裁定）──
-//    扫三处「全范围」面：① 预设人设（纪律段）② 插件的全局可调项表 + 锁死集 ③ 课程包的总控技能。
+//    扫四处「全范围」面：
+//      ① 预设人设（纪律段）
+//      ② 插件的全局可调项表 + 锁死集
+//      ③ 课程包的**全部 5 个技能**（2026-09-25 P2 扩的 —— 原先只扫总控 whale-system，
+//         于是 `whale-lesson §1` 那套"编程圈怎么看产出"一直躺在一个全范围技能里没人管）
+//      ④ 给 agent 读的两处插件话术（工具描述 / 开课协议）—— 见 `test/settings-teaching.mjs` ⑦
 //    判法同一份（`subjectsHit`）：命中**恰好 1 个**学科 = 特化（红）；≥2 = 跨学科举例（放行）。
 {
 	const { TEACHING_PARAMS, TEACHING_DISCIPLINE } = await import('../lib/teaching-io.js')
@@ -154,18 +159,31 @@ let prefix = ''
 		['插件 · 全局可调项表', JSON.stringify(TEACHING_PARAMS)],
 		['插件 · 锁死集', TEACHING_DISCIPLINE.map((d) => d.label + d.why).join('；')],
 	]
-	// 课程包的总控技能（**全范围层**：它跟所有学科打交道，不是某个圆圈的特化）
-	const packSkill = path.resolve(HERE, '..', '..', 'study', 'skills', 'whale-system', 'SKILL.md')
-	if (fs.existsSync(packSkill)) {
-		surfaces.push(['课程包 · 总控技能 whale-system', fs.readFileSync(packSkill, 'utf8')])
+	// 课程包的技能层：**五个都扫**（它们全是全范围面 —— 跟所有学科打交道）。
+	// ⚠️ 学科特化**有它该去的地方**：圆圈的 `kind=guide`（固定做法）与 `kind=spec`（可调项），
+	//    由 `injectionBlock` 带进生成该圆圈的课时 —— 判据见 `test/teaching-apply.mjs` ⑤。
+	const skillsDir = path.resolve(HERE, '..', '..', 'study', 'skills')
+	if (fs.existsSync(skillsDir)) {
+		const names = fs.readdirSync(skillsDir).filter((d) => {
+			try { return fs.statSync(path.join(skillsDir, d)).isDirectory() } catch { return false }
+		}).sort()
+		ok(names.length === 5, `课程包技能层是 5 个（${names.join(' / ')}）`)
+		for (const n of names) {
+			const f = path.join(skillsDir, n, 'SKILL.md')
+			if (fs.existsSync(f)) surfaces.push([`课程包 · 技能 ${n}`, fs.readFileSync(f, 'utf8')])
+		}
 	} else {
-		console.log(`   ⚠️ 跳过「课程包 · 总控技能」（${packSkill} 不在 —— 开发布局才有）`)
+		console.log(`   ⚠️ 跳过「课程包 · 技能层」（${skillsDir} 不在 —— 开发布局才有）`)
 	}
 	for (const [name, text] of surfaces) {
 		const hit = subjectsHit(text)
 		ok(hit.length !== 1, `禁词表 · ${name}：不是只对一个学科成立（命中 ${hit.length} 个：${hit.join('/') || '无'}）`)
 	}
 	ok(typeof subjectsHit === 'function', '禁词表判据与实现同一份（`lib/teaching-io.js` 的 subjectsHit）')
+
+	// 反空转：这一面必须真的扫到了内容（不然上面全绿只是因为没读到文件）
+	ok(surfaces.length >= 7, `扫到的面数 ≥ 7（实得 ${surfaces.length}：2 处插件 + 5 个技能）`)
+	ok(surfaces.every(([, t]) => String(t).length > 80), '每一面都真的读到了内容（不是空串蒙混；最短的那面是锁死集，91 字）')
 }
 
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)

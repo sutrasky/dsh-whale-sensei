@@ -69,6 +69,9 @@ function install(root) {
 }
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-setteach-'))
+// 真包基线：判据只在副本上跑，跑完真包必须**逐字节未变**（见 teaching-io.mjs ⑩ 的说明）。
+const REAL_LEDGER = path.join(ROOT, 'learning-records', 'teaching.jsonl')
+const realBefore = fs.existsSync(REAL_LEDGER) ? fs.readFileSync(REAL_LEDGER, 'utf8') : null
 try {
 	fs.cpSync(ROOT, tmp, { recursive: true })
 	fs.rmSync(path.join(tmp, 'learning-records', 'teaching.jsonl'), { force: true })
@@ -210,6 +213,10 @@ try {
 			circle, kind: 'values', tier: 1, params: {},
 			freeText: [{ text: '多讲点例子', source: 'student', confirmed: true }], source: 'student',
 		})
+		// 固定做法（`kind=guide`）：学生改不了，但设置页得让他**看得见**
+		recordTeaching(tmp, { circle, kind: 'guide', source: 'agent', guide: [
+			{ title: '动笔前先看他的产出', lines: ['列源码树，忽略构建产物与编辑器噪音。'] },
+		] })
 		const payload = (await (await get()).json())
 
 		const src = fs.readFileSync(path.join(PLUGIN, 'lib', 'client.js'), 'utf8')
@@ -293,6 +300,9 @@ try {
 		ok(all.includes('继承全局层'), '圆圈那一行标出"继承全局层"（没把全局取值当圆圈特化）')
 		ok(all.includes('发给老师'), '渲染结果里有「发给老师」按钮')
 		ok(all.includes('多讲点例子'), '渲染结果里带自由补充（如实说它进备课上下文）')
+		ok(all.includes('这个圆圈的固定做法'), '渲染结果里有「固定做法」那一段（P2 加的）')
+		ok(all.includes('动笔前先看他的产出') && all.includes('列源码树，忽略构建产物与编辑器噪音。'),
+			'固定做法的标题与每一行都渲染出来了（学生看得见，但他改不了）')
 		ok(all.includes('教学纪律'), '渲染结果里带锁死集那一行')
 		ok(all.includes('⚙️ 教学方式'), '渲染结果里带注入块原文（老师真收到的那段）')
 		ok(all.includes('这个圆圈还没声明可调项'), '圆圈没声明 spec 时，渲染结果里如实说（不假装能调）')
@@ -320,7 +330,9 @@ try {
 			`教学卡依赖的东西都在工厂作用域里（跑到外面去的：${outside.join(' / ') || '无'}）`)
 	}
 
-	ok(!fs.existsSync(path.join(ROOT, 'learning-records', 'teaching.jsonl')), '真包上没有被创建 teaching.jsonl（判据只在副本上跑）')
+	const realAfter = fs.existsSync(REAL_LEDGER) ? fs.readFileSync(REAL_LEDGER, 'utf8') : null
+	ok(realAfter === realBefore,
+		`真包台账跑完之后与跑之前逐字相同（${realBefore === null ? '两边都没有' : '两边都有，比内容'}）`)
 } finally {
 	fs.rmSync(tmp, { recursive: true, force: true })
 }

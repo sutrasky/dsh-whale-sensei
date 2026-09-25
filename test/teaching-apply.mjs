@@ -19,7 +19,7 @@ import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import {
 	injectionBlock, teachingDirectives, directiveFor, judgeTeachingContent, judgeTeachingInjection, judgeTeaching,
-	INJECTION_TITLE, JUDGES,
+	INJECTION_TITLE, GUIDE_TITLE, JUDGES,
 } from '../lib/teaching-apply.js'
 import { subjectsHit, readTeaching, recordTeaching, teachingPath, GLOBAL_CIRCLE, globalSpec } from '../lib/teaching-io.js'
 import { plugin as authorPlugin } from '../lib/mods/author.js'
@@ -144,6 +144,24 @@ const SPEC = [
 	ok(sum2.ok === false && sum2.failed.includes('injection'), '汇总：注入缺了就整体红')
 	const sum3 = judgeTeaching({ injection: inj.block, html: '<p>x</p>', params: inj.params, spec: declared })
 	ok(sum3.ok === true && sum3.unjudged.includes('commentDensity'), '汇总把"判不了的"单列（unjudged），不当成过也不当成错')
+
+	// ── 固定做法（`kind=guide`）也进注入块，也归判据管（P2 加的）──
+	const GUIDE = [
+		{ title: '动笔前先看他的产出', lines: ['列源码树，忽略构建产物与编辑器噪音。', '找五类信号，逐个如实报。'] },
+	]
+	const withGuide = injectionBlock({ tier: 1, params: {}, spec: SPEC, guide: GUIDE })
+	ok(withGuide.block.includes(GUIDE_TITLE), `注入块里带固定做法那一段（${GUIDE_TITLE}）`)
+	ok(withGuide.block.includes('动笔前先看他的产出') && withGuide.block.includes('找五类信号，逐个如实报。'),
+		'固定做法的标题与每一行**逐字**进了注入块')
+	ok(withGuide.guide.length === 1 && withGuide.block.includes('按块加注释。') === false,
+		'固定做法与可调项是两块，各归各的（guide 不影响 params）')
+	ok(judgeTeachingInjection(withGuide.block, withGuide.params, SPEC, GUIDE)[0].ok === true,
+		'判据：注入齐全（指令 + 固定做法都在）')
+	const missingLine = judgeTeachingInjection(withGuide.block.replace(GUIDE[0].lines[1], ''), withGuide.params, SPEC, GUIDE)
+	ok(missingLine[0].ok === false && /缺 1 条/.test(missingLine[0].detail),
+		`判据：**固定做法缺一行也算红**（${missingLine[0].detail}）`)
+	ok(injectionBlock({ tier: 1, params: {}, spec: SPEC }).block.includes(GUIDE_TITLE) === false,
+		'没有固定做法时不硬塞那一段（不留空壳）')
 }
 
 // ── ⑤ 真跑 whale_author：按**该圆圈的**特化注入 ──
@@ -155,6 +173,9 @@ const SPEC = [
 		recordTeaching(tmp, { circle: 'programming', kind: 'spec', spec: SPEC, source: 'agent' })
 		recordTeaching(tmp, { circle: 'programming', kind: 'values', tier: 2, params: { commentDensity: 'block' }, source: 'student' })
 		recordTeaching(tmp, { circle: GLOBAL_CIRCLE, kind: 'values', tier: 2, params: { errorStyle: 'fix-first' }, source: 'student' })
+		recordTeaching(tmp, { circle: 'programming', kind: 'guide', source: 'agent', guide: [
+			{ title: '动笔前先看他的产出', lines: ['列源码树，忽略构建产物与编辑器噪音。'] },
+		] })
 
 		const tools = []
 		const fakeLog = { info: () => {}, warn: () => {}, error: () => {} }
@@ -166,11 +187,14 @@ const SPEC = [
 		ok(v.teaching.block.includes('按块加注释。'), '该圆圈的指令句进了注入块')
 		const rendered = tool.output.render({}, v).map((x) => x.text).join('\n')
 		ok(rendered.includes(INJECTION_TITLE), '注入块**真的进了 agent 读到的那段话术**')
+		ok(v.teaching.block.includes(GUIDE_TITLE) && v.teaching.block.includes('列源码树'),
+			'**固定做法也真的进了**（按圆圈取 —— 与可调项同一条缝）')
 
 		// 另一个圆圈（没特化）拿不到 programming 的句子
 		const data = readTeaching(tmp)
 		const other = injectionBlock({ data, circle: 'math' })
 		ok(!other.block.includes('按块加注释。'), '**别的圆圈拿不到 programming 的指令句**（特化不串圈）')
+		ok(!other.block.includes('列源码树'), '**别的圆圈也拿不到 programming 的固定做法**（guide 同样不串圈）')
 		ok(other.block.includes('直接给修法'), '但全局的句子对所有圆圈都生效')
 	} finally {
 		fs.rmSync(tmp, { recursive: true, force: true })
@@ -178,7 +202,9 @@ const SPEC = [
 }
 
 ok(hashTree(path.join(ROOT, 'learning-records')) === realBefore, '真包 learning-records/ 一字未动')
-ok(!fs.existsSync(teachingPath(ROOT)), '真包上没有被创建 teaching.jsonl')
+// 见 `test/teaching-io.mjs` ⑩ 的同一条：判"本套件没往真包写"，不判"真包是空的"。
+ok(!fs.existsSync(teachingPath(ROOT)) || hashTree(path.join(ROOT, 'learning-records')) === realBefore,
+	`真包台账跑完之后与跑之前逐字节相同（${fs.existsSync(teachingPath(ROOT)) ? '有台账：比内容' : '没台账：比不存在'}）`)
 
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }

@@ -38,6 +38,11 @@ function ok(cond, msg) {
 }
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-tview-'))
+// 真包基线：判据只在副本上跑，跑完真包必须**逐字节未变**。
+// ⚠️ 原先这条写的是"真包上没有 teaching.jsonl" —— P2 给 programming 落了 spec + guide 之后
+//    它就必红，而它想判的是"本套件没往真包写"。改成比内容（见 teaching-io.mjs ⑩）。
+const REAL_LEDGER = path.join(ROOT, 'learning-records', 'teaching.jsonl')
+const realBefore = fs.existsSync(REAL_LEDGER) ? fs.readFileSync(REAL_LEDGER, 'utf8') : null
 try {
 	fs.cpSync(ROOT, tmp, { recursive: true })
 	const ledger = path.join(tmp, 'learning-records', 'teaching.jsonl')
@@ -127,6 +132,38 @@ try {
 		const row = c.items.find((r) => r.id === 'figureDensity')
 		ok(row.from === 'default' && row.directives.join('').includes('示意图'), '圆圈声明的项还没定取值 → 显示档位默认那句')
 		ok(c.own.includes('explainOrder') && !c.own.includes('figureDensity'), 'own 只列**定过取值的**项（声明可调项 ≠ 定过值）')
+	}
+
+	// ── ④b 圆圈的**固定做法**（`kind=guide`）也进视图与注入原文（P2 加的）──
+	{
+		const guide = [
+			{ title: '动笔前先看他的产出', lines: ['列源码树，忽略构建产物与编辑器噪音。', '找五类信号，逐个如实报。'] },
+		]
+		const w = recordTeaching(tmp, { circle: first, kind: 'guide', guide, source: 'agent' })
+		ok(w.ok === true, `圆圈能声明固定做法（${w.ok ? 'ok' : w.error}）`)
+		const data = readTeaching(tmp)
+		const view = teachingView(data, { circles: listed })
+		const c = view.circles.find((x) => x.circle === first)
+		ok(c.guide.length === 1 && c.guide[0].title === '动笔前先看他的产出', '视图带上了固定做法（标题）')
+		ok(c.guide[0].lines.length === 2 && c.guide[0].lines[1] === '找五类信号，逐个如实报。', '固定做法的每一行都带上了')
+		ok(c.guideV === 1, `固定做法有自己的版本线（v${c.guideV}）`)
+		ok(c.block === injectionBlock({ data, circle: first }).block, '带固定做法之后，注入原文**仍然与 injectionBlock 逐字节同源**')
+		ok(c.block.includes('动笔前先看他的产出') && c.block.includes('找五类信号，逐个如实报。'), '固定做法进了注入原文（老师真会收到）')
+		ok(!(view.global.guide || []).length, '全局层没有固定做法（那是圆圈的东西）')
+
+		// 请求正文要把固定做法念出来 —— 否则老师不知道这个圆圈已经有做法了
+		const t = requestText({ circle: first, request: '讲慢一点', view })
+		ok(t.includes('动笔前先看他的产出'), '「跟老师说」的正文里念出了这个圆圈的固定做法')
+		ok(t.includes('kind=guide'), '正文写明"落不到可调项上时，确属固定做法才动 kind=guide"')
+
+		// 没声明过固定做法的圆圈：正文如实说"还没有"
+		const other = listed.find((x) => x.id !== first)
+		if (other) {
+			const t2 = requestText({ circle: other.id, request: '讲慢一点', view })
+			ok(t2.includes('还没有固定做法'), '没声明过的圆圈：正文如实说"还没有固定做法"')
+		} else {
+			ok(true, '（课程包只有一个圆圈，跳过"没有固定做法"的判据）')
+		}
 	}
 
 	// ── ⑤ 注入原文与 injectionBlock **逐字节同源** + 改了就变 / 没改逐字节相同 ──
@@ -227,7 +264,9 @@ try {
 		ok(/教学方式/.test(client) && /注入原文|实际会收到这一段/.test(client), '设置页显示「现行取值 + 注入原文」')
 	}
 
-	ok(!fs.existsSync(path.join(ROOT, 'learning-records', 'teaching.jsonl')), '真包上没有被创建 teaching.jsonl（判据只在副本上跑）')
+	const realAfter = fs.existsSync(REAL_LEDGER) ? fs.readFileSync(REAL_LEDGER, 'utf8') : null
+	ok(realAfter === realBefore,
+		`真包台账跑完之后与跑之前逐字相同（${realBefore === null ? '两边都没有' : '两边都有，比内容'}）`)
 } finally {
 	fs.rmSync(tmp, { recursive: true, force: true })
 }
