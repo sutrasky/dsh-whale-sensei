@@ -15,6 +15,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
 import { readPack } from '../lib/pack.js'
 import { composeTheme, themeDrift } from '../lib/style.js'
 import { resolveMode, checkThemeBlocks } from '../lib/mode.js'
@@ -102,6 +103,76 @@ const INPUT = {
   const bad = authorLesson(INPUT).text.replace('<!--@challenges-->', '')
   const v = validateSkeleton(bad)
   ok(!v.ok, `少一个槽位 → 自查不通过（${v.problems.slice(0, 2).join('；')}）`)
+}
+
+// ⑥ 退路链（⑦「半钉」补的另一半）：
+//   原来只钉了「合成产物逐字节」（happy path）—— **分支漂了 / 告警改了 / 两边 DEFAULT_SLUG 不一致，全都不红**。
+//   这里把四条分支 + 告警文案 + 跨仓同值一起钉住。夹具全是合成小包（tmpdir），真包只读。
+{
+  const CONTRACT = fs.readFileSync(path.join(ROOT, 'templates', 'contract.css'), 'utf8')
+  const PRESET = fs.readFileSync(path.join(ROOT, 'presets', 'whale-sensei.css'), 'utf8')
+
+  /** 造一个合成课程包（只放 composeTheme 要读的四件） */
+  const mk = ({ config = true, slug = null, inIndex = true, presetExists = true, builtinExists = true } = {}) => {
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-style-fb-'))
+    fs.mkdirSync(path.join(d, 'templates'), { recursive: true })
+    fs.mkdirSync(path.join(d, 'presets'), { recursive: true })
+    fs.mkdirSync(path.join(d, 'styles'), { recursive: true })
+    fs.writeFileSync(path.join(d, 'templates', 'contract.css'), CONTRACT)
+    if (builtinExists) fs.writeFileSync(path.join(d, 'presets', 'whale-sensei.css'), PRESET)
+    if (config) fs.writeFileSync(path.join(d, 'lesson.config.json'), JSON.stringify({ style: slug ? { slug } : {} }))
+    if (slug) {
+      const lines = ['- whale-sensei — 鲸师 · 默认']
+      if (inIndex) lines.push(`- ${slug} — 测试风格 · 适用…`)
+      fs.writeFileSync(path.join(d, 'styles', '_INDEX.md'), lines.join('\n') + '\n')
+      if (presetExists) fs.writeFileSync(path.join(d, 'presets', `${slug}.css`), PRESET)
+    }
+    return d
+  }
+  const run = (opts, fn) => { const d = mk(opts); try { return fn(d) } finally { fs.rmSync(d, { recursive: true, force: true }) } }
+
+  run({ slug: 'demo-style' }, (d) => {
+    const r = composeTheme(d)
+    ok(r.used === 'demo-style' && r.fallback === false && !r.warnings.some((w) => w.includes('退回内置基础')),
+      `退路链·正常：slug 在索引里、预设也在 ⇒ **不退回**（used=${r.used} / fallback=${r.fallback}）`)
+  })
+
+  run({ config: false }, (d) => {
+    const r = composeTheme(d)
+    const want = '⚠️ 风格适配器：lesson.config.json 缺失或没有 style 段 → 退回内置基础「whale-sensei」'
+    ok(r.slug === 'whale-sensei' && r.warnings.includes(want), '退路链·缺 config：退回内置基础，且**告警文案逐字**对上')
+  })
+
+  run({ slug: 'demo-style', inIndex: false }, (d) => {
+    const r = composeTheme(d)
+    ok(r.warnings.some((w) => w.includes('slug「demo-style」不在 _INDEX.md 里')), '退路链·slug 不在索引：报出来（不静默）')
+  })
+
+  run({ slug: 'demo-style', presetExists: false }, (d) => {
+    const r = composeTheme(d)
+    const want = '⚠️ 风格适配器：预设 presets/demo-style.css 不存在 → 退回内置基础「whale-sensei」'
+    ok(r.used === 'whale-sensei' && r.fallback === true && r.warnings.includes(want),
+      '退路链·预设缺失：退到内置基础 + fallback=true，**告警文案逐字**对上')
+  })
+
+  run({ slug: 'demo-style', presetExists: false, builtinExists: false }, (d) => {
+    let msg = null
+    try { composeTheme(d) } catch (e) { msg = e.message }
+    ok(!!msg && msg.includes('拒绝静默降级'), `退路链·连内置都没有：**抛错**而不是静默降级（${msg || '居然没抛 ✗'}）`)
+  })
+
+  // 跨仓：两边 DEFAULT_SLUG 必须同值 —— 插件侧那个不导出，就用一条**必退回**的夹具把它逼出来
+  {
+    const require_ = createRequire(import.meta.url)
+    const adapterSrc = fs.readFileSync(path.join(ROOT, 'tools', 'style-adapter.js'), 'utf8')
+    const m = adapterSrc.match(/const DEFAULT_SLUG = '([^']+)'/)
+    const adapter = require_(path.join(ROOT, 'tools', 'style-adapter.js'))
+    ok(!!m && adapter.DEFAULT_SLUG === m[1], `包侧适配器的 DEFAULT_SLUG 与它自己的源码一致（${m ? m[1] : '没抓到'}）`)
+    run({ config: false }, (d) => {
+      const r = composeTheme(d)
+      ok(r.slug === adapter.DEFAULT_SLUG, `**跨仓同值**：插件退到的内置基础 == 包侧 DEFAULT_SLUG（插件 ${r.slug} / 包侧 ${adapter.DEFAULT_SLUG}）`)
+    })
+  }
 }
 
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
