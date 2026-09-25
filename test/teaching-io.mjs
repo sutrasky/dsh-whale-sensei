@@ -103,6 +103,43 @@ try {
 		ok(globalSpec.ok === false && /必须挂在/.test(globalSpec.error), `全局层不许写 spec（${globalSpec.error}）`)
 	}
 
+	// ── ③b 圆圈能**声明判据**（`judge`）—— 2026-09-25 补的死契约 ──
+	//
+	// `lib/teaching-apply.js` 的 `judgeTeachingContent()` 读 `item.judge`（声明了名字就去可插拔表里查，
+	// 没实现就 `ok:null` 如实说"不假装判过"）。但 `SPEC_KEYS` 原先**没有 `judge`** ⇒
+	// agent 一写就被当"多余键"拒，`JUDGES` 永远空表 —— 那条"可插拔"是死的。
+	// 这一组判据把那个口子钉住：能写、能原样读回、坏名字仍要拒、不声明就不落这个键。
+	//
+	// ⚠️ 用**另一个圆圈**（`judgeCircle`）：往 `programming` 再写一版 spec 会把它上面的
+	//    `commentDensity` 换掉，后面那批判据全跟着红（实测踩过一次）。
+	{
+		const JUDGE_CIRCLE = 'judge-circle'
+		const withJudge = [
+			{ id: 'lineDensity', label: '行密度', judge: 'lineDensity',
+				values: [{ id: 'loose', directive: '段落之间留白多一点。' }, { id: 'tight', directive: '段落排紧一点。' }],
+				defaultByTier: { 1: 'loose', 2: 'loose', 3: 'tight', 4: 'tight' } },
+		]
+		const w = recordTeaching(tmp, { circle: JUDGE_CIRCLE, kind: 'spec', spec: withJudge, source: 'agent' })
+		ok(w.ok === true, `spec 能声明 judge（${w.ok ? 'ok' : w.error}）`)
+		ok(w.record?.spec?.[0]?.judge === 'lineDensity', 'judge 原样读回（没被丢掉、没被改名）')
+		ok(validateSpec(withJudge)[0].judge === 'lineDensity', 'validateSpec 也保留 judge')
+
+		const badName = recordTeaching(tmp, { circle: JUDGE_CIRCLE, kind: 'spec', source: 'agent',
+			spec: [{ ...withJudge[0], judge: 'not a name!' }] })
+		ok(badName.ok === false && /judge 必须是/.test(badName.error), `judge 不是标识符 → 拒写（${badName.error}）`)
+
+		const noJudge = validateSpec([{ ...withJudge[0], judge: undefined }])[0]
+		ok(!('judge' in noJudge), '不声明 judge 时**不落这个键**（键序与字节跟没声明过的一样）')
+
+		// 判据那边：声明了名字但插件里没实现 → ok:null（不假装判过）
+		const { judgeTeachingContent } = await import('../lib/teaching-apply.js')
+		const checks = judgeTeachingContent('<p>x</p>', { lineDensity: 'tight' }, validateSpec(withJudge))
+		ok(checks.length === 1 && checks[0].ok === null && /没有实现/.test(checks[0].detail),
+			`声明了判据但没实现 → ok:null 且写明原因（${checks[0]?.detail}）`)
+		const undeclared = judgeTeachingContent('<p>x</p>', { lineDensity: 'tight' }, validateSpec([{ ...withJudge[0], judge: undefined }]))
+		ok(undeclared.length === 0, '没声明 judge 的可调项**不判**（不凭空造判据）')
+	}
+
 	// ── ④ 取值：落在 spec ∪ 全局的域里 ──
 	{
 		const r1 = recordTeaching(tmp, { circle: 'programming', kind: 'values', tier: 2, params: { commentDensity: 'block' }, source: 'student' })
@@ -135,7 +172,10 @@ try {
 	// ── ⑥ append-only：每个 (圆圈, kind) 各一条版本线；无时间戳；键序钉死 ──
 	{
 		const d = readTeaching(tmp)
-		ok(d.entries.length === 3, `台账 ${d.entries.length} 行（programming/spec 1 + programming/values 1 + 全局/values 1；被拒的都没落盘）`)
+		// 按 **(圆圈, kind)** 逐条对，不写裸数字 —— 少一条/多一条都能一眼看出是哪条。
+		const pairs = d.entries.map((e) => `${e.circle}/${e.kind ?? 'values'}`).sort()
+		ok(pairs.join(' ') === '*/values judge-circle/spec programming/spec programming/values',
+			`台账就这四条（${pairs.join(' ')}）—— 被拒的都没落盘`)
 		ok(d.circles.programming?.specV === 1 && d.circles.programming?.valuesV === 1, '圆圈 programming 的 spec 与 values **各有一条版本线**（各自从 v1 起）')
 		ok(d.global.v === 1 && d.global.values?.tier === 3, '全局层也有自己的版本线（v1）—— 三条线互不干扰')
 		const dup = recordTeaching(tmp, { v: 99, circle: 'programming', kind: 'values', tier: 2, params: { commentDensity: 'key' }, source: 'student' })
@@ -164,7 +204,7 @@ try {
 		const before = fs.readFileSync(file, 'utf8')
 		fs.appendFileSync(file, '这不是合法JSON{{{]\n', 'utf8')
 		const r = readTeaching(tmp)
-		ok(r.problems.some((p) => /解析失败/.test(p)) && r.entries.length === 3, '坏行进 problems、不抛、不静默丢')
+		ok(r.problems.some((p) => /解析失败/.test(p)) && r.entries.length === 4, '坏行进 problems、不抛、不静默丢')
 		fs.writeFileSync(file, before, 'utf8')
 		const bad = recordTeaching(tmp, { circle: 'programming', kind: 'values', tier: 9, params: {}, source: 'student' })
 		ok(bad.ok === false && /tier/.test(bad.error), '坏 tier 拒写')

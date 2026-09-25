@@ -95,19 +95,31 @@ const SPEC = [
 }
 
 // ── ③ 一处注入：源码级证明"没塞进 persona / 别处没拼第二份" ──
+//
+// 2026-09-25 收紧了判法（原来是"引用注入器的文件只有两个"）：
+// `lib/teaching-view.js` 也引用 `injectionBlock`，但它只把 block **交给设置页给人看**
+// （`GET /api/whale/teaching` 的 `block` 字段），**不进任何 prompt** —— 学生看到的必须
+// 与老师收到的逐字节同源，这正是我们要的。
+// 所以真正该判的是两件事：
+//   ① 引用注入器的文件就那三个（注入 / 生成 / 给人看），多一个都要有人解释；
+//   ② **把 block 拼进给模型的文本**的只有 `author.js` 一处 —— 这条才是"一处注入"的本体。
 {
-	const hits = []
+	const refs = []
+	const feeders = []
 	const walk = (dir) => {
 		for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
 			if (e.isDirectory()) { walk(path.join(dir, e.name)); continue }
 			if (!e.name.endsWith('.js')) continue
 			const t = fs.readFileSync(path.join(dir, e.name), 'utf8')
-			if (/injectionBlock\(|teachingDirectives\(/.test(t)) hits.push(e.name)
+			if (/injectionBlock\(|teachingDirectives\(/.test(t)) refs.push(e.name)
+			if (/teaching\?\.block|teaching\.block|lines\.push\([^)]*\bblock\b/.test(t)) feeders.push(e.name)
 		}
 	}
 	walk(path.join(PLUGIN, 'lib'))
-	ok(hits.sort().join(',') === 'author.js,teaching-apply.js',
-		`注入只发生在生成那一段（引用注入器的文件：${hits.join(' / ')}）`)
+	ok(refs.sort().join(',') === 'author.js,teaching-apply.js,teaching-view.js',
+		`引用注入器的就三个文件（author 注入 · apply 生成 · view 给人看）：${refs.join(' / ')}`)
+	ok(feeders.sort().join(',') === 'author.js',
+		`**拼进提示词**的只有 author.js 一处（block 不喂给别处）：${feeders.join(' / ') || '(无)'}`)
 }
 
 // ── ④ 判据 ──
