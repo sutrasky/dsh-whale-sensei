@@ -22,6 +22,7 @@ import os from 'node:os'
 import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { readPack } from '../lib/pack.js'
+import { remainingLessons } from '../lib/pack-model.js'
 import { readQueue, askPaths } from '../lib/ask-io.js'
 import { loadGlossaryLedger, glossarySummary } from '../lib/glossary-io.js'
 import { listLearningRecords } from '../lib/brief-io.js'
@@ -376,6 +377,64 @@ try {
   ok(recSec.lines.includes(`另有 ${totalRec - 3} 份未列`), `超过 3 份显式报未列（另有 ${totalRec - 3} 份未列）`)
   const withRec2 = await tool2.execute({ root: tmp })
   ok(withRec.markdown === withRec2.markdown, '有记录/调整/终点时两次渲染逐字节相同')
+
+  // ── ⑩ ③ 决策接线：卡点优先 / 档位差，且**可关**（P0-2 ④）──
+  //    这一节的判据是「建议真的随学生数据变」+「关掉开关就与今天逐字节相同」两条一起钉。
+  {
+    // 基线：此刻 tmp 里没有 gaps、终点也没有 from ⇒ 一个字都不该加（空态不编）
+    const classic = (await tool2.execute({ root: tmp })).brief
+    ok(classic.next.action === 'open-next-lesson', `⑩ 基线建议：${classic.next.action}`)
+    ok(!/卡在|档位差|差 \d+ 档/.test(classic.next.why), `⑩ 没有卡点/档位数据 ⇒ why 里一个字都不加（${classic.next.why}）`)
+
+    // ① 卡点优先：课后调整里写了"卡在哪" → why 必须出现那段
+    const FOCUS = '第3题：分层（缺：要有 service 目录）'
+    fs.writeFileSync(adjFile, [
+      JSON.stringify({ ts: 't1', lesson: 'spring-boot/0001', title: '第1课', adjust: '还好', lit: true, gaps: [] }),
+      JSON.stringify({ ts: 't2', lesson: 'spring-boot/0002', title: '第2课', adjust: '分层没讲透', lit: false, gaps: [FOCUS] }),
+    ].join('\n') + '\n', 'utf8')
+    const withFocus = (await tool2.execute({ root: tmp })).brief
+    ok(withFocus.next.action === 'open-next-lesson', '⑩ 卡点**不改分支**（动作还是 open-next-lesson，只改 why）')
+    ok(withFocus.next.why.includes(FOCUS) && /课后调整写着卡在/.test(withFocus.next.why),
+      `⑩ 假数据写明卡点 ⇒ why 出现该卡点（${withFocus.next.why.slice(-70)}）`)
+    ok(withFocus.next.why.includes('spring-boot/0002'), '⑩ 卡点带上**是哪一课的**（不然不知道该补哪一段）')
+
+    // ② 可关：同一份数据，advice:false → why 与"没有卡点数据"时**逐字节相同**
+    const offFocus = (await tool2.execute({ root: tmp, advice: false })).brief
+    ok(offFocus.next.why === classic.next.why, '⑩ 关开关（advice:false）⇒ why 与没有卡点数据时**逐字节相同**（退回今天的行为）')
+
+    // ③ 档位差：终点契约的 tier 与起点台阶 from.tier 比 → 差几档 + 地图还差几课
+    const g3 = recordGoal(tmp, {
+      pointId: 'programming/spring-boot',
+      tier: 3,
+      artifact: { what: '一个能独立跑的 REST 待办服务', where: 'code/_hello-spring-boot' },
+      acceptance: [{ no: 1, deliverable: '有构建文件', checks: [{ id: 'c1', kind: 'file', value: 'pom.xml' }] }],
+      from: { tier: 1, artifact: { what: '起点：能跑起一个 Hello', where: 'code/_hello-spring-boot' }, acceptance: [], focus: [] },
+      source: 'agent',
+    })
+    ok(g3.ok === true, `⑩ 影副本里落带起点台阶的终点（from.tier=1）${g3.ok ? '' : ' —— ' + g3.error}`)
+    const withTier = (await tool2.execute({ root: tmp })).brief
+    ok(/起点 tier 1 → 终点 tier 3（差 2 档）/.test(withTier.next.why), `⑩ 档位差算得出来（${(withTier.next.why.match(/起点 tier[^；]*/) || [''])[0]}）`)
+    const rem = remainingLessons(readPack(tmp), 'programming', 'spring-boot')
+    if (rem === null) {
+      ok(!/还要 \d+ 节课/.test(withTier.next.why), '⑩ 地图拿不到"还差几课" ⇒ **不说**那句（不编一个 N）')
+    } else {
+      ok(new RegExp(`地图上还差 ${rem} 课 —— 到这儿大概还要 ${rem} 节课`).test(withTier.next.why),
+        `⑩ "还要几节课"取地图前沿的真数（还差 ${rem} 课，与 remainingLessons 同源）`)
+    }
+    ok(/课后调整写着卡在/.test(withTier.next.why), '⑩ 两条尾注能**同时**在（卡点 + 档位差）')
+
+    const offTier = (await tool2.execute({ root: tmp, advice: false })).brief
+    // ⚠️ 不能拿前面那个 `classic` 当基线 —— 中间又落了一版终点，`goalNote`（验收 1/2 → 1/1）本来就变了。
+    // 精确判据：**关掉开关的输出 == 开着的输出把两条新尾注剥掉**（逐字节）。
+    const stripNewTails = (s) => String(s)
+      .replace(/；上一课（[^）]*）的课后调整写着卡在：[^；]* —— 下一课优先补这一段/, '')
+      .replace(/；起点 tier \d+ → 终点 tier \d+（差 \d+ 档）(；地图上还差 \d+ 课 —— 到这儿大概还要 \d+ 节课)?/, '')
+    ok(offTier.next.why === stripNewTails(withTier.next.why),
+      `⑩ 关开关 ⇒ 恰好等于"开着但剥掉两条新尾注"（逐字节）：${offTier.next.why}`)
+    ok(!/卡在|差 \d+ 档/.test(offTier.next.why), '⑩ 关开关后 why 里没有新尾注的任何痕迹')
+    const twice = (await tool2.execute({ root: tmp })).brief
+    ok(twice.markdown === withTier.markdown, '⑩ 有新数据时两次渲染仍逐字节相同（确定性没破）')
+  }
 
   // ── ⑥ 落盘 ──
   ok(!fs.existsSync(path.join(tmp, 'learning-records', 'brief.md')), '默认不写盘')
