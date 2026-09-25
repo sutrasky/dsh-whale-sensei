@@ -362,6 +362,12 @@ try {
       const base = runGate(gatePack)
       ok(true, `[8] A. 对照基线：${base.size} 条红（${base.size}/19 失败，排除清单造成的已知缺件）`)
 
+      // ⚠️ **基线闸门里有的检查会往包里写产物**：`tools/shape-pipeline.test.mjs` 走的是
+      //    真构建器（`node tools/build-lessons.js`，全量），于是刚剪掉的 `lessons/<圈>/<点>/`
+      //    又被重新长出来。动作段必须在**干净前提**下建圈，否则撞"圆圈 math 已存在（目录 …）"——
+      //    那是测试自己造出来的状态，不是产品缺陷（2026-09-25 定位：这条一直是本套件的预存在红）。
+      pruneCircles(gatePack)
+
       // ── B. 动作段：建 math 圆圈 + algebra 知识点 → 重建 → 闸门 ──
       const { ctx: gateCtx, routes: gateRoutes } = makeRouteCtx(gatePack)
       plugin.install(gateCtx)
@@ -404,11 +410,15 @@ try {
       ok(newRed.length === 0, `[8] C1. 新红 = 0（新出现的失败：${newRed.length ? newRed.join(', ') : '无'}）`)
 
       // C2. build-starmap.js --check 在 after 里是 PASS
-      const starmapFail = [...after].some((x) => x.includes('build-starmap'))
+      // ⚠️ **逐字比**，不用 `includes('build-starmap')` —— 那会把 `build-starmap-svg.js --check`
+      //    一起算进来（同族命令名互相污染判据，C3 原来就栽在这上面）。
+      const starmapFail = [...after].some((x) => x === 'node tools/build-starmap.js --check')
       ok(!starmapFail, `[8] C2. build-starmap.js --check 在 after 里 ${starmapFail ? '仍红' : 'PASS'}`)
 
       // C3. build-lessons.js --check 在 after 里是 PASS
-      const lessonsFail = [...after].some((x) => x.includes('build-lessons'))
+      // 原来是 `includes('build-lessons')` —— 把 `build-lessons-extract.test.mjs` 也算进来，
+      // 而那条在剪过的包里本来就红（缺 fixture）⇒ **C3 永远不可能绿**（2026-09-25 定位）。
+      const lessonsFail = [...after].some((x) => x === 'node tools/build-lessons.js --check')
       ok(!lessonsFail, `[8] C3. build-lessons.js --check 在 after 里 ${lessonsFail ? '仍红' : 'PASS'}`)
 
       // ── D. 反空转：故意在 after 里加一条假红，断言集合差会捕获 ──

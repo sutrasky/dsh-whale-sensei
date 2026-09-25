@@ -28,6 +28,7 @@ import { fileURLToPath } from 'node:url'
 import { plugin as statusPlugin } from '../lib/mods/status.js'
 import { plugin as starterPlugin } from '../lib/mods/starter.js'
 import { STARTER_LABEL } from '../lib/starter.js'
+import { loadGlossaryLedger, glossarySummary } from '../lib/glossary-io.js'
 import { goalsPath } from '../lib/goal-io.js'
 import { packRoot, PLUGIN } from './_pack.mjs'
 import { readPack } from '../lib/pack-model.js'
@@ -92,7 +93,13 @@ console.log(`\n[panel] 课程包：${ROOT}`)
     ok(/^\d+ \/ \d+$/.test(find('课程包', '已点亮')?.value || ''), `已点亮 x / y（${find('课程包', '已点亮')?.value}）`)
     ok(find('产物', '一致性')?.value === '产物与课程包一致' && find('产物', '一致性')?.state === 'ok', `产物一致性与 whale_build 同源（${find('产物', '一致性')?.value}）`)
     ok(!!find('审计', '审计')?.value, `审计块有结论（${find('审计', '审计')?.value}）`)
-    ok(/69 条 · 15 类/.test(find('台账', '名词')?.value || ''), `台账名词是真数（${find('台账', '名词')?.value}）`)
+    // ⚠️ **不写死条数**（原来写死 `/69 条 · 15 类/`，台账长到 70/16 就假红）。
+    // 判据 = 卡片上的数字与**台账真源同源**（与 status.js:137 调的是同一个函数）——
+    // 这就是 P2-14「文档/卡片数字自己长出来」那条原则，别再手抄数字。
+    const g = glossarySummary(loadGlossaryLedger(ROOT))
+    const gExpect = `${g.count} 条 · ${g.categories} 类`
+    ok((find('台账', '名词')?.value || '').startsWith(gExpect),
+      `台账名词是真数（${find('台账', '名词')?.value}）—— 与台账真源同源，期望 ${gExpect}`)
     ok(/待答 \d+ · 已答 \d+/.test(find('台账', '答疑')?.value || ''), `答疑是真数（${find('台账', '答疑')?.value}）`)
     ok(/\d+ 个/.test(find('学生工作区', '项目')?.value || ''), `学生工作区是真数（${find('学生工作区', '项目')?.value}）`)
     ok(!!find('插件', '版本')?.value, `插件块有版本（${find('插件', '版本')?.value}）`)
