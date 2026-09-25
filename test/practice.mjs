@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url'
 import { readPack } from '../lib/pack.js'
 import { probeState } from '../lib/state-scan.js'
 import { PROBE_VERSION } from '../lib/fingerprint.js'
-import { buildPracticeData, renderPracticeDataModule } from '../lib/practice.js'
+import { buildPracticeData, renderPracticeDataModule, describeConflict } from '../lib/practice.js'
 import { probeBase, dumpDom, findBrowser } from '../lib/visual-io.js'
 import { plugin as practicePlugin } from '../lib/mods/practice.js'
 import { packRoot } from './_pack.mjs'
@@ -111,6 +111,49 @@ ok(
 )
 ok(colliding.lessons['alge/0001'].summary.total === 2, '两条数据的数值各归各（没有串课）')
 ok(colliding.lessons['spring-boot/0001'].expect === 'code/a/EXPECT.json', '每条带着**自己项目**的 EXPECT 路径（页面脚注不再写死）')
+
+// ── 文件名兜底键的歧义（2026-09-25，P1-11）──
+// 两个**不同的课**共用同一个文件名时，页面按文件名兜底会拿到**别的课**的实践区（静默错位）。
+// 规矩：这种含糊**不猜** —— 丢掉那条兜底键，并把冲突报出来（不许静默）。
+{
+  const conflicts = []
+  const data2 = buildPracticeData({
+    state: {
+      probeVersion: PROBE_VERSION,
+      projects: [
+        { dir: 'code/a', expect: { path: 'code/a/EXPECT.json' }, lessons: [mkLesson('spring-boot/0001', 1, 1)] },
+        { dir: 'code/b', expect: { path: 'math/alge/EXPECT.json' }, lessons: [mkLesson('alge/0001', 1, 1)] },
+      ],
+    },
+    pack: {
+      lessons: [
+        { id: 'spring-boot/0001', file: 'programming/spring-boot/0001-hello.html' },
+        { id: 'alge/0001', file: 'math/alge/0001-hello.html' },
+      ],
+    },
+    conflicts,
+  })
+  ok(data2.byFile['0001-hello.html'] === undefined, '同名文件**不写兜底键**（宁可兜底查不到，也不给错课的实践区）')
+  ok(
+    data2.byFile['programming/spring-boot/0001-hello.html'] === 'spring-boot/0001' &&
+      data2.byFile['math/alge/0001-hello.html'] === 'alge/0001',
+    '整路径键照旧都在（页面主查法不受影响）'
+  )
+  ok(
+    conflicts.length === 1 &&
+      conflicts[0].base === '0001-hello.html' &&
+      describeConflict(conflicts[0]).includes('spring-boot/0001') &&
+      describeConflict(conflicts[0]).includes('alge/0001'),
+    `歧义被**报出来**（${conflicts.length} 条）`
+  )
+  // 反空转：只有一个课用这个文件名时，兜底键必须照常写（别把正常情况也堵死）
+  const aliasOk = buildPracticeData({
+    state: { probeVersion: PROBE_VERSION, projects: [{ dir: 'code/a', expect: { path: 'code/a/EXPECT.json' }, lessons: [mkLesson('spring-boot/0001', 1, 1)] }] },
+    pack: { lessons: [{ id: 'spring-boot/0001', file: 'programming/spring-boot/0001-hello.html' }] },
+    conflicts: [],
+  })
+  ok(aliasOk.byFile['0001-hello.html'] === 'spring-boot/0001', '反空转：文件名不冲突时兜底键照旧写（正常路径没被堵死）')
+}
 
 ok(text === fs.readFileSync(path.join(ROOT, DATA_REL), 'utf8'), '真包磁盘上的 practice-data.js 与现算结果**逐字节相同**（漂移检查绿）')
 

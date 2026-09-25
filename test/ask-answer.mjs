@@ -29,6 +29,7 @@ import { handleAnswer, ledgerPath, loadLedger, verifyOrRollback } from '../lib/a
 import { insertLedgerEntry, serializeLedgerEntry } from '../lib/ask.js'
 import { plugin as askPlugin } from '../lib/mods/ask.js'
 import { packRoot } from './_pack.mjs'
+import { lessonIndex, keyOfAnchor } from '../lib/pack-model.js'
 
 const ROOT = packRoot()
 let pass = 0
@@ -39,6 +40,18 @@ function ok(cond, msg) {
 const sha = (b) => crypto.createHash('sha256').update(b).digest('hex').slice(0, 16)
 const hashOf = (p) => { try { return sha(fs.readFileSync(p)) } catch { return 'missing' } }
 const CLOCK = () => '2026-01-02T03:04:05.000Z'
+
+/**
+ * 课次解析器：用**包自己那份** `lessonIndex`（不是测试桩）—— 影子包是从真包整树拷的，
+ * 真实课次表就在里面。`handleAnswer` 现在**必须**注入它：判不了课次对位就不许写。
+ */
+const resolverFor = (root) => (x) => {
+  const idx = lessonIndex(root)
+  const key = keyOfAnchor(x, idx)
+  if (!key) throw new Error(`课次对不上：${JSON.stringify(x)} 在课次映射表里解析不到（现有：${Object.values(idx.byKey).map((e) => e.label).join(' / ')}）`)
+  return { key, label: idx.byKey[key].label }
+}
+const answer = (root, opts) => handleAnswer(root, { resolveLesson: resolverFor(root), ...opts })
 
 const realLedger = path.join(ROOT, 'assets', 'questions-data.js')
 const realBefore = hashOf(realLedger) + '|' + hashOf(path.join(ROOT, 'questions', 'pending.jsonl')) + '|' + hashOf(path.join(ROOT, 'questions', 'processed.jsonl'))
@@ -70,7 +83,7 @@ try {
   const BODY = { id: '0004', answer: '一句话：@Valid 负责触发校验，@RequestBody 只负责把 JSON 读成对象。', answerHtml: `<p><strong>${MARK}</strong>：<code>@Valid</code> 触发校验。</p>` }
 
   // ── ① 合法写回（先关重建，单独验写台账）──
-  const r1 = await handleAnswer(tmp, { raw: JSON.stringify(BODY), now: CLOCK, rebuild: false })
+  const r1 = await answer(tmp, { raw: JSON.stringify(BODY), now: CLOCK, rebuild: false })
   ok(
     r1.status === 200 && r1.body.ok === true && r1.body.id === '0004',
     `合法 answer → ${r1.status} ${r1.body.ok ? `{ ok:true, id:"${r1.body.id}" }（自检：${r1.body.selfCheck}）` : `{ ok:false, error:"${r1.body.error}" }`}`
@@ -99,7 +112,7 @@ try {
 
   // ── ② 幂等 ──
   const frozenLedger = hashOf(L)
-  const r2 = await handleAnswer(tmp, { raw: JSON.stringify({ ...BODY, answer: '改一版' }), now: CLOCK, rebuild: false })
+  const r2 = await answer(tmp, { raw: JSON.stringify({ ...BODY, answer: '改一版' }), now: CLOCK, rebuild: false })
   ok(r2.status === 409 && /已经有/.test(r2.body.error), `同 id 再答 → ${r2.status} ${r2.body.error}`)
   ok(hashOf(L) === frozenLedger, '被拒之后台账**逐字节不变**')
 
@@ -112,7 +125,7 @@ try {
     ['id 不是四位', { id: '5', answer: 'x', answerHtml: '<p>x</p>' }, 400, /四位编号/],
   ]
   for (const [name, body, want, re] of BADS) {
-    const r = await handleAnswer(tmp, { raw: JSON.stringify(body), now: CLOCK, rebuild: false })
+    const r = await answer(tmp, { raw: JSON.stringify(body), now: CLOCK, rebuild: false })
     ok(r.status === want && re.test(r.body.error || ''), `坏样本「${name}」→ ${r.status} ${r.body.error}`)
   }
   ok(hashOf(L) + '|' + hashOf(PENDING) + '|' + hashOf(PROCESSED) === frozen, '四条坏样本之后：台账 + pending + processed 三份哈希**全不变**')
@@ -121,7 +134,7 @@ try {
   const broken = srcAfter.replace(/^\(function/m, '(((( function')
   fs.writeFileSync(L, broken, 'utf8')
   const hBroken = hashOf(L)
-  const r3 = await handleAnswer(tmp, { raw: JSON.stringify({ id: '0006', answer: 'x', answerHtml: '<p>x</p>', question: 'q' }), now: CLOCK, rebuild: false })
+  const r3 = await answer(tmp, { raw: JSON.stringify({ id: '0006', answer: 'x', answerHtml: '<p>x</p>', question: 'q' }), now: CLOCK, rebuild: false })
   ok(r3.status === 500, `坏台账 → ${r3.status}（${String(r3.body.error).slice(0, 40)}…）`)
   ok(hashOf(L) === hBroken, '坏台账上一个字都没写进去')
   fs.writeFileSync(L, srcAfter, 'utf8')
@@ -143,7 +156,7 @@ try {
 
   // ── ⑥ rebuild：真跑 drain + build-notes + build-lessons ──
   const notesBefore = hashOf(NOTES)
-  const r4 = await handleAnswer(tmp, { raw: JSON.stringify({ id: '0005', answer: '第二条解答正文', answerHtml: `<p>${MARK}-5</p>`, question: '占位（队列里找不到时应拒，这里补上 question）' }), now: CLOCK, rebuild: true })
+  const r4 = await answer(tmp, { raw: JSON.stringify({ id: '0005', answer: '第二条解答正文', answerHtml: `<p>${MARK}-5</p>`, question: '占位（队列里找不到时应拒，这里补上 question）' }), now: CLOCK, rebuild: true })
   ok(r4.status === 200, `rebuild 路径 → ${r4.status}`)
   ok((r4.body.steps || []).every((s) => s.code === 0), `三步脚本都退出码 0（${(r4.body.steps || []).map((s) => s.script + '=' + s.code).join(' · ')}）`)
   // 回归钉（2026-09-21 实测的真缺陷）：重建链原来只跑 drain + build-notes，
@@ -176,7 +189,7 @@ try {
   try {
     fs.cpSync(ROOT, tmp2, { recursive: true })
     fs.rmSync(path.join(tmp2, 'tools', 'build-notes.js'), { force: true })
-    const r5 = await handleAnswer(tmp2, {
+    const r5 = await answer(tmp2, {
       raw: JSON.stringify({ id: '0006', answer: '正文', answerHtml: '<p>fail-path</p>', question: '占位' }),
       now: CLOCK,
       rebuild: true,
@@ -191,6 +204,42 @@ try {
     ok(loadLedger(tmp2)['0006'] !== undefined, '台账里那条答案仍在（写没丢）')
   } finally {
     fs.rmSync(tmp2, { recursive: true, force: true })
+  }
+}
+
+// ── ⑥c 课次对位：写偏一个字必须**拒写**，不许静默挂到一个不存在的课上（P1-11）──
+{
+  const tmp3 = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-answer-lesson-'))
+  try {
+    fs.cpSync(ROOT, tmp3, { recursive: true })
+    const L3 = ledgerPath(tmp3)
+    const P3 = path.join(tmp3, 'questions', 'pending.jsonl')
+    const h0 = hashOf(L3) + '|' + hashOf(P3)
+    const bodyOf = (id, lesson) => JSON.stringify({ id, answer: '正文', answerHtml: '<p>x</p>', question: '占位', lesson })
+
+    // ① 课次写偏一个字 → 400，且台账与队列**一字未动**
+    const bad = await answer(tmp3, { raw: bodyOf('0007', '第2课x'), now: CLOCK, rebuild: false })
+    ok(
+      bad.status === 400 && /课次对不上/.test(bad.body.error || ''),
+      `课次写偏一个字 → ${bad.status} 拒写（${bad.body.error || ''}）`
+    )
+    ok(hashOf(L3) + '|' + hashOf(P3) === h0, '拒写时台账与队列**一字未动**')
+
+    // ② 给星图课次键（point/NNNN）→ 归一成显示名落盘（两种写法收敛成一种，别在台账里留两种写法）
+    const keyed = await answer(tmp3, { raw: bodyOf('0007', 'spring-boot/0002'), now: CLOCK, rebuild: false })
+    ok(
+      keyed.status === 200 && loadLedger(tmp3)['0007']?.lesson === '第2课',
+      `给 point/NNNN → 落盘归一成显示名（${loadLedger(tmp3)['0007']?.lesson}）`
+    )
+
+    // ③ 没注入解析器 + 非空 lesson → 拒写（不许"判不了就放过去"）
+    const noRes = await handleAnswer(tmp3, { raw: bodyOf('0008', '第2课'), now: CLOCK, rebuild: false })
+    ok(
+      noRes.status === 500 && /没注入课次解析器/.test(noRes.body.error || ''),
+      `没注入课次解析器 → ${noRes.status} 拒写（${noRes.body.error || ''}）`
+    )
+  } finally {
+    fs.rmSync(tmp3, { recursive: true, force: true })
   }
 }
 
