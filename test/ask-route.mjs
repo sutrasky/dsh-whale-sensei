@@ -22,7 +22,7 @@ import path from 'node:path'
 import os from 'node:os'
 import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
-import { handleAsk, readQueue, askPaths, readSeq } from '../lib/ask-io.js'
+import { handleAsk, readQueue, askPaths, readSeq, lookupAnswer, loadLedger } from '../lib/ask-io.js'
 import { ASK_MAX_BYTES, parseAskBody } from '../lib/ask.js'
 import { plugin as askPlugin } from '../lib/mods/ask.js'
 import { packRoot } from './_pack.mjs'
@@ -152,6 +152,10 @@ try {
   ok(get.status === 200 && getBody.count === 1, `路由处理器：GET → ${get.status} count=${getBody.count}`)
   const put = await h(new Request('http://127.0.0.1:3090/api/whale/ask', { method: 'PUT' }))
   ok(put.status === 405, `路由处理器：PUT → ${put.status}（只接受 GET/POST）`)
+  // 就地反馈（P1-8）：带 ?id= 的 GET 走「查这一条答了没」那条读口（影子包没台账 ⇒ 如实说不，不报错）
+  const got = await h(new Request('http://127.0.0.1:3090/api/whale/ask?id=9999', { method: 'GET' }))
+  const gotBody = await got.json()
+  ok(got.status === 200 && gotBody.answered === false, `路由处理器：GET ?id=9999 → ${got.status} answered=${gotBody.answered}（就地反馈的读口）`)
 } finally {
   fs.rmSync(tmp2, { recursive: true, force: true })
 }
@@ -179,6 +183,26 @@ try {
 } finally {
   fs.rmSync(tmp3, { recursive: true, force: true })
 }
+
+// ── ⑥c 就地反馈（P1-8）：按 id 查「答了没」—— 页面交完疑问后轮询它，答好了推回那一屏 ──
+{
+  const ledger = loadLedger(ROOT)
+  const answeredId = Object.keys(ledger).find((k) => ledger[k]?.status === 'answered' && (ledger[k].answerHtml || ledger[k].answer))
+  ok(Boolean(answeredId), `真包台账里有已答条目（拿它当真值：${answeredId || '无'}）`)
+  if (answeredId) {
+    const r = lookupAnswer(ROOT, { id: answeredId })
+    ok(r.status === 200 && r.body.answered === true && Boolean(r.body.answerHtml),
+      `lookupAnswer(已答 ${answeredId}) → answered:true 且带回 answerHtml（页面能就地显示）`)
+  }
+  const never = lookupAnswer(ROOT, { id: '9999' })
+  ok(never.status === 200 && never.body.answered === false, 'lookupAnswer(没答过的编号) → answered:false（**不编**）')
+  const bad = lookupAnswer(ROOT, { id: 'abc' })
+  ok(bad.status === 400 && /四位编号/.test(bad.body.error || ''), `lookupAnswer(坏 id) → ${bad.status} ${bad.body.error || ''}`)
+}
+
+// ── ⑥d agent 侧话术（P1-8 判据④）：答复正文**不贴全文**，只给清单与指针 ──
+ok(/清单与指针/.test(tool.description || '') && /不要贴进对话/.test(tool.description || ''),
+  '工具描述里写死「答复正文不要贴进对话、只给清单与指针」（正文贴全文既吃 token 又会被压缩损耗）')
 
 // ── ⑦ 真包没被动过 ──
 const realAfter = hashTree(path.join(ROOT, 'questions')) + '||' + sha(fs.readFileSync(path.join(ROOT, 'assets', 'ask.js')))
