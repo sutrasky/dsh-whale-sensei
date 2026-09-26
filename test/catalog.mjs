@@ -36,7 +36,7 @@ const programming = pack.circles.find((c) => c.id === 'programming')
 ok(programming != null, '[1] 找到 programming 圆圈')
 ok(pack.points.filter((p) => p.circle === 'programming').length === 2, `[1] programming 下知识点：${pack.points.filter((p) => p.circle === 'programming').length}（期望 2）`)
 const sbLessons = pack.lessons.filter((l) => l.point === 'spring-boot')
-ok(sbLessons.length === 2, `[1] spring-boot 课程数：${sbLessons.length}（期望 2）`)
+ok(sbLessons.length === 3, `[1] spring-boot 课程数：${sbLessons.length}（期望 3 —— 课程包已建到第3课；建课/删课后要同步这里）`)
 
 // ── [2] id 唯一且可解析 ──
 {
@@ -71,7 +71,7 @@ ok(sbLessons.length === 2, `[1] spring-boot 课程数：${sbLessons.length}（�
 
 // ── [3] nextNumber(pack,'programming','spring-boot') === 3 ──
 const nn = nextNumber(pack, 'programming', 'spring-boot')
-ok(nn === 3, `[3] nextNumber(programming,spring-boot) = ${nn}（期望 3）`)
+ok(nn === 4, `[3] nextNumber(programming,spring-boot) = ${nn}（期望 4 —— 同上）`)
 
 // ── [4] 反空转：不存在的知识点 ──
 const nnNull = nextNumber(pack, 'programming', '不存在的知识点')

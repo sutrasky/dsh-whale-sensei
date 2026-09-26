@@ -254,24 +254,26 @@ try {
 
 		// 槽位是**位置式**的（mini-React 按调用次序分配）：
 		//   StatusPanel 0–3（state / tick / pick / useEffect）
-		//   CatalogPanel 4–11（catState / catTick / expanded / rename / newCircle / del / notice / useEffect）
-		//   TeachingPanel 12–16（state / drafts / sends / collapsed / useEffect）
+		//   CatalogPanel 4–13（catState / catTick / expanded / rename / newCircle / del / notice / grp / grpMsg / useEffect）—— grp/grpMsg 是知识组编辑器（2026-09-26）
+		//   GroupPanel 12–17（state / tick / grp / msg / ui / useEffect）—— 知识组（中星）独立卡片（2026-09-26）
+		//   TeachingPanel 18–22（state / drafts / sends / collapsed / useEffect）
 		// ⚠️ 这个桩对**结构变化**很脆：谁在前面插一个 useState，下面全错位。
 		//    所以渲染完有一条 `cursor` 判据兜底（见文末），错位会当场红而不是静默少渲染。
 		slots[0] = { phase: 'ok', data: { ok: true, configured: true, sections: [] }, at: null }
 		slots[1] = 0
 		slots[2] = null
 		slots[4] = { phase: 'ok', data: null, error: '（本判据不测目录卡）' }
+		slots[12] = { phase: 'ok', data: null, error: '（本判据不测知识组卡）' }
 		slots[5] = 0
 		slots[6] = {}
 		slots[7] = {}
 		slots[8] = { open: false, name: '', id: '', saving: false, error: null }
 		slots[9] = null
 		slots[10] = null
-		slots[12] = { phase: 'ok', data: payload, error: null }
-		slots[13] = {}
-		slots[14] = {}
-		slots[15] = {}
+		slots[18] = { phase: 'ok', data: payload, error: null }
+		slots[19] = {}
+		slots[20] = {}
+		slots[21] = {}
 
 		const texts = []
 		const classes = []
@@ -296,7 +298,7 @@ try {
 		// 2026-09-26 排版重构：**各层默认收起**（用户拍板）。这条只能渲染级验 ——
 		// 收起态的内容仍在树里（只是 `.ws-hidden`），所以文本断言看不见它，必须查 className。
 		// ⚠️ 两个坑都踩过：
-		//   ① 不能再 `Comp({})` 一次来收集 —— 那会重跑一遍组件，把 hook 槽位从 17 顶到 21；
+		//   ① 不能再 `Comp({})` 一次来收集 —— 那会重跑一遍组件，把 hook 槽位从 23 顶到 27；
 		//   ② 必须**整词**比而不是 includes —— `ws-ask` 是 `ws-askTitle/ws-askRow/ws-askSub` 的前缀，
 		//      用 includes 会把一个块数成四个（当场踩到：期望 3 实得 12）。
 		const layerCount = 1 + payload.circles.length   // 全局层 + 每个圆圈一层
@@ -314,7 +316,7 @@ try {
 		ok(askN === layerCount, `「跟老师说」是**每层各一个**（实得 ${askN} 个，期望 ${layerCount}）`)
 
 		ok(typeof Comp === 'function', '拿得到设置节那个组件（whale-sensei）')
-		ok(cursor === 17, `渲染消耗 ${cursor} 个 hook 槽位（预期 17 —— 对不上说明面板结构变了，上面的槽位表要跟着更新）`)
+		ok(cursor === 23, `渲染消耗 ${cursor} 个 hook 槽位（预期 23 —— 对不上说明面板结构变了，上面的槽位表要跟着更新）`)
 		ok(all.includes('教学方式'), '渲染结果里有「教学方式」这一块')
 		ok(all.includes('老师下次生成课程时，实际会收到这一段'), '渲染结果里带「注入原文」的说明')
 		ok(all.includes(payload.circles[0].name), `渲染结果里有圆圈名（${payload.circles[0].name}）`)

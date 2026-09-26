@@ -32,7 +32,7 @@ const ok = (c, m) => { if (c) { pass++; console.log('ok   ' + m) } else { fails.
 const eq = (a, b, m) => ok(JSON.stringify(a) === JSON.stringify(b), `${m}（期望 ${JSON.stringify(b)}，实得 ${JSON.stringify(a)}）`)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-const CIRCLE = ['tools/circle-bands.js', 'tools/build-lessons.js', 'tools/build-starmap.js', 'assets/build-glossary.js', 'tools/build-glossary-tree.js', 'tools/build-notes.js']
+const CIRCLE = ['tools/circle-bands.js', 'tools/build-lessons.js', 'tools/build-starmap.js', 'tools/build-starmap-svg.js', 'assets/build-glossary.js', 'tools/build-glossary-tree.js', 'tools/build-notes.js']
 const LESSON = ['tools/build-lessons.js', 'tools/build-starmap.js']
 const RAN = 'ran.txt'
 
@@ -131,7 +131,7 @@ const r2 = await (await call(byPath2['/api/whale/circle'], '/api/whale/circle', 
 })).json()
 ok(r2.ok === true, '缺件不影响建圈本身成功')
 eq(r2.rebuild?.scripts, LESSON, '只跑包里真有的两条')
-eq(r2.rebuild?.missing, CIRCLE.filter((s) => !LESSON.includes(s)), 'missing 精确列出缺的三条')
+eq(r2.rebuild?.missing, CIRCLE.filter((s) => !LESSON.includes(s)), 'missing 精确列出缺的五条')
 ok(typeof r2.rebuild?.note === 'string' && r2.rebuild.note.includes('不在这个包里'), 'note 说清"缺的没跑"，不是静默略过')
 
 console.log('== ⑥ 全缺：不起作业（护着 intake.mjs 那 11 处 commit:true）==')
@@ -146,7 +146,7 @@ const r3 = await (await call(byPath3['/api/whale/circle'], '/api/whale/circle', 
 ok(r3.ok === true, '建圈本身仍成功')
 eq(r3.rebuild?.jobId, null, '**不起作业**（一个进程都不许平白起）')
 eq(r3.rebuild?.scripts, [], '没有可跑的脚本')
-eq(r3.rebuild?.missing, CIRCLE, '把缺的五条如实列全')
+eq(r3.rebuild?.missing, CIRCLE, '把缺的七条如实列全')
 ok(/产物不会自己长出来/.test(r3.rebuild?.note || ''), 'note 说清后果，不静默')
 
 console.log('== ⑦ 建课程（whale_author commit:true）两个方向 ==')

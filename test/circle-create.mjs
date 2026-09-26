@@ -122,7 +122,7 @@ try {
     plugin.install(ctx)
 
     // 四条写入口（POST）+ 一条重建查询口（GET，2026-09-24 加：入口建完自己起重建，前端轮询进度）
-    const postPaths = ['/api/whale/circle', '/api/whale/point', '/api/whale/circle/rename', '/api/whale/circle/delete']
+    const postPaths = ['/api/whale/circle', '/api/whale/point', '/api/whale/circle/rename', '/api/whale/circle/delete', '/api/whale/group/save', '/api/whale/group/delete']
     const getPaths = ['/api/whale/rebuild']
     const expectedPaths = [...postPaths, ...getPaths]
     const actualPaths = routes.map((r) => r.path).sort()

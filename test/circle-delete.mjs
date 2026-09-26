@@ -11,7 +11,7 @@
  *   [4] confirm 不是 true（false/'yes'）→ 拒绝（不给默认值）
  *   [5] 找不到的 id → 拒绝，什么都没动
  *   [6] 真删：目录 + lessons/src/<dir> 一起没了，响应列出两条 deleted + 5 条重建命令，
- *       且**真起重建**（回执带 rebuild.jobId 作业号，链 = 圆圈五脚本链）
+ *       且**真起重建**（回执带 rebuild.jobId 作业号，链 = 圆圈七脚本链）
  *   [7] 删后 readPack 里没有它；再删一次 → 拒绝
  *   [8] 进度清理：learned 里属于它的课次被清掉，别的圆圈那条**不许动**
  *   [9] 学生代码 code/ 只报不删（清单列出它，删完目录还在）
@@ -108,7 +108,7 @@ try {
 
   // 重建链脚本在影副本里换成**桩**：判据只看回执里的作业号与链清单，不许在影副本里
   // 真跑六条重建脚本（真脚本会往 tmpPack 写产物、还可能拖到用例跑完之后）。
-  const CIRCLE_CHAIN = ['tools/circle-bands.js', 'tools/build-lessons.js', 'tools/build-starmap.js', 'assets/build-glossary.js', 'tools/build-glossary-tree.js', 'tools/build-notes.js']
+  const CIRCLE_CHAIN = ['tools/circle-bands.js', 'tools/build-lessons.js', 'tools/build-starmap.js', 'tools/build-starmap-svg.js', 'assets/build-glossary.js', 'tools/build-glossary-tree.js', 'tools/build-notes.js']
   for (const s of CIRCLE_CHAIN) {
     const stub = path.join(tmpPack, ...s.split('/'))
     fs.mkdirSync(path.dirname(stub), { recursive: true })
@@ -159,7 +159,7 @@ try {
 
   // ── [1] 路由契约 ──
   {
-    const expected = ['/api/whale/circle', '/api/whale/point', '/api/whale/circle/rename', '/api/whale/circle/delete', '/api/whale/rebuild']
+    const expected = ['/api/whale/circle', '/api/whale/point', '/api/whale/circle/rename', '/api/whale/circle/delete', '/api/whale/group/save', '/api/whale/group/delete', '/api/whale/rebuild']
     const actual = routes.map((r) => r.path).sort()
     ok(expected.slice().sort().join(',') === actual.join(','),
       `[1] create 注册的路径集合精确匹配 ${expected.length} 条（实得 ${actual.length}：${actual.join(', ')}）`)
@@ -239,7 +239,7 @@ try {
     ok(typeof d.rebuild?.jobId === 'string' && d.rebuild.jobId.length > 0,
       `[6] 删圈成功回执**真起重建**：rebuild.jobId = ${JSON.stringify(d.rebuild?.jobId)}（字符串作业号，前端据此轮询）`)
     ok(JSON.stringify(d.rebuild?.scripts) === JSON.stringify(CIRCLE_CHAIN),
-      `[6] 重建链 = 圆圈五脚本链（与建圈同一条）：${JSON.stringify(d.rebuild?.scripts)}`)
+      `[6] 重建链 = 圆圈七脚本链（与建圈同一条）：${JSON.stringify(d.rebuild?.scripts)}`)
     ok(d.needsRebuild != null && d.rebuild != null, '[6] needsRebuild（清单）与 rebuild（动作）两个都留')
     const job = await waitRebuild(d.rebuild.jobId)
     ok(job?.done === true && job?.rebuild?.ok === true,
