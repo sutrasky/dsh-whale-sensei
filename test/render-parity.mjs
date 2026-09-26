@@ -1,7 +1,7 @@
 /**
  * render-parity.mjs —— M2 验收：插件渲染与 CLI 渲染**逐字节相同**
  *
- * 四条判据（缺一条这活就不算成）：
+ * 五条判据（缺一条这活就不算成；第 ⑤ 条是 P1-6 定制层契约，见文件末 F 段）：
  *   ① CLI 自检无漂移 —— 证明"磁盘上的页面 == CLI 渲染结果"，这是对拍基准成立的前提
  *   ② 插件 planBuild() == 磁盘产物，逐字节（不是"看起来一样"）
  *   ③ planBuild 是确定的：同一输入两次调用，结果逐字相同
@@ -220,6 +220,70 @@ export function checkTermListDead(sources) {
   // 反空转的对偶：**只在注释里**提到这些名字 → 不许红（证明判据看的是代码，不是文本）
   const onlyComment = checkTermListDead({ '伪造·只在注释里提': '/* 这里曾经有 renderTermList / termHref / slug */\nconst a = 1' })
   ok(onlyComment.length === 0, '反空转⑤：只在注释里提到这三个符号 → 不红（判据看代码，不看注释）')
+}
+
+/* ── F：定制层（coach）契约（P1-6）────────────────────────────────────────────
+ * 契约：三个**整行**占位符 `<!-- @WHALE:RECAP|NEXT|ASK -->` 必须都在 `_frame.html` 里；
+ * 渲染器只在整行处注入定制层内容；**缺占位符即构建报错**（静默留白正是这条契约要堵的洞）。
+ * 对拍口径（方案 `_board/03:151` 特意说死的那条）：render-parity 跑的是**注入固定（空）
+ * coach fixture 的渲染结果**，不读真包数据 —— 所以"改 coach 数据"与"对拍绿"不冲突。
+ */
+{
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-coach-'))
+  try {
+    fs.cpSync(ROOT, tmp, { recursive: true })
+    const framePath = path.join(tmp, 'assets', '_frame.html')
+    const frameOrig = fs.readFileSync(framePath, 'utf8')
+
+    // F1 · 三个占位符都在，且都是**整行**（独占一行 —— 半行的会被当正文留下，等于没契约）
+    for (const slot of ['RECAP', 'NEXT', 'ASK']) {
+      ok(
+        new RegExp(`^[ \\t]*<!--\\s*@WHALE:${slot}\\s*-->$`, 'm').test(frameOrig),
+        `F1 占位符 <!-- @WHALE:${slot} --> 在 _frame.html 里且**独占一行**`
+      )
+    }
+
+    // F2 · 真包没有 coach 目录 ⇒ 上面 ①② 跑的就是**空 fixture**，不是真包数据
+    ok(
+      !fs.existsSync(path.join(ROOT, 'learning-records', 'coach')),
+      'F2 真包没有 learning-records/coach ⇒ 对拍基准跑的就是空 fixture（不是真包数据）'
+    )
+
+    // F3 · 换一份 coach 数据 → 那一段**真的被注入**了
+    const coachDir = path.join(tmp, 'learning-records', 'coach', 'spring-boot')
+    fs.mkdirSync(coachDir, { recursive: true })
+    fs.writeFileSync(
+      path.join(coachDir, '0001.jsonl'),
+      JSON.stringify({ slot: 'RECAP', html: '<div class="coach-recap" data-fixture="1">定制层来了</div>' }) + '\n',
+      'utf8'
+    )
+    execFileSync(process.execPath, [path.join(tmp, 'tools', 'build-lessons.js')], { cwd: tmp, stdio: 'pipe', timeout: 180_000 })
+    const pagePath = path.join(tmp, 'lessons', 'programming', 'spring-boot', '0001-spring-boot-hello-world.html')
+    const withCoach = fs.readFileSync(pagePath, 'utf8')
+    ok(
+      withCoach.includes('data-fixture="1"') && withCoach.includes('定制层来了'),
+      'F3 写一份 coach 数据 → 那一页的 RECAP 段**真的被注入**了（在占位符的位置）'
+    )
+    ok(!withCoach.includes('@WHALE:RECAP'), 'F3 注入后占位符本身**不留痕**（是被替换掉，不是叠一层）')
+
+    // F4 · 反空转：删掉一个占位符 → 构建必须**报错并点名**（不是静默留白）
+    fs.writeFileSync(framePath, frameOrig.replace(/^[ \t]*<!--\s*@WHALE:NEXT\s*-->\r?\n?/m, ''), 'utf8')
+    let threw = ''
+    try {
+      execFileSync(process.execPath, [path.join(tmp, 'tools', 'build-lessons.js')], { cwd: tmp, stdio: 'pipe', timeout: 180_000 })
+    } catch (e) {
+      threw = String(e.stdout || '') + String(e.stderr || '')
+    }
+    ok(
+      /缺整行占位符/.test(threw) && /@WHALE:NEXT/.test(threw),
+      `F4 反空转：删掉 <!-- @WHALE:NEXT --> → 构建**报错并点名**（${threw ? '已报错' : '没报错 = 契约空转 ✗'}）`
+    )
+
+    // F5 · 真包一字未动（全程只动 mkdtemp 拷贝）
+    ok(!fs.existsSync(path.join(ROOT, 'learning-records', 'coach')), 'F5 真包没被写入 coach（只在拷贝上造过）')
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
 }
 
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)

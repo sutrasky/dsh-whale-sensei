@@ -63,6 +63,7 @@
              数字由 ask.js 从上面那个 data-qa-count 推出来（构建期烘进去的已答条数）；
              没有新答复时带 [hidden] —— 不占位、不改卡片高度。 -->
         <button type="button" class="notes-card__ask" data-ask-open aria-haspopup="dialog">我有疑问<span class="ask-badge" data-ask-badge hidden></span></button>
+        <!-- @WHALE:ASK -->
         <!-- 课后调整 → 进度回写：记录调整 + 点亮本课（星图那边轮询到就同步点亮） -->
         <details class="adjust" data-lesson="{{LESSON_ID}}">
           <summary class="notes-card__link">课后调整 / 学完了</summary>
@@ -88,6 +89,7 @@
 
 {{REVIEW}}
 
+<!-- @WHALE:RECAP -->
     <div class="glossary-hint">
         <span class="hint-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="5"/><path d="M12 6.5v3.5"/></svg></span>
         <div>
@@ -119,6 +121,7 @@
 
 {{CHALLENGES}}
 
+<!-- @WHALE:NEXT -->
     <noscript><p class="stack-xs">实践区需要 JS 才能显示；关掉脚本时请看 <code>learning-records/state.json</code> 里的完成度。</p></noscript>
     <div id="practice-zone" class="stack-xs" hidden></div>
 
