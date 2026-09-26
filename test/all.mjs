@@ -1,8 +1,8 @@
 /**
  * all.mjs —— 两本账合成一个入口（A3）
  *
- *   ① 课程包闸门：`<pack>/tools/gate.mjs`        → 16 项
- *   ② 插件套件　：`test/run-all.mjs <packPath>`  → 17 套 / N 条断言
+ *   ① 课程包闸门：`<pack>/tools/gate.mjs`        → 本版 33 项
+ *   ② 插件套件　：`test/run-all.mjs <packPath>`  → 本版 49 套 / 2476 条断言
  *
  * 三条硬规矩（都是从已经踩过的坑里长出来的）：
  *   ① **解析不到摘要 = 硬失败**，绝不静默记成「0 / 0 通过」
