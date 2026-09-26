@@ -3,7 +3,7 @@
   "manifestVersion": "0.15",
   "id": "dev.example.whale-sensei",
   "name": "dsh-whale-sensei",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "facets": {
     "host": {
       "entry": "./lib/index.js",
