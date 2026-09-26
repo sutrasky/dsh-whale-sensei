@@ -23,6 +23,7 @@
 
 /** 逐字节取自课程包的件（引擎 + 设计基底，都是当前在用的版本） */
 export const FROM_PACK = [
+  'index.html',
   'templates/contract.css',
   'presets/whale-sensei.css',
   'assets/theme.css',

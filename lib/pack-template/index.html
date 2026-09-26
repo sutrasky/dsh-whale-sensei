@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>课程入口</title>
+<link rel="icon" href="assets/starmap.ico">
+<link rel="stylesheet" href="assets/theme.css">
+<link rel="stylesheet" href="assets/styles.css">
+<style>
+  /* 薄入口页（P1-7 小档 · 乙13 口径：只做空状态 + 统计降级 + 原生 details）。
+     两条纪律：
+       ① **不引外链字体 / CDN** —— 课程包要离线可用（与星图页同一个立场）；
+       ② 统计先写「–」、跑脚本才回填，**读不到就保持「–」，绝不回填 0**
+          （照 starmap/index.html:259-267 的现成范式：「脚本没跑时不许显示一个错误的数字」）。 */
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+         background: var(--dsw-alias-bg-base, #fff); color: var(--dsw-alias-label-primary, #1a1a1a); }
+  .entry { max-width: 880px; margin: 0 auto; padding: 32px 20px 64px; }
+  .entry h1 { font-size: 26px; margin: 0 0 6px; }
+  .entry__lead { color: var(--dsw-alias-label-secondary, #666); margin: 0 0 24px; line-height: 1.8; }
+  .entry__stats { border: 1px solid var(--dsw-alias-border, #e5e5e5); border-radius: 10px; padding: 14px 16px; margin: 0 0 24px; }
+  .entry__stats ul { display: flex; flex-wrap: wrap; gap: 18px 28px; list-style: none; margin: 0; padding: 0; }
+  .entry__stats span { color: var(--dsw-alias-label-secondary, #666); margin-right: 6px; }
+  .entry__stats b { font-variant-numeric: tabular-nums; }
+  .entry__cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 0 0 24px; }
+  .entry-card { display: block; padding: 16px 18px; border: 1px solid var(--dsw-alias-border, #e5e5e5);
+                border-radius: 10px; text-decoration: none; color: inherit; }
+  .entry-card:hover { border-color: var(--dsw-alias-label-secondary, #666); }
+  .entry-card strong { display: block; margin-bottom: 4px; }
+  .entry-card small { color: var(--dsw-alias-label-secondary, #666); line-height: 1.6; }
+  .entry__empty { border: 1px dashed var(--dsw-alias-border, #e5e5e5); border-radius: 10px; padding: 12px 16px; margin: 0 0 24px; }
+  .entry__empty ol { margin: 8px 0 0; padding-left: 22px; line-height: 1.9; }
+  .entry__foot { color: var(--dsw-alias-label-secondary, #666); font-size: 13px; line-height: 1.8; }
+  :focus-visible { outline: 2px solid var(--dsw-alias-brand, #3b82f6); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main class="entry">
+  <h1>课程入口</h1>
+  <p class="entry__lead">
+    这个包里的一切都在本机 —— 星图看全局、名词地图查术语、笔记页收答疑与笔记。
+    下面是这个包现在的家底（<strong>跑脚本才填</strong>；读不到就保持「–」，不显示一个错的数字）。
+  </p>
+
+  <section class="entry__stats" aria-label="课程资产">
+    <ul>
+      <li><span>知识圆圈</span><b data-stat="circles">–</b></li>
+      <li><span>知识点</span><b data-stat="points">–</b></li>
+      <li><span>课程</span><b data-stat="lessons">–</b></li>
+      <li><span>已点亮</span><b data-stat="learned">–</b></li>
+      <li><span>待答</span><b data-stat="pending">–</b></li>
+      <li><span>已答</span><b data-stat="answered">–</b></li>
+    </ul>
+  </section>
+
+  <nav class="entry__cards" aria-label="四个去处">
+    <a class="entry-card" href="starmap/"><strong>星图</strong><small>圆圈 / 知识点 / 课程 —— 点一颗星进那一课</small></a>
+    <a class="entry-card" href="glossary/"><strong>名词地图</strong><small>全部术语，按圆圈与课次分组</small></a>
+    <a class="entry-card" href="reference/NOTES.html"><strong>笔记与答疑</strong><small>提过的疑问、写过的笔记都收在这里</small></a>
+    <a class="entry-card" href="learning-records/"><strong>学习记录</strong><small>终点契约 / 摸底 / 教学方式 / 探针快照</small></a>
+  </nav>
+
+  <!-- 空状态：**一门课都没有**时由脚本露出来（原生 <details>：无 JS 也能开、键盘可达）。
+       默认 hidden —— 读不到数据时不猜"包是空的"。 -->
+  <details class="entry__empty" data-empty hidden>
+    <summary>这个包还是空的 —— 从这里开始</summary>
+    <ol>
+      <li>在设置页建第一个<strong>知识圆圈</strong>（比如「编程」）</li>
+      <li>在圆圈里建一个<strong>知识点</strong>（比如「Vue」）</li>
+      <li>跟老师说一句「教我 Vue」—— 第一课会按地图长出来</li>
+    </ol>
+  </details>
+
+  <p class="entry__foot">
+    <noscript>统计需要脚本才能读出来；关掉脚本时它们保持「–」。上面四个链接照样能用。</noscript>
+  </p>
+</main>
+
+<script src="starmap/content.js"></script>
+<script src="assets/questions-data.js"></script>
+<script>
+(function () {
+  'use strict';
+  // 拿不到就**不动**那个格子（保持 HTML 里的「–」）—— 绝不回填 0
+  function set(key, value) {
+    if (value === null || value === undefined || value === '') return;
+    var el = document.querySelector('[data-stat="' + key + '"]');
+    if (el) el.textContent = String(value);
+  }
+  function countLines(text) {
+    return String(text).split(/\r?\n/).filter(function (l) { return l.trim(); }).length;
+  }
+
+  // ① 圆圈 / 知识点 / 课程：读星图载荷（由 tools/build-starmap.js 生成，正本 lessons/**）
+  var real = window.STARMAP_REAL || {};
+  var halos = real.halos || [];
+  var lessons = real.lessons || [];
+  set('circles', halos.length);
+  set('lessons', lessons.length);
+  set('points', halos.reduce(function (n, h) { return n + ((h.points || []).length); }, 0));
+
+  // 空状态：**真读到了载荷**且一门课都没有，才露出来
+  if (real.lessons && lessons.length === 0) {
+    var box = document.querySelector('[data-empty]');
+    if (box) box.hidden = false;
+  }
+
+  // ② 已答：台账正本 assets/questions-data.js 的 window.QUESTIONS
+  var q = window.QUESTIONS || {};
+  set('answered', Object.keys(q).filter(function (k) { return q[k] && q[k].status === 'answered'; }).length);
+
+  // ③ 已点亮：进度正本 progress.json，经 /progress 路由（本地服务不在时读不到 → 保持「–」）
+  fetch(location.origin + '/progress').then(function (r) {
+    return r.ok ? r.json() : null;
+  }).then(function (d) {
+    if (d && Array.isArray(d.learned)) set('learned', d.learned.length);
+  }).catch(function () {});
+
+  // ④ 待答：questions/pending.jsonl 的非空行数
+  fetch('questions/pending.jsonl').then(function (r) {
+    return r.ok ? r.text() : null;
+  }).then(function (t) {
+    if (t !== null) set('pending', countLines(t));
+  }).catch(function () {});
+})();
+</script>
+</body>
+</html>
