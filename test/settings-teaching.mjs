@@ -274,6 +274,7 @@ try {
 		slots[15] = {}
 
 		const texts = []
+		const classes = []
 		const walk = (node) => {
 			if (node == null || node === false) return
 			if (typeof node === 'string') { texts.push(node); return }
@@ -282,6 +283,7 @@ try {
 				try { walk(node.type(node.props || {})) } catch { /* 桩求值失败不算红，靠下面的断言兜 */ }
 				return
 			}
+			if (node.props?.className) classes.push(node.props.className)
 			if (node.children) node.children.forEach(walk)
 			if (node.props?.children) {
 				const ch = node.props.children
@@ -290,6 +292,26 @@ try {
 		}
 		walk(Comp({}))
 		const all = texts.join(' ')
+
+		// 2026-09-26 排版重构：**各层默认收起**（用户拍板）。这条只能渲染级验 ——
+		// 收起态的内容仍在树里（只是 `.ws-hidden`），所以文本断言看不见它，必须查 className。
+		// ⚠️ 两个坑都踩过：
+		//   ① 不能再 `Comp({})` 一次来收集 —— 那会重跑一遍组件，把 hook 槽位从 17 顶到 21；
+		//   ② 必须**整词**比而不是 includes —— `ws-ask` 是 `ws-askTitle/ws-askRow/ws-askSub` 的前缀，
+		//      用 includes 会把一个块数成四个（当场踩到：期望 3 实得 12）。
+		const layerCount = 1 + payload.circles.length   // 全局层 + 每个圆圈一层
+		const tokensOf = (c) => String(c).split(/\s+/).filter(Boolean)
+		const hasCls = (c, t) => tokensOf(c).includes(t)
+		const bodies = classes.filter((c) => hasCls(c, 'ws-groupBody'))
+		const hiddenBodies = bodies.filter((c) => hasCls(c, 'ws-hidden'))
+		ok(bodies.length === layerCount && hiddenBodies.length === layerCount,
+			`教学方式 ${layerCount} 层**默认全部收起**（${bodies.length} 个层体，全部带 ws-hidden）`)
+		// 注：本判据的 `slots[4]` 把目录卡**故意置空**（"本判据不测目录卡"），
+		// 所以这里的按钮数就是教学层数，不含目录圆圈。
+		const toggleN = classes.filter((c) => hasCls(c, 'ws-groupToggle')).length
+		ok(toggleN === layerCount, `${layerCount} 层各有自己的折叠按钮（实得 ${toggleN}）`)
+		const askN = classes.filter((c) => hasCls(c, 'ws-ask')).length
+		ok(askN === layerCount, `「跟老师说」是**每层各一个**（实得 ${askN} 个，期望 ${layerCount}）`)
 
 		ok(typeof Comp === 'function', '拿得到设置节那个组件（whale-sensei）')
 		ok(cursor === 17, `渲染消耗 ${cursor} 个 hook 槽位（预期 17 —— 对不上说明面板结构变了，上面的槽位表要跟着更新）`)

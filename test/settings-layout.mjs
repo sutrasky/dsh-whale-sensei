@@ -129,6 +129,21 @@ const homeKeys = keysInHome(src)
   ok(!/groups\[SECTION_HOME\[s\.title\] \|\| 'other'\]/.test(broken2), '反空转：把兜底桶名改掉后，兜底那条判据当场变红')
 }
 
+// ── ⑨ 默认开合：五张卡全展开；卡内的组（目录圆圈 / 教学层）全部收起 ────────
+// 这是用户 2026-09-26 拍的两条：「采用 b（五张卡全展开）」+「各层默认收起」。
+{
+  const cardsOpen = (slice.match(/open: true,/g) || []).length
+  ok(cardsOpen === 5, `五张卡默认全展开（open: true 出现 ${cardsOpen} 次，期望 5）`)
+  ok(/var isCollapsed = collapsed\[key\] !== false;/.test(src),
+    '教学方式的层**默认收起**（`!== false`；写成 `=== true` 就是默认展开 —— 第一版就是这么错的）')
+  ok(/var isExpanded = !!expanded\[c\.id\];/.test(src),
+    '课程目录的圆圈**默认收起**（`expanded` 初值是空对象）')
+  // 反空转：把默认改回「展开」，上面那条必须当场变红
+  const broken = src.replace('var isCollapsed = collapsed[key] !== false;', 'var isCollapsed = collapsed[key] === true;')
+  ok(!/var isCollapsed = collapsed\[key\] !== false;/.test(broken),
+    '反空转：把教学层的默认改回「展开」后，默认收起那条当场变红')
+}
+
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
-console.log('✅ 设置页排版：三档字号 / 四档圆角 / 折叠原语唯一 / 样式表合规 / 五张卡完整 / 分派表完备（且证伪过）')
+console.log('✅ 设置页排版：三档字号 / 四档圆角 / 折叠原语唯一 / 样式表合规 / 五张卡完整 / 分派表完备 / 默认开合正确（且证伪过）')
