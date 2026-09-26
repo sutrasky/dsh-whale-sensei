@@ -1,4 +1,4 @@
-<#
+﻿<#
   install-whale-sensei.ps1 -- install the course plugin (dsh-whale-sensei) into the `web` profile.
 
   RUN THIS WITH DEEPSEEK HARNESS CLOSED.
@@ -29,8 +29,12 @@
       - -DryRun prints the result without writing anything
   Restart the host afterwards: packRoot is resolved once, at boot.
 
-  NOTE: keep every literal in this file ASCII -- Windows PowerShell 5.1 reads a
-  BOM-less .ps1 as ANSI and mangles non-ASCII, which can even break the parser.
+  ENCODING -- READ BEFORE EDITING --------------------------------------------
+  This file is UTF-8 WITH BOM on purpose.  Windows PowerShell 5.1 reads a BOM-less
+  .ps1 as ANSI: the Chinese literals below then decode into byte pairs that can
+  eat a quote and break the PARSER (measured on this very file: 6 parse errors
+  before a single line ran).  Either keep the BOM, or keep every literal ASCII --
+  but never BOM-less together with non-ASCII.
 #>
 [CmdletBinding()]
 param(
@@ -42,6 +46,7 @@ param(
     [switch] $SkipSnapshot,
     [switch] $PackRootOnly,
     [switch] $SkipPreset,
+    [switch] $Preflight,                 # report only: touch nothing, then exit
     [switch] $DryRun
 )
 
@@ -51,19 +56,98 @@ $ErrorActionPreference = 'Stop'
 # to passing the plugin folder explicitly.  Override with -PackageDir for another copy.
 if (-not $PackageDir) { $PackageDir = $PSScriptRoot }
 
-# DSH home: ALWAYS taken from the environment.  There is no portable guess for it
-# (it depends on how DSH was installed), so this script refuses to invent one.
-if (-not $env:DSH_HOME) {
-    throw 'DSH_HOME is not set. Set it to your DSH install root (the folder containing profiles\), then re-run.'
-}
-$DshHome    = $env:DSH_HOME
-$ProfileDir = Join-Path $DshHome "profiles\$Profile"
-$PkgJson    = Join-Path $ProfileDir 'package.json'
-$PatchYml   = Join-Path $ProfileDir 'cordis.patch.yml'
+function Say($m, $c = 'Gray') { Write-Host $m -ForegroundColor $c }
+
 # Rollback snapshots: under the user profile by default; override with DSH_PLUGIN_BACKUP.
 $BackupRoot = if ($env:DSH_PLUGIN_BACKUP) { $env:DSH_PLUGIN_BACKUP } else { Join-Path $env:USERPROFILE '.dsh-plugin-backup' }
 
-function Say($m, $c = 'Gray') { Write-Host $m -ForegroundColor $c }
+# --- locate DSH_HOME ---------------------------------------------------------
+# A fresh machine usually HAS DeepSeek Harness installed but DSH_HOME unset (the
+# npm-global installer does not set it), so refusing to guess used to block the
+# install everywhere except the author's machine.  Probe the same fallbacks the
+# plugin runtime uses (~/.dsh -- see lib/index.js, lib/profile-packroot.js), then
+# the folders the `dsh` command itself sits in.  A candidate only wins when it
+# really contains  profiles\<Profile>\package.json, so a stale or foreign
+# DSH_HOME can never send this script into a dead tree.
+$candHome = New-Object System.Collections.Generic.List[string]
+if ($env:DSH_HOME)     { $candHome.Add($env:DSH_HOME) }
+if ($env:USERPROFILE)  { $candHome.Add((Join-Path $env:USERPROFILE '.dsh')) }
+if ($env:APPDATA)      { $candHome.Add((Join-Path $env:APPDATA 'dsh')) }
+if ($env:LOCALAPPDATA) { $candHome.Add((Join-Path $env:LOCALAPPDATA 'dsh')) }
+$dshOnPath = Get-Command dsh -ErrorAction SilentlyContinue
+if ($dshOnPath) {
+    $probe = Split-Path -Parent $dshOnPath.Source
+    foreach ($hop in 1..3) {
+        if (-not $probe) { break }
+        $candHome.Add($probe)
+        $probe = Split-Path -Parent $probe
+    }
+}
+
+$DshHome = ''
+foreach ($c in ($candHome | Select-Object -Unique)) {
+    if ($c -and (Test-Path -LiteralPath (Join-Path $c "profiles\$Profile\package.json"))) { $DshHome = $c; break }
+}
+
+if (-not $DshHome) {
+    Say ''
+    Say "Cannot locate DSH_HOME -- no  profiles\$Profile\package.json  under any candidate root." 'Red'
+    $seen = @()
+    foreach ($c in ($candHome | Select-Object -Unique)) {
+        if (-not $c) { continue }
+        $pdir = Join-Path $c 'profiles'
+        if (-not (Test-Path -LiteralPath $pdir)) { continue }
+        $names = @(Get-ChildItem -LiteralPath $pdir -Directory -ErrorAction SilentlyContinue |
+                   Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'package.json') } |
+                   ForEach-Object { $_.Name })
+        if ($names.Count -gt 0) { $seen += ("  {0}   (profiles with a package.json: {1})" -f $c, ($names -join ', ')) }
+    }
+    if ($seen.Count -gt 0) {
+        Say 'DSH roots that DO exist on this machine:' 'Yellow'
+        $seen | ForEach-Object { Say $_ 'Yellow' }
+        Say 'Re-run with the right root and/or profile name:' 'Gray'
+        Say '  $env:DSH_HOME = "<root from the list above>"' 'Gray'
+        Say '  powershell -ExecutionPolicy Bypass -File install-whale-sensei.ps1 -Profile <name>' 'Gray'
+    } else {
+        Say 'Looked at: $env:DSH_HOME, ~\.dsh, %APPDATA%\dsh, %LOCALAPPDATA%\dsh, and next to the dsh command.' 'Yellow'
+        Say 'Start DeepSeek Harness once (that creates the profile), or set DSH_HOME, then re-run.' 'Gray'
+    }
+    exit 3
+}
+Say "DSH_HOME : $DshHome" 'DarkGray'
+if (-not $env:DSH_HOME) {
+    Say 'NOTE: DSH_HOME is not set -- the root above was GUESSED.  If the host was started' 'Yellow'
+    Say '      with a different DSH_HOME, set it (or pass -Profile <name>) and re-run, or the' 'Yellow'
+    Say '      plugin lands in a profile the host never reads.' 'Yellow'
+}
+
+$ProfileDir = Join-Path $DshHome "profiles\$Profile"
+$PkgJson    = Join-Path $ProfileDir 'package.json'
+$PatchYml   = Join-Path $ProfileDir 'cordis.patch.yml'
+
+# --- locate the dsh command --------------------------------------------------
+# npm-global installs DO put `dsh` on PATH, but a terminal opened before that
+# install does not see it -- and the docs themselves use `npx @deepseek-ai/dsh`.
+# Resolve once here so every later call is  & $dshBin @dshPre <args>.
+$dshBin = 'dsh'
+$dshPre = @()
+if (-not $dshOnPath) {
+    if (Get-Command npx -ErrorAction SilentlyContinue) {
+        $dshBin = 'npx'
+        $dshPre = @('@deepseek-ai/dsh')
+        Say 'NOTE: `dsh` is not on PATH -- falling back to  npx @deepseek-ai/dsh' 'Yellow'
+    } else {
+        Say ''
+        Say 'FAIL: neither `dsh` nor `npx` is on PATH, so the plugin cannot be added.' 'Red'
+        Say '      Install DeepSeek Harness (npm i -g @deepseek-ai/dsh), open a NEW' 'Red'
+        Say '      terminal, then run this script again.' 'Red'
+        exit 4
+    }
+}
+
+# Set by any printed FAIL below; the script exits 1 at the end when it is true.
+$script:softFail = $false
+
 
 <#
   Update (or append) the packRoot of the  - id: whale-sensei  entry in a profile
@@ -135,10 +219,74 @@ Write-Host ''
 if (-not (Test-Path (Join-Path $PackageDir 'package.json'))) { throw "not a package: $PackageDir" }
 if (-not (Test-Path $PkgJson)) { throw "no profile package.json: $PkgJson" }
 
+# --- the live-host probe -----------------------------------------------------
+# Judge with a raw TCP connect, NOT Get-NetTCPConnection.  On some machines (and
+# in any restricted shell) the CIM query returns NOTHING while the port really is
+# listening -- measured on this very machine: netstat showed 127.0.0.1:3090
+# LISTENING and TcpClient connected, while Get-NetTCPConnection answered empty.
+# A false "free" here means editing the profile of a RUNNING host, so the direct
+# probe is the one that decides.
+function Test-PortOpen([int] $Port) {
+    $client = New-Object System.Net.Sockets.TcpClient
+    try {
+        $iar = $client.BeginConnect('127.0.0.1', $Port, $null, $null)
+        if (-not $iar.AsyncWaitHandle.WaitOne(1500)) { return $false }
+        $client.EndConnect($iar)
+        return $true
+    } catch {
+        return $false
+    } finally {
+        $client.Close()
+    }
+}
+
+# --- 0a) -Preflight: report the environment, touch nothing -------------------
+if ($Preflight) {
+    Say ''
+    Say '== preflight (this mode writes nothing) ==' 'Cyan'
+    $bad = 0
+    Say ("  DSH_HOME        : {0}" -f $DshHome) 'Green'
+    Say ("  profile dir     : {0}" -f $ProfileDir) 'Green'
+    Say ("  plugin checkout : {0}" -f $PackageDir) 'Green'
+    if (Test-Path (Join-Path $PackageDir 'package.json')) {
+        Say '  plugin manifest : found' 'Green'
+    } else {
+        Say ("  plugin manifest : MISSING -- {0}\package.json not found" -f $PackageDir) 'Red'
+        $bad++
+    }
+    if ($dshPre.Count -gt 0) {
+        Say '  dsh command     : npx @deepseek-ai/dsh   (dsh is NOT on PATH)' 'Yellow'
+    } else {
+        Say ("  dsh command     : {0}" -f $dshOnPath.Source) 'Green'
+    }
+    $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+    if (-not $nodeCmd) {
+        Say '  node            : NOT FOUND -- the host needs Node >= 22.19' 'Red'
+        $bad++
+    } else {
+        $nv = (& node -v 2>$null)
+        Say ("  node            : {0}   (host needs >= 22.19)" -f $nv) 'Green'
+    }
+    if (Test-Path -LiteralPath (Join-Path $PackageDir 'preset\whale-mode\agent.cordis.yml')) {
+        Say '  preset template : found -- step 1c can run' 'Green'
+    } else {
+        Say '  preset template : missing -- step 1c will SKIP' 'Yellow'
+        Say '                    (build it: node preset/whale-mode/build-preset.mjs)' 'DarkGray'
+    }
+    if (Test-PortOpen $HostPort) {
+        Say ("  port {0}        : LISTENING -- close DeepSeek Harness before installing" -f $HostPort) 'Yellow'
+    } else {
+        Say ("  port {0}        : free" -f $HostPort) 'Green'
+    }
+    Say ''
+    if ($bad -gt 0) { Say 'preflight: NOT ready -- fix the red lines above first.' 'Red'; exit 1 }
+    Say 'preflight: environment looks installable.' 'Green'
+    exit 0
+}
+
 # --- 0) refuse to touch a LIVE host -----------------------------------------
 if (-not $SkipHostCheck) {
-    $live = Get-NetTCPConnection -LocalPort $HostPort -State Listen -ErrorAction SilentlyContinue
-    if ($live) {
+    if (Test-PortOpen $HostPort) {
         Say "REFUSING: something is still listening on port $HostPort (the DSH web host?)." 'Yellow'
         Say "           Close DeepSeek Harness completely, then run this again." 'Yellow'
         Say "           (override with -SkipHostCheck ONLY if you know that port is something else.)" 'DarkGray'
@@ -203,6 +351,7 @@ if ($PackRoot) {
             Say '     -> RESTART DeepSeek Harness: packRoot is resolved once, at boot.' 'Green'
         } else {
             Say 'FAIL packRoot did not land in cordis.patch.yml -- inspect it by hand.' 'Red'
+            $script:softFail = $true
         }
     }
 }
@@ -241,6 +390,7 @@ if (-not $SkipPreset) {
             $after = [System.IO.File]::ReadAllText((Join-Path $presetRoot 'agent.cordis.yml'))
             if ($after -match '__WHALE_SKILLS__' -or $after -notmatch [regex]::Escape($skillsYaml)) {
                 Say 'FAIL 占位符没替换干净 —— 手工看一眼' 'Red'
+                $script:softFail = $true
             } else {
                 Say "OK   wrote: $presetRoot（技能目录 $skillsYaml）" 'Green'
                 Say '     -> 重启 DeepSeek Harness，开会话时选「鲸师模式」' 'Green'
@@ -249,16 +399,18 @@ if (-not $SkipPreset) {
     }
 }
 
-# --- 2) add as link: ---------------------------------------------------------if ($PackRootOnly) {
+# --- 2) add as link: ---------------------------------------------------------
+if ($PackRootOnly) {
     Write-Host ''
     Say '(-PackRootOnly: plugin install skipped -- only packRoot was touched.)' 'DarkGray'
     Write-Host ''
+if ($script:softFail) { exit 1 }
     exit 0
 }
 
 Write-Host ''
-Say ">> dsh plugin --profile $Profile add link:$PackageDir" 'Cyan'
-& dsh plugin --profile $Profile add "link:$PackageDir"
+Say ">> $dshBin $($dshPre -join ' ') plugin --profile $Profile add link:$PackageDir" 'Cyan'
+& $dshBin @dshPre plugin --profile $Profile add "link:$PackageDir"
 if ($LASTEXITCODE -ne 0) {
     Say "FAILED: 'dsh plugin add' exited $LASTEXITCODE" 'Red'
     exit 1
@@ -267,7 +419,7 @@ if ($LASTEXITCODE -ne 0) {
 # --- 3) dump-config: the only reliable judge ---------------------------------
 Write-Host ''
 Say ">> dsh --profile $Profile --dump-config" 'Cyan'
-$dump = (& dsh --profile $Profile --dump-config 2>&1 | Out-String)
+$dump = (& $dshBin @dshPre --profile $Profile --dump-config 2>&1 | Out-String)
 $hit = ($dump -split "`n") | Where-Object { $_ -match '-\s*id:\s*whale-sensei' }
 
 Write-Host ''
@@ -288,6 +440,7 @@ if ($hit) {
     }
 } else {
     Say 'FAIL dump-config does NOT contain  `- id: whale-sensei`' 'Red'
+    $script:softFail = $true
     Say '     => the plugin did NOT get assembled. Do not trust "installed".' 'Red'
     Say '     roll back with the command below, then send me the dump-config output.' 'Red'
 }
@@ -298,3 +451,6 @@ Say 'rollback (either one):' 'DarkGray'
 Say "  dsh plugin --profile $Profile remove dsh-whale-sensei" 'DarkGray'
 if ($snap) { Say "  Copy-Item '$snap\package.json' '$PkgJson' -Force" 'DarkGray' }
 Write-Host ''
+
+# A FAIL above must not look like success to a caller or to CI.
+if ($script:softFail) { exit 1 }
