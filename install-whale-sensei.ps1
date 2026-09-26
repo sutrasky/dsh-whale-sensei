@@ -7,11 +7,11 @@
   WHY `link:` AND NOT `file:` ------------------------------------------------
   With `file:` pnpm COPIES the package into the profile, so every code edit needs
   "close DSH -> reinstall -> restart".  With `link:` the profile points straight at
-  E:\workplace\dsh-whale-sensei, so an edit only needs a restart.
+  the plugin checkout (this folder), so an edit only needs a restart.
 
   WHAT THIS SCRIPT DOES ------------------------------------------------------
     1) snapshots the profile package.json      (rollback is one command)
-    2) dsh plugin --profile web add link:E:/workplace/dsh-whale-sensei
+    2) dsh plugin --profile web add link:<this checkout>
     3) dsh --profile web --dump-config         (the ONLY reliable judge:
                                                 it must contain  - id: whale-sensei)
     4) prints the rollback command
@@ -34,7 +34,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string] $PackageDir = 'E:\workplace\dsh-whale-sensei',
+    [string] $PackageDir = '',          # '' -> the checkout this script lives in (see below)
     [string] $Profile    = 'web',
     [string] $PackRoot   = '',
     [int]    $HostPort   = 3090,
@@ -46,11 +46,22 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$DshHome    = if ($env:DSH_HOME) { $env:DSH_HOME } else { 'E:\App\dsh' }
+
+# Default to the checkout this script sits in -- machine-independent, and identical
+# to passing the plugin folder explicitly.  Override with -PackageDir for another copy.
+if (-not $PackageDir) { $PackageDir = $PSScriptRoot }
+
+# DSH home: ALWAYS taken from the environment.  There is no portable guess for it
+# (it depends on how DSH was installed), so this script refuses to invent one.
+if (-not $env:DSH_HOME) {
+    throw 'DSH_HOME is not set. Set it to your DSH install root (the folder containing profiles\), then re-run.'
+}
+$DshHome    = $env:DSH_HOME
 $ProfileDir = Join-Path $DshHome "profiles\$Profile"
 $PkgJson    = Join-Path $ProfileDir 'package.json'
 $PatchYml   = Join-Path $ProfileDir 'cordis.patch.yml'
-$BackupRoot = 'E:\workplace\_dsh-plugin-backup'
+# Rollback snapshots: under the user profile by default; override with DSH_PLUGIN_BACKUP.
+$BackupRoot = if ($env:DSH_PLUGIN_BACKUP) { $env:DSH_PLUGIN_BACKUP } else { Join-Path $env:USERPROFILE '.dsh-plugin-backup' }
 
 function Say($m, $c = 'Gray') { Write-Host $m -ForegroundColor $c }
 

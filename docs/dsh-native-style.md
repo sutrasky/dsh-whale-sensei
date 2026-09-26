@@ -3,10 +3,11 @@
 > **用途**：写 DSH 插件的界面时，照这份做出来的东西才像"宿主原生的"，而不是自己发明一套。
 > **来源**：2026-09-23 从 DSH 实现仓里**逐字**抽出来的（不是照着眼睛估的）。
 > **本机位置**（换机器要重新定位）：
-> `C:\Users\bouyer\AppData\Local\npm-cache\_npx\1e7f6d9597241db0\node_modules\@deepseek-ai\`
+> `<npm 缓存>\_npx\<hash>\node_modules\@deepseek-ai\`
+> （缓存根用 `npm config get cache` 查；再进 `_npx\<hash>\node_modules\@deepseek-ai\`。）
 >
-> ⚠️ 这份文档**故意不进 `package.json` 的 `files`**：里面写着本机绝对路径。
-> 哪天有人把它加进 `files`，`alien-env` 的静态守卫会当场判红（那是对的）。
+> ⚠️ 这份文档**故意不进 `package.json` 的 `files`**：它是**给作者看的**速查
+> （含本机缓存路径的写法示例），不是随包件 —— 随包发出去的是给用户的东西。
 
 ---
 

@@ -389,7 +389,7 @@ ok(!/%/.test(summaryText), '摘要里**没有百分比**（有"需人工确认"�
 // ── ⑪ 挑战序号对位（镜像包侧 R6）：no 集合必须恰好 = 课程源 `<!--@challenges-->` 的 <li> 条数 ──
 // 病灶：R6 原本只在课程包闸门跑、插件侧看不见 ⇒ 手写坏的 EXPECT.json（no 与源里题目数
 // 对不上）会让插件的 k/n **说谎**。这里走**全链**：state-scan 读源数 <li> → state.js 纯比较。
-// 口径：E:\workplace\study\tools\check-lesson-content.js 的 challengeAlignment()（R6 主流程）。
+// 口径：课程包侧 tools/check-lesson-content.js 的 challengeAlignment()（R6 主流程）。
 {
   const tmpR6 = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-r6-'))
   try {

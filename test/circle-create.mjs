@@ -2,7 +2,7 @@
 /**
  * test/circle-create.mjs — 写入口判据（新建圆圈 / 知识点）
  * ------------------------------------------------------------------
- * 铁律：全程只对 os.tmpdir() 下自己造的临时课程包副本操作，一次都不许写 E:\workplace\study。
+ * 铁律：全程只对 os.tmpdir() 下自己造的临时课程包副本操作，一次都不许写真课程包（packRoot）。
  *
  * 断言：
  *   [1] 建圆圈 math/「数学」→ halo.json 存在、JSON.parse 通过、字段正确；响应含 needsRebuild + warn

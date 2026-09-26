@@ -2,7 +2,7 @@
 /**
  * test/circle-delete.mjs — 圆圈删除判据（POST /api/whale/circle/delete）
  * ------------------------------------------------------------------
- * 铁律：全程只对 os.tmpdir() 下自己造的临时课程包副本操作，一次都不许写 E:\workplace\study。
+ * 铁律：全程只对 os.tmpdir() 下自己造的临时课程包副本操作，一次都不许写真课程包（packRoot）。
  *
  * 断言：
  *   [1] 路由契约：四条路由都在，delete 是 POST + requestBody=buffered

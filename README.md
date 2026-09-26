@@ -5,7 +5,7 @@
 覆盖教师端做课与学生端学·问两条线。
 
 > 由 `dsh-plugin-kit` 脚手架起手。本插件**零运行时依赖**（只用 Node 内建）。
-> 仓库：<https://gitee.com/bouyer/dsh-whale-sensei>
+> 仓库：<https://github.com/sutrasky/dsh-whale-sensei>（镜像：<https://gitee.com/bouyer/dsh-whale-sensei>）
 
 ---
 

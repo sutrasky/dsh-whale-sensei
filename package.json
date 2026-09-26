@@ -24,11 +24,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://gitee.com/bouyer/dsh-whale-sensei.git"
+    "url": "git+https://github.com/sutrasky/dsh-whale-sensei.git"
   },
-  "homepage": "https://gitee.com/bouyer/dsh-whale-sensei",
+  "homepage": "https://github.com/sutrasky/dsh-whale-sensei",
   "bugs": {
-    "url": "https://gitee.com/bouyer/dsh-whale-sensei/issues"
+    "url": "https://github.com/sutrasky/dsh-whale-sensei/issues"
   },
   "keywords": [
     "dsh",
