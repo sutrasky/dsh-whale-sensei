@@ -147,8 +147,12 @@
     cursor: pointer; white-space: nowrap; }
   .trow:hover { background: #ffffff12; }
   .trow.is-active { background: #9ec8ff26; color: #eaf1ff; }
-  /* 三级缩进：圆圈(0) → 知识点(14) → 课程(28) */
+  /* 缩进：圆圈(0) → 知识组(14) → 知识点(28) → 课程(42)。
+     **没声明 groups 的包仍走三级**（组那一行根本不存在，点/课就还是 14 / 28，与改动前一致）——
+     所以这里是「组自己 14 + 组的孩子整体再缩 14」，而不是把点/课的缩进改深。 */
   .trow--halo { margin-top: 3px; color: var(--dsw-alias-label-primary); font-weight: 600; }
+  .trow--group { padding-left: 14px; }
+  .tgroup { padding-left: 14px; }
   .trow--point { padding-left: 14px; }
   .trow--lesson { padding-left: 28px; }
   /* 折叠箭头：收起时向右、展开时朝下 */
