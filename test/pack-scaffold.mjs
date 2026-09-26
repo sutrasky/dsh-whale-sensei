@@ -332,19 +332,24 @@ try {
 
   // ── ⑧ 设置卡观感：两个操作挂在「课程包」那块里；样式照原生选择器 ──────────
   console.log('\n⑧ 观感（照 DSH 原生设置页）')
-  const headAt = clientSrc.indexOf('var head = react.createElement')
+  // 2026-09-26 排版重构后：卡头不再是一行小字，而是「概览」卡的 trailing（`headText`）。
+  // 判据的**意图没变**：两个操作不许待在卡头，必须在「课程包」那一块里。
+  const headAt = clientSrc.indexOf('var headText =')
   const headEnd = clientSrc.indexOf('function actionBtn(', headAt)
   const headBlock = headAt >= 0 && headEnd > headAt ? clientSrc.slice(headAt, headEnd) : ''
-  ok(headBlock.length > 0 && !/选择课程包目录|重新读取/.test(headBlock), '卡头里不再有按钮（两个操作都搬到「课程包」那一块里）')
+  ok(headBlock.length > 0 && !/选择课程包目录|重新读取/.test(headBlock), '卡头（概览卡的 trailing）里没有按钮 —— 两个操作都搬到「课程包」那一块里')
+  ok(/key: 'overview'[\s\S]{0,200}trailing: headText/.test(clientSrc), '概览卡的 trailing 就是那段「v… · 读取于 …」')
   ok(/var packActions = react\.createElement[\s\S]{0,400}选择课程包目录/.test(clientSrc), '「选择课程包目录…」在 packActions 里')
   ok(/var packActions = react\.createElement[\s\S]{0,500}重新读取/.test(clientSrc), '「重新读取」也在 packActions 里（同一组）')
-  ok(/s\.title === '课程包'[\s\S]{0,200}packActions/.test(clientSrc), 'packActions 挂在「课程包」那一块下面（不是飘在别处）')
-  ok(clientSrc.includes('if (!packActionsPlaced) body.push(packActions)'), '兜底：服务端改标题也不能让入口静默消失')
+  ok(/os\.title === '课程包'[\s\S]{0,300}packActions/.test(clientSrc), 'packActions 挂在「课程包」那一块下面（不是飘在别处）')
+  ok(clientSrc.includes('if (!packActionsPlaced) overviewKids.push(packActions)'), '兜底：服务端改标题也不能让入口静默消失')
   ok(/function actionBtn\(label, onClick, disabled\)/.test(clientSrc), '两个操作走一份配方（actionBtn）')
   ok(/background: 'var\(--dsw-alias-bg-module-platform\)'/.test(clientSrc), '按钮底色照原生选择器：bg-module-platform 灰胶囊（深色主题下深色实心反而更不显眼）')
   ok(/height: '36px', borderRadius: '18px', padding: '0 14px'/.test(clientSrc), '尺寸照原生：36px / 圆角 18px / padding 0 14px')
-  ok(clientSrc.includes("borderBottom: '.5px solid var(--dsw-alias-border-l2)'"), '行分隔线照原生：.5px solid border-l2')
-  ok(/fontSize: '16px', fontWeight: 500/.test(clientSrc), '分区标题照原生：16px / 500')
+  // 2026-09-26 排版重构后：行分隔线与标题规格从内联 style 搬进了注入样式表 PANEL_CSS。
+  ok(/\.ws-row\{[^}]*border-bottom:\.5px solid var\(--dsw-alias-border-l2\)/.test(clientSrc), '行分隔线照原生：.5px solid border-l2（在 PANEL_CSS 的 .ws-row 里）')
+  ok(/\.ws-cardTitle\{[^}]*font-size:14px;font-weight:600/.test(clientSrc), '卡标题照原生 .cardTitle：14px / 600')
+  ok(/\.ws-groupTitle\{[^}]*font-size:14px;font-weight:400/.test(clientSrc), '组标题照原生 .groupTitle：14px / 400')
   ok(/function btn\(kind, size\)/.test(clientSrc) && /BTN_SIZE/.test(clientSrc), '行内按钮走一份配方（36/18 与 28/14 两档，照原生 primaryButton/secondaryButton）')
 
   // ── ⑨ 产物闸门：0 圈的包不许报「缺 starmap/static.svg」（板 A–H 的 D 条）────────
