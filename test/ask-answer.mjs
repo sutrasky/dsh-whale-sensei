@@ -26,7 +26,7 @@ import os from 'node:os'
 import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { handleAnswer, ledgerPath, loadLedger, verifyOrRollback } from '../lib/ask-io.js'
-import { insertLedgerEntry, serializeLedgerEntry } from '../lib/ask.js'
+import { LEDGER_ANCHOR, insertLedgerEntry, serializeLedgerEntry } from '../lib/ask.js'
 import { plugin as askPlugin } from '../lib/mods/ask.js'
 import { packRoot } from './_pack.mjs'
 import { lessonIndex, keyOfAnchor } from '../lib/pack-model.js'
@@ -240,6 +240,38 @@ try {
     )
   } finally {
     fs.rmSync(tmp3, { recursive: true, force: true })
+  }
+}
+
+// ── ⑥d 反空转：收尾锚点被改坏必须**抛错点名**，还原必须回绿（对齐课程包 tools/check-terms.test.mjs）──
+// 只写"锚点恰好一处就能写"是**正向**断言：守卫被删掉时它照样绿。这里补的是**反向**那一半 ——
+// 三种变异（改一字 / 删掉 / 复制成两处）都必须失败且点名"收尾锚点 + 次数"，且全程只动 mkdtemp 拷贝。
+{
+  const tmp4 = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-answer-anchor-'))
+  try {
+    fs.cpSync(ROOT, tmp4, { recursive: true })
+    const L4 = ledgerPath(tmp4)
+    const src4 = fs.readFileSync(L4, 'utf8')
+    const hReal = hashOf(realLedger)
+    const write = (key) => insertLedgerEntry(fs.readFileSync(L4, 'utf8'), key, serializeLedgerEntry({
+      id: key, date: '2026-01-02', lesson: '演示', question: '原话', answer: '解答', answerHtml: '<p>x</p>',
+    }))
+    const threwMsg = (mut) => {
+      fs.writeFileSync(L4, mut(src4), 'utf8')          // 变异写进拷贝，真包不动
+      try { write('0010'); return '' } catch (e) { return e.message }
+    }
+    const m1 = threwMsg((s) => s.replace(LEDGER_ANCHOR, LEDGER_ANCHOR.replace('};', '},')))
+    ok(/台账结构不认识/.test(m1) && /收尾锚点出现 0 次/.test(m1), `反空转：锚点改一个字 → 抛错点名（${m1 || '没抛 = 判据空转 ✗'}）`)
+    const m2 = threwMsg((s) => s.split(LEDGER_ANCHOR).join(''))
+    ok(/收尾锚点出现 0 次/.test(m2), `反空转：锚点删掉（0 处）→ 抛错点名（${m2 || '没抛 = 判据空转 ✗'}）`)
+    const m3 = threwMsg((s) => s + LEDGER_ANCHOR)
+    ok(/收尾锚点出现 2 次/.test(m3), `反空转：锚点变两处（2 处）→ 抛错点名（${m3 || '没抛 = 判据空转 ✗'}）`)
+    fs.writeFileSync(L4, src4, 'utf8')
+    const out = write('0010')
+    ok(out.includes(`'0010': {`) && out.split(LEDGER_ANCHOR).length - 1 === 1, '反空转：还原后回绿（插入成功，锚点仍恰好一处）')
+    ok(fs.readFileSync(L4, 'utf8') === src4 && hashOf(realLedger) === hReal, '真包台账一字未动（变异只发生在 mkdtemp 拷贝上）')
+  } finally {
+    fs.rmSync(tmp4, { recursive: true, force: true })
   }
 }
 
