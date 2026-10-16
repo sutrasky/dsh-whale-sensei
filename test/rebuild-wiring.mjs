@@ -151,6 +151,49 @@ ok(/产物不会自己长出来/.test(r3.rebuild?.note || ''), 'note 说清后�
 
 console.log('== ⑦ 建课程（whale_author commit:true）两个方向 ==')
 const args = { point: 'vue', number: 1, title: '探针课', slug: 'probe', hintTerm: '示波器', source: { label: 'x', url: 'y' }, commit: true, force: true }
+
+// ── 本节前置（T03-R1）：先把 `vue` 点**按产品自己的建点路径**建出来 ──────────
+// 为什么必须补这一步：T03 把 `whale_author` 的硬校验全挪到提交前，其中「未知知识点必须拒」
+// 是 **force 也绕不过** 的（force 只绕教学闸，不绕路径 / 结构 / 大纲）。而本节的夹具包
+// （NONE / ALL）里原先都没有 `vue` 点 —— 所以按新规格它**必拒**，这一节变红是预期的。
+// 这里改的是**夹具前提**，一个字都没动断言：`wrote===true` 那几条原样留着。
+// 两条口都是产品自己的：① `POST /api/whale/point`（本套件 ④ 节就在用的那个建点口）；
+// ② `whale_plan op=record`（建点之后补地图 —— 大纲闸与 author 的大纲闸**同一份判据**，
+//    没地图照样拒建课，所以这一步也绕不开，不是为了让断言好过）。
+const { plugin: planPlugin } = await import('../lib/mods/plan.js')
+
+/** 在某个夹具包里建出 `math/vue` 点并挂上最小可用地图（= 第⑦节的夹具前提） */
+async function plantVue(root, byPath) {
+	const rp = await (await call(byPath['/api/whale/point'], '/api/whale/point', {
+		method: 'POST', headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ circle: 'math', id: 'vue', name: 'Vue' }),
+	})).json()
+	// 建点自己也会起重建作业（这个包里有脚本的话）—— 等它跑完，别和下面 author 的作业搅在一起
+	if (rp.rebuild?.jobId) await waitRebuild(rp.rebuild.jobId)
+	let planTool = null
+	planPlugin.install({
+		paths: { packRoot: root },
+		log: { info() {}, warn() {}, error() {} },
+		registerTool: (t) => { planTool = t },
+	})
+	const vp = await planTool.execute({
+		op: 'record',
+		point: 'math/vue',
+		goal: '把 vue 点建出来并挂上地图（第⑦节的夹具前提，不是判据）',
+		nodes: [{
+			no: 1,
+			title: '探针课',
+			deliverable: '一个建得出来的探针课页',
+			criteria: 'whale_author commit:true 能落盘',
+			why: '它证明「建课程」这条入口的重建接线是通的',
+			sources: [{ label: '夹具出处（手写声明）', url: 'https://example.invalid/rebuild-wiring' }],
+		}],
+	})
+	return { rp, vp }
+}
+await plantVue(NONE, byPath3)
+await plantVue(ALL, byPath)
+
 // 工具是通过 hctx.registerTool 注册的 —— 捕获它，然后直接驱动 execute
 let captured = null
 const hctxB = {

@@ -170,6 +170,11 @@ export function createHarness(opts = {}) {
     evidence(name, text, { bom = true } = {}) {
       fs.mkdirSync(evidenceDir, { recursive: true })
       const file = path.join(evidenceDir, name)
+      // T03-R1（F02 残留）：证据名**可以带子目录**（`cases/<id>.txt` 这种嵌套落点）。
+      // 只建到卡目录时，**全新 clone**（还没有 `audit-evidence/`）上写嵌套证据会 ENOENT ——
+      // 于是"证据落不下"被算成 fail，看起来像判据红了，其实是壳自己没自举起来。
+      // 所以写盘前把这个文件**自己的父目录**也建出来（原有的 evidenceDir 建目录保留）。
+      fs.mkdirSync(path.dirname(file), { recursive: true })
       fs.writeFileSync(file, (bom ? '\uFEFF' : '') + String(text), 'utf8')
       wroteEvidence = true
       return file

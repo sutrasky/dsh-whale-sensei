@@ -20,6 +20,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { subjectsHit } from '../lib/teaching-io.js'
+// T03-R1（F02 残留）：技能目录**不再**拼兄弟仓 `../../study` —— 改由测试上下文定源。
+// `resolveTestContext` 只在这里解析一次（参数优先于 env；显式无效路径直接失败，不静默兜底）。
+import { resolveTestContext } from './_pack.mjs'
+import { createFixture } from './_fixture.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const DIR = path.resolve(HERE, '..', 'preset', 'whale-mode')
@@ -162,8 +166,29 @@ let prefix = ''
 	// 课程包的技能层：**五个都扫**（它们全是全范围面 —— 跟所有学科打交道）。
 	// ⚠️ 学科特化**有它该去的地方**：圆圈的 `kind=guide`（固定做法）与 `kind=spec`（可调项），
 	//    由 `injectionBlock` 带进生成该圆圈的课时 —— 判据见 `test/teaching-apply.mjs` ⑤。
-	const skillsDir = path.resolve(HERE, '..', '..', 'study', 'skills')
-	if (fs.existsSync(skillsDir)) {
+	// T03-R1（F02 残留）：技能目录改由**测试上下文**解析 —— 原先这里拼的是兄弟仓
+	// `../../study/skills`，那是"作者那台机器的目录布局"，换台机器必然不存在。
+	//   ① real 模式（顶层给了 `--pack=<绝对路径>`）：用那个真实包根的 `<pack>/skills`；
+	//   ② fixture 模式（没给包根）：现场造一个合成夹具，用**夹具里的** `<夹具>/skills`
+	//      —— 夹具的技能层是从仓内模板 `lib/pack-template/skills` 逐字节铺出来的，
+	//      所以这一套单测自包含：没有 study、没有兄弟风格仓也跑得动。
+	const ctx = resolveTestContext({ argv: process.argv.slice(2), env: process.env })
+	let fixture = null
+	let skillsDir = null
+	if (ctx.packRoot) {
+		skillsDir = path.join(ctx.packRoot, 'skills')
+	} else {
+		try {
+			fixture = createFixture({ variant: 'empty' })
+			skillsDir = path.join(fixture.root, 'skills')
+		} catch (e) {
+			skillsDir = null
+			console.log(`   ⚠️ 夹具造不出来（技能层这一面因此缺料）：${e?.message ?? e}`)
+		}
+	}
+	// 缺料要**如实报、且单列** —— 跳过 ≠ 通过，绝不计进 passed。
+	const missingSurfaces = []
+	if (skillsDir && fs.existsSync(skillsDir)) {
 		const names = fs.readdirSync(skillsDir).filter((d) => {
 			try { return fs.statSync(path.join(skillsDir, d)).isDirectory() } catch { return false }
 		}).sort()
@@ -173,7 +198,13 @@ let prefix = ''
 			if (fs.existsSync(f)) surfaces.push([`课程包 · 技能 ${n}`, fs.readFileSync(f, 'utf8')])
 		}
 	} else {
-		console.log(`   ⚠️ 跳过「课程包 · 技能层」（${skillsDir} 不在 —— 开发布局才有）`)
+		missingSurfaces.push(`课程包 · 技能层（${skillsDir ?? '技能目录没解析出来'}）`)
+		console.log(`   ⚠️ 缺料（**不计入 passed**，跳过 ≠ 通过）：课程包 · 技能层 —— ${skillsDir ?? '技能目录没解析出来'} 不在`)
+	}
+	// 夹具用完就清（只有 fixture 模式下存在；清不掉就如实说，不静默）
+	if (fixture) {
+		const c = fixture.dispose()
+		if (!c.removed && c.error) console.log('   ⚠️ 夹具清理：' + c.error)
 	}
 	for (const [name, text] of surfaces) {
 		const hit = subjectsHit(text)
@@ -184,6 +215,9 @@ let prefix = ''
 	// 反空转：这一面必须真的扫到了内容（不然上面全绿只是因为没读到文件）
 	ok(surfaces.length >= 7, `扫到的面数 ≥ 7（实得 ${surfaces.length}：2 处插件 + 5 个技能）`)
 	ok(surfaces.every(([, t]) => String(t).length > 80), '每一面都真的读到了内容（不是空串蒙混；最短的那面是锁死集，91 字）')
+	if (missingSurfaces.length) {
+		console.log(`   ⚠️ 缺料单列 ${missingSurfaces.length} 面（不计入 passed）：${missingSurfaces.join(' / ')}`)
+	}
 }
 
 // ── ⑩ **预设随包走**（2026-09-27 事故的判据：别人装完预设不见了）──

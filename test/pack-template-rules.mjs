@@ -107,6 +107,17 @@ export const FROM_PACK = [
 export const FROM_SKILL = ['assets/glossary-data.js']
 
 /**
+ * **只随插件发**的模板件：课程包里**没有对应原件**（不是从原件派生，所以不参与
+ * `sanitize(原件) === 模板` 那条对拍）。
+ *
+ * 为什么必须有这一类（T03 / 报告 B01）：共享路径策略 `tools/path-policy.cjs` 是
+ * **插件这一侧先有**的件 —— 它要跟着模板进每一个新建的课程包（否则新包里的
+ * `tools/` 少一件，包侧将来 require 它就 404），而课程包原件里今天还没有它。
+ * 硬塞进 `FROM_PACK` 会让"模板 == 原件经中性化"这条判据变成"课程包里没有原件"的红。
+ */
+export const FROM_PLUGIN = ['tools/path-policy.cjs']
+
+/**
  * 逐字节取自课程包的**二进制**件（字体 / favicon）。
  * 为什么不进 FROM_PACK：那条链是 utf8 文本管线（sanitizeText / 逐字符对拍）——
  * 二进制过一趟 utf8 编解码就毁了。判据改为 **Buffer 逐字节相等**（pack-scaffold.mjs ①），
@@ -252,5 +263,5 @@ export function sanitizeText(rel, text) {
 
 /** 模板里全部文件的相对路径（POSIX） */
 export function templatePaths() {
-  return [...FROM_PACK, ...FROM_SKILL, ...FROM_PACK_BINARY]
+  return [...FROM_PACK, ...FROM_SKILL, ...FROM_PACK_BINARY, ...FROM_PLUGIN]
 }
