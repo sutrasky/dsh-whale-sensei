@@ -325,7 +325,8 @@
       <p class="drop__sub" id="drop-hint">也可以点这块区域选择文件 · 只接受 .zip</p>
     </div>
     <p class="drop__hint">老师发来的 .zip 不用解压，原样拖进来就行 —— 里面的课会并进同一个课程库，
-      导入完它就在星图上了。</p>
+      导入完它就在星图上了。只收课程数据（课件页 ＋ 圆圈/知识点结构）：包里带脚本、带
+      <code>src/</code>、带链接或路径越界的一律拒绝，库不会动。</p>
     <input type="file" id="file" accept=".zip,application/zip" hidden>
     <p class="status" id="import-status" role="status">还没有导入动作。</p>
   </section>
@@ -338,6 +339,20 @@
       <button type="button" id="clear-btn" class="btn btn--danger">清空课程库</button>
       <span class="admin-muted">重建会重跑离线端那条构建链；清空会把整个库移进回收站（源 .zip 不受影响）。</span>
     </div>
+  </section>
+
+  <!-- 旧课程包（老版本「每包一个目录」留下的）**不再自动合并** —— 这里显式确认。
+       T05 / 报告 D01：无条件动盘不可审计，所以先给计划（只读）、人点头才动盘。 -->
+  <section class="concept-card" aria-labelledby="h-migrate">
+    <h2 id="h-migrate">旧课程包</h2>
+    <p class="admin-lead">老版本留下的「一个包一个目录」不再自动并库 —— 这里先列出计划，
+      你确认后才合并进唯一课程库（原目录移进回收站，可手工恢复）。</p>
+    <div id="migrate-list"><p class="admin-muted">正在读取…</p></div>
+    <div class="admin-foot">
+      <button type="button" id="migrate-btn" class="btn" disabled>迁移这些旧课程包</button>
+      <span class="admin-muted" id="migrate-hint">计划摘要会一起带上 —— 现状变了就得重新看一眼。</span>
+    </div>
+    <p class="status" id="migrate-status" role="status">还没有读过旧课程包。</p>
   </section>
 
   <section class="concept-card" aria-labelledby="h-log">
@@ -417,9 +432,14 @@
   var rebuildBtn = document.getElementById('rebuild-btn');
   var clearBtn = document.getElementById('clear-btn');
   var refreshBtn = document.getElementById('refresh');
+  var migrateList = document.getElementById('migrate-list');
+  var migrateBtn = document.getElementById('migrate-btn');
+  var migrateStatus = document.getElementById('migrate-status');
+  var migrateHint = document.getElementById('migrate-hint');
 
-  /* 库里只有一个包（唯一课程库），所以 state 只留这一份快照 */
-  var state = { lib: null };
+  /* 库里只有一个包（唯一课程库），所以 state 只留这一份快照；
+     迁移计划单独存一份（它带着 planDigest —— 确认时要原样带回去）。 */
+  var state = { lib: null, migration: null };
   var importBusy = false;
 
   /* ---------- 小工具 ---------- */
@@ -715,12 +735,112 @@
       }
       await loadLibrary();
     } catch (e) {
-      setImportStatus('导入失败', 'err');
+      /* 服务端会带一个**机器可读的 code**（T05：受控解压/白名单拒绝都走它）——
+         有就一并显示，人一看就知道是哪一类拒绝，而不是只有一句人话。 */
+      var code = (e.data && e.data.code) ? String(e.data.code) : '';
+      setImportStatus('导入失败' + (code ? '（' + code + '）' : ''), 'err');
       showError(e.message);
       if (e.data && Array.isArray(e.data.steps)) renderSteps(e.data.steps, null);
     } finally {
       importBusy = false;
       fileInput.value = '';   /* 允许再次选择同一个文件 */
+    }
+  }
+
+  /* ---------- 旧课程包：只读计划 + 显式迁移（T05 / 报告 D01） ---------- */
+
+  function migrationPlan() {
+    var m = state.migration;
+    return (m && Array.isArray(m.plan)) ? m.plan : [];
+  }
+
+  function renderMigration() {
+    migrateList.textContent = '';
+    var plan = migrationPlan();
+    var m = state.migration || {};
+    if (!plan.length) {
+      migrateList.appendChild(el('p', 'admin-muted', '没有需要迁移的旧课程包 —— 库里的课都已经在唯一课程库里了。'));
+      migrateBtn.disabled = true;
+      migrateHint.textContent = '没有可迁移的旧课程包。';
+      return;
+    }
+    var ul = el('ul', 'admin-rows');
+    plan.forEach(function (p) {
+      var li = fromTemplate('tpl-lesson');
+      li.querySelector('.admin-name').textContent = (p && p.id) ? p.id : '（未给出包名）';
+      var lessons = (p && isNum(p.lessons)) ? (p.lessons + ' 节课') : '课数未知';
+      var bytes = (p && isNum(p.bytes)) ? (Math.round(p.bytes / 1024) + ' KB') : '大小未知';
+      li.querySelector('.admin-meta').textContent = lessons + ' · ' + bytes;
+      var relEl = li.querySelector('.admin-path');
+      if (p && typeof p.dir === 'string' && p.dir) { relEl.textContent = p.dir; relEl.hidden = false; }
+      li.querySelector('.badge').textContent = '待迁移';
+      ul.appendChild(li);
+    });
+    migrateList.appendChild(ul);
+    migrateBtn.disabled = false;
+    migrateHint.textContent = '计划摘要 ' + ((m.digest || '（未给出）') + '').slice(0, 12) +
+      '… —— 现状一变，服务端就会拒掉这份确认。';
+  }
+
+  async function loadMigration() {
+    try {
+      var d = await api('/api/migration');
+      state.migration = d;
+      renderMigration();
+      if (d.count) {
+        migrateStatus.className = 'status status--warn';
+        migrateStatus.textContent = '发现 ' + d.count + ' 个旧课程包 —— 确认后才会合并。';
+      } else {
+        migrateStatus.className = 'status';
+        migrateStatus.textContent = '没有需要迁移的旧课程包。';
+      }
+      return true;
+    } catch (e) {
+      state.migration = null;
+      migrateList.textContent = '';
+      migrateList.appendChild(el('p', 'admin-muted', '读不到旧课程包普查结果。'));
+      migrateBtn.disabled = true;
+      migrateStatus.className = 'status status--err';
+      migrateStatus.textContent = '读不到旧课程包普查结果。';
+      showError(e.message);
+      return false;
+    }
+  }
+
+  async function doMigrate() {
+    var plan = migrationPlan();
+    var digest = (state.migration && state.migration.digest) ? String(state.migration.digest) : '';
+    if (!plan.length) return;
+    var ok = window.confirm('把 ' + plan.length + ' 个旧课程包合并进唯一课程库吗？\n\n' +
+                            plan.map(function (p) { return '· ' + (p.id || '（未给出包名）'); }).join('\n') +
+                            '\n\n合并后原目录会移进回收站（可手工恢复）；老师发来的源 .zip 不受影响。');
+    if (!ok) return;
+
+    var old = migrateBtn.textContent;
+    migrateBtn.disabled = true;
+    migrateBtn.textContent = '迁移中…';
+    try {
+      var d = await api('/api/migrate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ confirm: true, planDigest: digest })
+      });
+      var done = Array.isArray(d.migrated) ? d.migrated.length : 0;
+      showInfo('旧课程包迁移完成：合并了 ' + done + ' 个' + (d.note ? '（' + d.note + '）' : '。'));
+      migrateStatus.className = 'status status--ok';
+      migrateStatus.textContent = '已合并 ' + done + ' 个旧课程包。';
+      await loadLibrary();
+      await loadMigration();
+    } catch (e) {
+      var code = (e.data && e.data.code) ? String(e.data.code) : '';
+      migrateStatus.className = 'status status--err';
+      migrateStatus.textContent = '迁移没做成' + (code ? '（' + code + '）' : '') + '。';
+      showError(e.message);
+      /* 计划过期（或没确认）时把最新计划拉回来 —— 别让人对着旧计划反复点 */
+      await loadMigration();
+    } finally {
+      migrateBtn.disabled = migrationPlan().length === 0;
+      migrateBtn.textContent = old;
     }
   }
 
@@ -880,6 +1000,7 @@
   openBtn.addEventListener('click', openStarmap);
   rebuildBtn.addEventListener('click', doRebuild);
   clearBtn.addEventListener('click', clearLibrary);
+  migrateBtn.addEventListener('click', doMigrate);
 
   refreshBtn.addEventListener('click', async function () {
     var old = refreshBtn.textContent;
@@ -888,6 +1009,7 @@
     try {
       await loadLibrary();
       await loadHealth();
+      await loadMigration();
     } finally {
       refreshBtn.disabled = false;
       refreshBtn.textContent = old;
@@ -900,6 +1022,7 @@
   (async function init() {
     await loadLibrary();
     await loadHealth();
+    await loadMigration();
   })();
 })();
 </script>
