@@ -118,8 +118,11 @@ export const FROM_SKILL = ['assets/glossary-data.js']
  * 同理（T04 / 报告 D01）：受信引擎闭包的判据件 `tools/engine-policy.cjs` 也是
  * 插件侧先有的 —— 它要随包发（新包自己也要能按同一套口径自检），而课程包原件里
  * 今天没有这一件。
+ *
+ * 同理（T06 / 报告 D03）：静态读取的公开清单 `tools/public-files.cjs` 也是插件侧先有的 ——
+ * `tools/app-server.js` / `tools/offline-server.js` 都 require 它，漏了它新包预览直接崩。
  */
-export const FROM_PLUGIN = ['tools/path-policy.cjs', 'tools/engine-policy.cjs']
+export const FROM_PLUGIN = ['tools/path-policy.cjs', 'tools/engine-policy.cjs', 'tools/public-files.cjs']
 
 /**
  * 逐字节取自课程包的**二进制**件（字体 / favicon）。
