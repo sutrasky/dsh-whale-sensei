@@ -10,10 +10,23 @@
  */
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { execFileSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { packRoot, PLUGIN } from './_pack.mjs'
+import { notesUrlFor } from './_fixture.mjs'
 
 const PACK = packRoot()
+
+/**
+ * CDP 的页面：**指向 NOTES 页的合法 URL**（T02 / F02）。
+ *
+ * F02 原文：「CDP wrapper 统一传 PACK 目录，但 CDP 将首个位置参数视作页面 URL，
+ * 原样 navigate，目录路径压过了默认 NOTES URL。」
+ *
+ * 所以这里**不传目录**：用 `pathToFileURL(...reference/NOTES.html).href` 算出合法 URL 再传
+ * （实现在 `test/_fixture.mjs` 的 `notesUrlFor`，与判据同源）。
+ * （`lib/cdp.js` 那一侧也加了守卫：位置参数必须长得像 URL 才算页面。）
+ */
+const NOTES_URL = notesUrlFor(PACK)
 
 // 一次跑多个模块的 --selftest（断言仍**只有一份**，都在各模块自己文件里；
 // 这里只是把它们接进同一本账 —— 不许在这层重写断言，否则又成两套口径 ✗）
@@ -26,13 +39,18 @@ let out = ''
 let childCode = 0
 for (const t of TARGETS) {
   out += '### ' + t + '\n'
-  try {
-    out += execFileSync(process.execPath, [path.join(PLUGIN, t), '--selftest', PACK],
-      { cwd: PLUGIN, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 })
-  } catch (e) {
-    childCode = e.status ?? 1
-    out += (e.stdout || '') + (e.stderr || '')
-  }
+  // T02（F02）：`lib/cdp.js` 的 `--selftest` 要的是**页面 URL**，不是课程包目录 ——
+  // 传目录会被它当页面 navigate（目录压过默认 NOTES URL）。这里显式传合法 URL。
+  const extra = t === 'lib/cdp.js' ? [NOTES_URL] : [PACK]
+  // ⚠️ 用 spawnSync 收**两条流**：`lib/cdp.js --selftest` 的「页面　：…」那行走 **stderr**
+  //    （它是"人读的诊断"）。只收 stdout 就看不到 CDP 到底拿到了哪个 URL ——
+  //    而"CDP 收到的是不是指向 NOTES 页的合法 URL"正是 F02 的验收判据之一。
+  const c = spawnSync(process.execPath, [path.join(PLUGIN, t), '--selftest', ...extra], {
+    cwd: PLUGIN, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024,
+  })
+  out += String(c.stdout ?? '') + String(c.stderr ?? '')
+  if (typeof c.status === 'number' && c.status !== 0) childCode = c.status
+  else if (c.status === null) childCode = 1
   out += '\n'
 }
 
@@ -45,6 +63,12 @@ for (const l of lines) {
   if (/^(ok|FAIL) /.test(l) || /^(包路径|映射表|扫描器|check-terms|box 装载|笔记 box|非课程页)/.test(l)) {
     console.log(l.replace(/^FAIL /, 'FAIL '))
   }
+}
+// T02（F02）：CDP 的「浏览器 / 页面」两行是**它收到了什么**的直接证据 ——
+// 原样带出来（判据见 `test/audit/T02.mjs` 的 `T02-CDP-page-arg-is-url`：
+// 传下去的那个位置参数必须是**指向 NOTES 页的合法 URL**，不是课程包目录）。
+for (const l of lines) {
+  if (/^(浏览器|页面)\s*：/.test(l)) console.log(l)
 }
 if (!pass && !fails.length) {
   // 一条断言都没解析到 = 硬失败（不许静默记成 0/0 通过）—— 同 all.mjs 的规矩

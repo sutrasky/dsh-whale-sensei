@@ -1,14 +1,50 @@
 /**
- * run-all.mjs —— 一条命令跑完全部判据
+ * run-all.mjs —— 一条命令跑完全部判据（T01：加机器结果与严格对账）
  *
  * 每套测试自成进程（互不污染），失败即非零退出。
  * 用途：改完插件先跑这个，再谈重启宿主。
+ *
+ * T01 补的三件事（报告 F01 的假绿入口）：
+ *   ① **退出码参与判定**：套件打印了全绿摘要但进程非零退出（先打绿再崩）= 红
+ *   ② **摘要必须唯一且与正文逐项对得上**：重复摘要、红行 +「全部通过」、0 条断言 = 红
+ *   ③ **落一条机器结果**（`{passed, failed, skipped, reason, packRoot, base, cases}`）：
+ *      每条用例都带自己的子进程退出码，总入口读它，不再只信人写的那一行摘要。
+ *   skip 单列：跳过的套件记 `skip`，**绝不计进 passed**。
+ *
+ * 机器结果落盘路径：环境变量 `DSH_WHALE_RESULT`（总入口会显式给）；
+ * 没给就落在本目录的 `.tmp-run-all-result.json`（已在 .gitignore 里）。
  */
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { execFileSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
+import {
+  resolveTestContext, contextArgs, contextEnv, formatTestContext, parseTestContextLine,
+} from './_pack.mjs'
+import { adaptLegacyText, validateRunResult, makeRunResult } from './_result.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
+
+/**
+ * T02（F02）：**顶层解析一次，显式传给每一个子进程**。
+ * 以前这里 spawn 子套件时 argv 里什么都不带，只靠继承来的 `DSH_WHALE_PACK` ——
+ * 于是 `all <B>` 的 gate 用 B、插件子套件却可能用 env 里的 A（F02 原文）。
+ * 现在每个子进程都拿到 `--pack=<绝对路径> --mode=<fixture|real>`（参数优先于 env）。
+ */
+let CTX
+try {
+  CTX = resolveTestContext({ argv: process.argv.slice(2), env: process.env })
+} catch (e) {
+  console.log('❌ 测试输入无效：' + String(e.message || e).split('\n')[0])
+  process.exit(1)
+}
+if (!CTX.packRoot) {
+  console.log('❌ 没有课程包根：给 --pack=<绝对路径>，或 DSH_WHALE_PACK=<绝对路径>')
+  process.exit(2)
+}
+const CHILD_ARGS = contextArgs(CTX)
+const CHILD_ENV = contextEnv(CTX)
+const CTX_LINE = formatTestContext(CTX)
 const SUITES = [
   ['pack-parity', '课程包读取：同输入 → 同输出'],
   ['build-verify', '产物校验：坏样会被抓出'],
@@ -62,34 +98,96 @@ const SUITES = [
   ['export-pack', '导出这一节课（离线课件包）：真导出恰好 5 个文件 / 不带 src·assets·starmap / 文件名用课程名且同名加课号 / 路径穿越与缺源一律拒 / 导出是纯读'],
 ]
 
+const outPath = process.env.DSH_WHALE_RESULT || path.join(HERE, '.tmp-run-all-result.json')
+const base = `node test/run-all.mjs ${CHILD_ARGS.join(' ')}`.trim()
+/**
+ * 可选：`DSH_WHALE_SUITES=a,b` 只跑点名的那几套。
+ * 用途只有一个 —— **审计夹具**要造「某套假绿」的最小复现；默认（不设）恒等于全跑。
+ */
+const only = (process.env.DSH_WHALE_SUITES ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+const PLAN = only.length ? SUITES.filter(([n]) => only.includes(n)) : SUITES
+
 let failed = 0
 let total = 0
-for (const [name, what] of SUITES) {
+const cases = []
+let crashed = 0
+/** T02（F02）：子进程自报的测试上下文与顶层解析结果对不上的套件（**必须逐条报出来**） */
+const ctxDrift = []
+
+for (const [name, what] of PLAN) {
   const t0 = Date.now()
-  let out = ''
-  let code = 0
-  try {
-    out = execFileSync(process.execPath, [path.join(HERE, name + '.mjs')], { encoding: 'utf8' })
-  } catch (e) {
-    code = e.status ?? 1
-    out = (e.stdout || '') + (e.stderr || '')
+  // **必须同时收 stdout 与 stderr**：套件摘要走 stdout，而 `[test-context]`（T02 的判据）
+  // 走 stderr —— 只收 stdout 就会把"参数传没传到"这件事整个丢掉。
+  const r = spawnSync(process.execPath, [path.join(HERE, name + '.mjs'), ...CHILD_ARGS], {
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
+    env: { ...process.env, ...CHILD_ENV },
+  })
+  const code = typeof r.status === 'number' ? r.status : null
+  let spawnError = null
+  if (code === null) { crashed++; spawnError = String(r.error?.message ?? r.signal ?? '没有退出码') }
+  // stdout 在前、stderr 在后：摘要契约（`=== N 通过 / M 失败 ===`）只活在 stdout 里，
+  // `[test-context]` 在 stderr 里 —— 拼起来给 adapter 与逐进程对账各取所需。
+  const out = String(r.stdout ?? '') + String(r.stderr ?? '')
+  // **T02（F02）逐进程对账**：子套件自己报的 `[test-context]` 必须与顶层解析结果一致。
+  // 这就是「env=A、参数=B 时所有子进程只报 B」这条判据的落点：
+  // 子进程**没报**（没 import _pack.mjs 的套件）记 `ctx:null` 并单列，**不当成通过**。
+  const childCtx = parseTestContextLine(out)
+  if (!childCtx) {
+    ctxDrift.push({ id: name, why: '子进程没有报 [test-context]（这一套不经过 _pack.mjs 定源）' })
+  } else if (childCtx.packRoot !== CTX.packRoot || childCtx.mode !== CTX.mode) {
+    ctxDrift.push({
+      id: name,
+      why: `子进程自报 ${childCtx.mode}/${childCtx.packRoot}，顶层是 ${CTX.mode}/${CTX.packRoot}`,
+    })
   }
-  const m = out.match(/=== (\d+) 通过 \/ (\d+) 失败 ===/)
-  const p = m ? Number(m[1]) : 0
-  const f = m ? Number(m[2]) : 1
+  // **严格 adapter**：单套摘要唯一 / 条数与正文红行逐项对账 / 执行量非零 / 退出码为 0
+  const a = adaptLegacyText({ kind: 'one-suite', out, code, label: name })
+  const p = a.ok ? (a.passed ?? 0) : (a.parsed ? (a.passed ?? 0) : 0)
+  const f = a.ok ? 0 : (a.parsed ? Math.max(1, a.failed ?? 0) : 1)
   total += p
-  if (code !== 0 || f !== 0) failed++
+  if (!a.ok) failed++
   const secs = ((Date.now() - t0) / 1000).toFixed(1)
-  console.log(`${code === 0 && f === 0 ? '✓' : '✗'} ${name.padEnd(18)} ${String(p).padStart(3)} 通过${f ? ` / ${f} 失败` : ''}  (${secs}s)  ${what}`)
-  if (code !== 0 && !m) console.log(out.split('\n').slice(0, 8).map((l) => '    ' + l).join('\n'))
+  const mark = a.ok ? '✓' : '✗'
+  console.log(`${mark} ${name.padEnd(18)} ${String(p).padStart(3)} 通过${f ? ` / ${f} 失败` : ''}  (${secs}s)  ${what}`)
+  if (!a.parsed) console.log(String(out).split('\n').slice(0, 8).map((l) => '    ' + l).join('\n'))
   // 有摘要但失败了 → 把该套件自己的 FAIL/✗ 行打出来。
   // 为什么必须有这一条：2026-09-22 实测过"账报了红，但不告诉你红在哪" ——
   // 结果在整轮/单独跑之间来回猜了三轮（alien-env 整轮红、单跑绿）。摘要只给条数，定位得看原文。
-  if (f !== 0) {
-    const detail = out.split('\n').filter((l) => /FAIL|✗/.test(l)).slice(0, 8)
+  if (!a.ok) {
+    const detail = String(out).split('\n').filter((l) => /FAIL|✗/.test(l)).slice(0, 8)
     if (detail.length) console.log(detail.map((l) => '    ' + l.trim()).join('\n'))
+    if (a.reason) console.log('    ↳ 判红依据：' + a.reason)
   }
+  // 机器结果：每条用例带自己的子进程退出码（记录说全绿、退出码非零 = 红）
+  const ctxNote = childCtx ? `ctx=${childCtx.mode}/${childCtx.packRoot}` : 'ctx=(未报)'
+  cases.push({ id: name, status: a.ok ? 'pass' : 'fail', exitCode: code, note: a.reason ?? (a.ok ? undefined : '未通过'), ctx: ctxNote })
+  if (code !== 0) cases.push({ id: `exit:${name}`, status: 'fail', exitCode: code, note: code === null ? `子进程没有退出码（崩溃/超时）：${spawnError ?? ''}`.trim() : `子进程退出码 ${code}${a.ok ? '（摘要却全绿：先打绿再崩）' : ''}` })
 }
 
-console.log(`\n=== ${SUITES.length} 套 · 共 ${total} 条断言 · ${failed ? failed + ' 套失败 ✗' : '全部通过 ✓'} ===`)
-if (failed) process.exit(1)
+console.log(`\n=== ${PLAN.length} 套 · 共 ${total} 条断言 · ${failed ? failed + ' 套失败 ✗' : '全部通过 ✓'} ===`)
+console.log(`[test-context] mode=${CTX.mode} pack=${CTX.packRoot}`)
+if (ctxDrift.length) {
+  console.log(`⚠️ ${ctxDrift.length} 套的测试上下文与顶层对不上（T02/F02：参数必须传到每个子进程）——`)
+  for (const d of ctxDrift.slice(0, 12)) console.log(`    ${d.id}：${d.why}`)
+  if (ctxDrift.length > 12) console.log(`    …另有 ${ctxDrift.length - 12} 套`)
+}
+if (crashed) console.log(`⚠️ ${crashed} 套子进程没有正常退出（无退出码）—— 已按红记账`)
+
+const result = makeRunResult({
+  packRoot: CTX.packRoot,
+  base,
+  cases,
+  reason: failed ? `${failed} 套失败：${cases.filter((c) => c.status === 'fail' && !String(c.id).startsWith('exit:')).map((c) => c.id).join('、')}` : null,
+})
+const v = validateRunResult(result)
+if (!v.ok) {
+  console.log('❌ run-all 自己的机器结果不合协议：' + v.errors.join('；'))
+}
+try {
+  fs.writeFileSync(outPath, JSON.stringify(result, null, 2), 'utf8')
+} catch (e) {
+  console.log(`❌ 机器结果落盘失败（${outPath}）：${e && e.message ? e.message : String(e)}`)
+  process.exit(1)
+}
+if (failed || crashed || ctxDrift.length || !v.ok) process.exit(1)

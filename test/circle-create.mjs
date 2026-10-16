@@ -25,6 +25,7 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { packRoot } from './_pack.mjs'
+import { STYLE_SAMPLES } from './_fixture.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const SRC = path.resolve(HERE, '..')
@@ -327,7 +328,11 @@ try {
   {
     const gateRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-gate-'))
     const gatePack = path.join(gateRoot, 'pack')
-    const STYLES_DIR = path.join(gateRoot, 'dsh-raw-html-v2-master', 'styles')
+    // T02（F02）：**风格输入由测试显式构造**，不再去读"包旁边的兄弟仓"
+    // `../dsh-raw-html-v2-master/styles` —— 那只在作者那台机器的目录布局下存在，
+    // 换台机器必然 ENOENT（F02 原文：「建圈测试还依赖包旁风格仓」）。
+    // `style-adapter.js` 的退路链读的是**包旁边的 styles/**，所以这里按它认的位置现场写出来。
+    const STYLES_DIR = path.join(gateRoot, 'styles')
     const EXCLUDE_GATE = ['_starmap-proto', 'demo', 'code', '.git', '.backup', '.tmp-cov', 'node_modules', 'skill-draft', '_chrome-profile']
 
     fs.cpSync(PACK, gatePack, {
@@ -338,8 +343,14 @@ try {
       },
     })
     pruneCircles(gatePack)
-    // 复制 styles 目录（style-adapter.js 退路链末段需要课程包旁边的 dsh-raw-html-v2-master/styles）
-    fs.cpSync(path.join(path.dirname(PACK), 'dsh-raw-html-v2-master', 'styles'), STYLES_DIR, { recursive: true })
+    // 显式构造风格样本（**不猜兄弟仓**；样本内容见 test/_fixture.mjs 的 STYLE_SAMPLES）
+    fs.mkdirSync(STYLES_DIR, { recursive: true })
+    for (const [name, text] of Object.entries(STYLE_SAMPLES)) {
+      fs.writeFileSync(path.join(STYLES_DIR, name), text, 'utf8')
+    }
+    const styleMissing = Object.keys(STYLE_SAMPLES).filter((n) => !fs.existsSync(path.join(STYLES_DIR, n)))
+    ok(styleMissing.length === 0,
+      `[8] 0. 风格输入由测试显式构造（${Object.keys(STYLE_SAMPLES).length} 份，无兄弟仓依赖）${styleMissing.length ? '（缺：' + styleMissing.join('、') + '）' : ''}`)
 
     // helper：跑一次 gate.mjs，返回失败检查名集合
     function runGate(cwd) {

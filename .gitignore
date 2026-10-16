@@ -5,6 +5,12 @@ node_modules/
 *.log
 *.tmp
 .tmp*/
+# 机器结果（T01：统一裁判的七项结果文件；一行结论只是索引，原始输出进 audit-evidence/）
+.tmp-run-all-result.json
+.tmp-all-result.json
+
+# 审计原始证据（本地留档，不进仓）
+audit-evidence/
 
 # 编辑器 / 系统
 .DS_Store
