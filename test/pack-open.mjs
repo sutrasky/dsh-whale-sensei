@@ -20,6 +20,7 @@ import fs from 'node:fs'
 import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { ensurePackServer, packServerUrl, closePackServers, runningPackServers } from '../lib/pack-server.js'
 import { plugin as packPlugin } from '../lib/mods/pack.js'
 
@@ -31,14 +32,76 @@ function ok(cond, msg) {
   console.log((cond ? '  ok  ' : '  ✗   ') + msg)
 }
 
-/** 造一个临时"课程包"：给了源码就写 `tools/app-server.js`，给 null 就什么都不写 */
-function tmpPack(appServerSrc) {
+/**
+ * 造一个临时"课程包"。
+ *
+ * ⚠️ T04-R1（裁定 A）：光有一个手写的 `tools/app-server.js` **不再是一个课程包**了 ——
+ * T04 给宿主预览加了「执行前核验受信引擎闭包」（报告 D01）：包里引擎件与插件模板不一致 /
+ * 缺件 ⇒ **零 require 地拒**。所以夹具必须**先铺真引擎闭包**（从 `lib/pack-template/` 逐字节拷，
+ * 与 `test/_fixture.mjs` 的 layTemplate 同一条规矩）。
+ *
+ * ⚠️ 而 `app-server.js` **正是受信清单里的一件** ⇒ 不能改它的字节。要"占一个空端口"必须走
+ * 它自己留的缝：模板第 31 行是 `Number(process.argv[2] || process.env.PORT || 3091)`。
+ * 夹具用 **`process.env.PORT`** 指定端口，并在 require 之前把 `process.argv[2]` 顶掉 ——
+ * 因为**整套跑**时子进程带着 `--pack=… --mode=…`，`argv[2]` 会变成 `--pack=…`
+ * ⇒ `Number('--pack=…') = NaN` ⇒ 服务落到一个随机端口（那会让判据变成"看运气"）。
+ *
+ * 三种造法：
+ *   · `{}`            —— 真引擎闭包 + 端口走 `process.env.PORT`（argv[2] 被顶掉）；
+ *   · `{ requireHook }` —— 真引擎闭包 + 在 app-server 头部插一行（用来验形状错）；
+ *   · `{ appServer }`  —— 整份替换 app-server.js（用来验"引擎闸先拒"）。
+ */
+function tmpPack({ requireHook = null, appServer = undefined } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-packopen-'))
-  if (appServerSrc !== null) {
-    fs.mkdirSync(path.join(dir, 'tools'), { recursive: true })
-    fs.writeFileSync(path.join(dir, 'tools', 'app-server.js'), appServerSrc, 'utf8')
+  if (appServer === null) return dir          // 空目录（连 app-server 都没有）
+  layTemplate(dir)
+  const entry = path.join(dir, 'tools', 'app-server.js')
+  if (appServer !== undefined) {
+    fs.writeFileSync(entry, appServer, 'utf8')
+    return dir
   }
+  const src = fs.readFileSync(entry, 'utf8')
+  if (requireHook) fs.writeFileSync(entry, `${requireHook}\n${src}`, 'utf8')
   return dir
+}
+
+/**
+ * 用夹具包自己的缝指定端口：模板第 31 行是 `Number(process.argv[2] || process.env.PORT || 3091)`。
+ * **整套跑**时子进程带着 `--pack=… --mode=…`，`argv[2]` 是 `--pack=…` ⇒ `Number(...)` = NaN
+ * ⇒ 服务落到随机端口（判据会变成"看运气"）。所以调 `ensurePackServer` 之前把 argv[2] 顶掉、
+ * 调完还原 —— **不改 app-server.js 的字节**（它是受信清单里的一件，改了引擎闸会正确地拒）。
+ */
+async function ensurePackServerOnPort(dir, port) {
+  const saved = process.argv[2]
+  process.argv[2] = ''
+  process.env.PORT = String(port)
+  try {
+    return await ensurePackServer(dir)
+  } finally {
+    if (saved === undefined) delete process.argv[2]
+    else process.argv[2] = saved
+    delete process.env.PORT
+  }
+}
+
+/** 仓内模板：插件**随包发**的那份课程包骨架（引擎件的唯一来源） */
+const TEMPLATE_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'lib', 'pack-template')
+
+/** 把模板整棵逐字节拷进 `root`（与 `test/_fixture.mjs` 的 layTemplate 同一规矩） */
+function layTemplate(root) {
+  const walk = (dir, rel = '') => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const r = rel ? `${rel}/${e.name}` : e.name
+      if (e.isDirectory()) walk(path.join(dir, e.name), r)
+      else {
+        const dst = path.join(root, ...r.split('/'))
+        fs.mkdirSync(path.dirname(dst), { recursive: true })
+        fs.copyFileSync(path.join(dir, e.name), dst)
+      }
+    }
+  }
+  if (!fs.existsSync(TEMPLATE_DIR)) throw new Error(`仓内模板不存在（${TEMPLATE_DIR}）—— 夹具造不出来`)
+  walk(TEMPLATE_DIR)
 }
 
 /** 要一个当前空闲的端口（拿到就立刻放掉，用它当"假装的 3091"） */
@@ -78,12 +141,15 @@ console.log('\n[pack-open] 「课程中心」：起/复用课程包自己的预�
     res.end('{"ok":true}')
   })
   await new Promise((r) => pre.listen(port, '127.0.0.1', r))
-  const dir = tmpPack(`module.exports = { handler: (req, res) => { res.writeHead(200); res.end('x') }, health: {}, API_PATHS: [], PORT: ${port} }\n`)
-
-  const r = await ensurePackServer(dir)
-  ok(r.ok === true && r.started === false, `已经有服务在跑 → **复用**，不重复 listen（started=${r.started}）`)
-  ok(r.url === `http://127.0.0.1:${port}/starmap/`, `回的是星图地址（${r.url}）`)
-  ok(runningPackServers().length === 0, '复用**没有**记进"我起的服务"（不是我们起的，就不该由我们关）')
+  // 夹具：真引擎闭包；端口走夹具自己的缝（见 ensurePackServerOnPort）——
+  // ⚠️ 不改 app-server.js 的字节：它是受信清单里的一件，改了引擎闸会（正确地）拒
+  const dir = tmpPack()
+  {
+    const r = await ensurePackServerOnPort(dir, port)
+    ok(r.ok === true && r.started === false, `已经有服务在跑 → **复用**，不重复 listen（started=${r.started}）`)
+    ok(r.url === `http://127.0.0.1:${port}/starmap/`, `回的是星图地址（${r.url}）`)
+    ok(runningPackServers().length === 0, '复用**没有**记进"我起的服务"（不是我们起的，就不该由我们关）')
+  }
 
   await new Promise((r2) => pre.close(r2))
   fs.rmSync(dir, { recursive: true, force: true })
@@ -92,50 +158,52 @@ console.log('\n[pack-open] 「课程中心」：起/复用课程包自己的预�
 /* ── ② 真起一次：起完 /health 真的答，关掉后真的不通 ───────────────── */
 {
   const port = await freePort()
-  const dir = tmpPack([
-    `module.exports = {`,
-    `  PORT: ${port}, API_PATHS: [], health: {},`,
-    `  handler: (req, res) => {`,
-    `    if (req.url === '/health') { res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"ok":true}'); return }`,
-    `    res.writeHead(404); res.end()`,
-    `  },`,
-    `}`,
-    ``,
-  ].join('\n'))
+  // 夹具：真引擎闭包（模板逐字节）+ 端口走 `process.env.PORT` —— 走**真** app-server，
+  // 所以起完 `/health` 真的答 200 这条判据测的是真服务，不是桩。
+  const dir = tmpPack()
+  {
+    const r = await ensurePackServerOnPort(dir, port)
+    ok(r.ok === true && r.started === true, `没服务在跑 → 这次**真的起了**（started=${r.started}）`)
+    ok(await healthOk(port) === true, '起完之后 `/health` **真的**答 200（不是"以为起了"）')
+    ok(runningPackServers().includes(path.resolve(dir)), '记进了"我起的服务"（宿主卸载时能关掉）')
 
-  const r = await ensurePackServer(dir)
-  ok(r.ok === true && r.started === true, `没服务在跑 → 这次**真的起了**（started=${r.started}）`)
-  ok(await healthOk(port) === true, '起完之后 `/health` **真的**答 200（不是"以为起了"）')
-  ok(runningPackServers().includes(path.resolve(dir)), '记进了"我起的服务"（宿主卸载时能关掉）')
+    const r2 = await ensurePackServerOnPort(dir, port)
+    ok(r2.ok === true && r2.started === false && r2.port === port, '同一个包再问一次 → 复用自己起的那个（不重复 listen）')
 
-  const r2 = await ensurePackServer(dir)
-  ok(r2.ok === true && r2.started === false && r2.port === port, '同一个包再问一次 → 复用自己起的那个（不重复 listen）')
-
-  const closed = closePackServers()
-  ok(closed.length === 1 && closed[0] === path.resolve(dir), 'closePackServers 关掉它并回包根')
-  ok(await healthOk(port) === false, '关掉之后那个端口**真的**不通了（判据不是"我以为关了"）')
-  ok(runningPackServers().length === 0, '关完台账是空的')
+    const closed = closePackServers()
+    ok(closed.length === 1 && closed[0] === path.resolve(dir), 'closePackServers 关掉它并回包根')
+    ok(await healthOk(port) === false, '关掉之后那个端口**真的**不通了（判据不是"我以为关了"）')
+    ok(runningPackServers().length === 0, '关完台账是空的')
+  }
 
   fs.rmSync(dir, { recursive: true, force: true })
 }
 
 /* ── ③ 绝不静默降级 ─────────────────────────────────────────────────── */
 {
-  const noFile = tmpPack(null)
+  const noFile = tmpPack({ appServer: null })
   const r1 = await ensurePackServer(noFile)
   ok(r1.ok === false && /tools\/app-server\.js/.test(r1.error || '') && /修法/.test(r1.error || ''),
     '包里没有预览服务 → 带**修法**的 error')
   ok(!r1.url, '失败时**没有** url（不许静默降级成一个打不开的地址）')
   fs.rmSync(noFile, { recursive: true, force: true })
 
-  const noHandler = tmpPack('module.exports = { PORT: 3091, API_PATHS: [] }\n')
+  // ⚠️ T04-R1 的**覆盖边界**（如实写，不假装测过）：下面两条曾经用"手写一个坏 app-server.js"
+  //    来触发，但 T04 的引擎闸在 `require` **之前**就核验了 `tools/app-server.js` 的字节 ——
+  //    手写的那份与受信清单不一致 ⇒ **闸先拒**（"引擎与插件受信版本不一致"），
+  //    于是 handler 判据 / "加载失败"判据在**这个夹具形态下不可达**。
+  //    所以这两条改成断言"闸确实拦住了它"（判据仍然非空、且**更强**）：
+  //    坏件不再能被执行，连"没导出 handler"这条路都走不到。
+  const noHandler = tmpPack({ appServer: 'module.exports = { PORT: 3091, API_PATHS: [] }\n' })
   const r2 = await ensurePackServer(noHandler)
-  ok(r2.ok === false && /handler/.test(r2.error || ''), '没导出 handler → 如实报（并把契约写出来）')
+  ok(r2.ok === false && /引擎/.test(r2.error || ''), '手写的坏 app-server.js → **引擎闸先拒**（引擎与受信版本不一致）')
+  ok(r2.ok === false && !r2.url, '被闸拒时**没有** url（不许静默降级）')
   fs.rmSync(noHandler, { recursive: true, force: true })
 
-  const broken = tmpPack('throw new Error("故意炸的")\n')
+  // require 就炸：同样被闸拦在 require 之前（"加载失败"那条在闸存在时不可达）
+  const broken = tmpPack({ appServer: 'throw new Error("故意炸的")\n' })
   const r3 = await ensurePackServer(broken)
-  ok(r3.ok === false && /加载失败/.test(r3.error || ''), 'require 就炸 → 如实报"加载失败"')
+  ok(r3.ok === false && /引擎/.test(r3.error || ''), '会抛的 app-server.js → **引擎闸先拒**（根本没 require）')
   fs.rmSync(broken, { recursive: true, force: true })
 
   const r4 = await ensurePackServer('')
@@ -145,8 +213,8 @@ console.log('\n[pack-open] 「课程中心」：起/复用课程包自己的预�
   const port = await freePort()
   const squatter = http.createServer((req, res) => { res.writeHead(404); res.end() })
   await new Promise((r) => squatter.listen(port, '127.0.0.1', r))
-  const dir = tmpPack(`module.exports = { PORT: ${port}, API_PATHS: [], handler: (req, res) => { res.writeHead(200); res.end() } }\n`)
-  const r5 = await ensurePackServer(dir)
+  const dir = tmpPack()
+  const r5 = await ensurePackServerOnPort(dir, port)
   ok(r5.ok === false && !r5.url, '端口被**别的**服务占着（/health 不答）→ 如实报错，**不**假装成功')
   ok(/netstat/.test(r5.error || ''), '错误里给出排查修法（netstat 看谁占着）')
   await new Promise((r) => squatter.close(r))

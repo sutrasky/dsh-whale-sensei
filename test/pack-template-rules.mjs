@@ -114,8 +114,12 @@ export const FROM_SKILL = ['assets/glossary-data.js']
  * **插件这一侧先有**的件 —— 它要跟着模板进每一个新建的课程包（否则新包里的
  * `tools/` 少一件，包侧将来 require 它就 404），而课程包原件里今天还没有它。
  * 硬塞进 `FROM_PACK` 会让"模板 == 原件经中性化"这条判据变成"课程包里没有原件"的红。
+ *
+ * 同理（T04 / 报告 D01）：受信引擎闭包的判据件 `tools/engine-policy.cjs` 也是
+ * 插件侧先有的 —— 它要随包发（新包自己也要能按同一套口径自检），而课程包原件里
+ * 今天没有这一件。
  */
-export const FROM_PLUGIN = ['tools/path-policy.cjs']
+export const FROM_PLUGIN = ['tools/path-policy.cjs', 'tools/engine-policy.cjs']
 
 /**
  * 逐字节取自课程包的**二进制**件（字体 / favicon）。

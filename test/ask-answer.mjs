@@ -51,7 +51,15 @@ const resolverFor = (root) => (x) => {
   if (!key) throw new Error(`课次对不上：${JSON.stringify(x)} 在课次映射表里解析不到（现有：${Object.values(idx.byKey).map((e) => e.label).join(' / ')}）`)
   return { key, label: idx.byKey[key].label }
 }
-const answer = (root, opts) => handleAnswer(root, { resolveLesson: resolverFor(root), ...opts })
+/**
+ * 调一次 `handleAnswer`。
+ *
+ * ⚠️ T04-R2 裁定甲：本套件的影副本是**真包的拷贝**（引擎是旧的那份），而且 ⑤ 节还**故意**
+ * 删掉 `tools/build-notes.js` 来验"脚本跑挂了"那条失败路径 —— 与 T04 的引擎闸互斥
+ * （闸要求闭包完整且与受信清单逐字节一致）。所以夹具调用点**显式旁白路**：
+ * `trustedEngine:false`（缺省是 true/严；生产调用点不传）。**断言一字不动。**
+ */
+const answer = (root, opts) => handleAnswer(root, { resolveLesson: resolverFor(root), trustedEngine: false, ...opts })
 
 const realLedger = path.join(ROOT, 'assets', 'questions-data.js')
 const realBefore = hashOf(realLedger) + '|' + hashOf(path.join(ROOT, 'questions', 'pending.jsonl')) + '|' + hashOf(path.join(ROOT, 'questions', 'processed.jsonl'))

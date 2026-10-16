@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 /**
  * rebuild-wiring.mjs — 三入口接重建（A：建圈 / 建知识点 / 建课程）全部判据
  * ------------------------------------------------------------------
@@ -61,6 +61,7 @@ function makePack(tag, scripts, { slowMs = 0 } = {}) {
 function installRoutes(mod, root, routes) {
 	const hctx = {
 		paths: { packRoot: root },
+		trustedEngine: false,
 		log: { info() {}, warn() {}, error() {} },
 		inject: (_deps, cb) => cb({ get: () => ({ fetch: { register: (r) => routes.push(r) } }) }),
 	}
@@ -173,6 +174,7 @@ async function plantVue(root, byPath) {
 	let planTool = null
 	planPlugin.install({
 		paths: { packRoot: root },
+		trustedEngine: false,
 		log: { info() {}, warn() {}, error() {} },
 		registerTool: (t) => { planTool = t },
 	})
@@ -198,6 +200,7 @@ await plantVue(ALL, byPath)
 let captured = null
 const hctxB = {
 	paths: { packRoot: NONE },
+	trustedEngine: false,
 	log: { info() {}, warn() {}, error() {} },
 	registerTool: (t) => { captured = t },
 }
@@ -210,6 +213,7 @@ eq(vNone.rebuild?.missing, LESSON, '如实列出缺的两条')
 
 const hctxC = {
 	paths: { packRoot: ALL },
+	trustedEngine: false,
 	log: { info() {}, warn() {}, error() {} },
 	registerTool: (t) => { captured = t },
 }

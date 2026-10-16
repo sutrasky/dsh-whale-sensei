@@ -1,4 +1,4 @@
-/**
+﻿/**
  * rebuild-job.mjs — 异步重建器（lib/rebuild-job.js）全部判据
  * ------------------------------------------------------------------
  * 铁律：全程只在 os.tmpdir() 下自己造的临时课程包里跑，**一次都不许写真包**。
@@ -45,7 +45,7 @@ ok(true, '临时课程包建好：' + root)
 console.log('== ① 真的不阻塞 ==')
 {
 	const t0 = Date.now()
-	const job = startRebuild(root, [SLOW], { subject: '圆圈' })
+	const job = startRebuild(root, [SLOW], { subject: '圆圈', trustedEngine: false })
 	const elapsed = Date.now() - t0
 	ok(elapsed < 250, `startRebuild 立刻返回（${elapsed}ms < 250ms，脚本还要跑 800ms）`)
 	eq(job.done, false, '刚起来时 done=false（没在等它）')
@@ -61,12 +61,12 @@ console.log('== ① 真的不阻塞 ==')
 console.log('== ② 顺序有意义 + 失败不中断 ==')
 {
 	fs.writeFileSync(ORDER, '')
-	const job = startRebuild(root, [S1, S2, S3], { subject: '产物' })
+	const job = startRebuild(root, [S1, S2, S3], { subject: '产物', trustedEngine: false })
 	await waitRebuild(job.id)
 	eq(fs.readFileSync(ORDER, 'utf8'), '1\n2\n3\n', '三条脚本**按传入顺序**执行')
 
 	fs.writeFileSync(ORDER, '')
-	const job2 = startRebuild(root, [S1, FAIL3, S3], { subject: '产物' })
+	const job2 = startRebuild(root, [S1, FAIL3, S3], { subject: '产物', trustedEngine: false })
 	await waitRebuild(job2.id)
 	eq(fs.readFileSync(ORDER, 'utf8'), '1\n3\n', '中间那条失败**不中断**后面的（剩下的产物仍要尽力重建）')
 	eq(job2.steps.length, 3, 'steps 仍收满 3 条')
@@ -91,8 +91,8 @@ console.log('== ③ 退出码 / tail 口径 ==')
 console.log('== ④ 单一真源：异步版与同步版告警**逐字相同** ==')
 {
 	const scripts = [S1, FAIL3, NOEXIST]
-	const async_ = await rebuildNow(root, scripts, { subject: '圆圈' })
-	const sync_ = rebuildArtifacts(root, scripts, { subject: '圆圈' })
+	const async_ = await rebuildNow(root, scripts, { subject: '圆圈', trustedEngine: false })
+	const sync_ = rebuildArtifacts(root, scripts, { subject: '圆圈', trustedEngine: false })
 	eq(JSON.stringify(async_.warnings), JSON.stringify(sync_.warnings), 'warnings 逐字节相同')
 	eq(JSON.stringify(async_.rebuild), JSON.stringify(sync_.rebuild), 'rebuild{ok,failed} 逐字节相同')
 	eq(async_.steps.length, sync_.steps.length, 'steps 条数相同')
@@ -104,7 +104,7 @@ console.log('== ④ 单一真源：异步版与同步版告警**逐字相同** =
 
 console.log('== ⑤ 作业表 ==')
 {
-	const job = startRebuild(root, [OK], { subject: '台账' })
+	const job = startRebuild(root, [OK], { subject: '台账', trustedEngine: false })
 	eq(getRebuild(job.id)?.id, job.id, 'getRebuild 取得到')
 	eq(getRebuild('rb-does-not-exist'), null, '不存在的 id → null（不抛错）')
 	const list = listRebuilds()
@@ -117,12 +117,12 @@ console.log('== ⑤ 作业表 ==')
 
 console.log('== ⑥ 边角 ==')
 {
-	const empty = await rebuildNow(root, [], { subject: '空' })
+	const empty = await rebuildNow(root, [], { subject: '空', trustedEngine: false })
 	eq(empty.steps.length, 0, '空脚本清单不炸')
 	eq(empty.rebuild.ok, true, '空清单 = ok（没有失败项）')
 	eq(empty.warnings.length, 0, '空清单没有告警')
 	// 同一个作业等两次都要能返回（waiters 不许被吞）
-	const job = startRebuild(root, [SLOW], { subject: '双等' })
+	const job = startRebuild(root, [SLOW], { subject: '双等', trustedEngine: false })
 	const [a, b] = await Promise.all([waitRebuild(job.id), waitRebuild(job.id)])
 	ok(a && b && a.id === b.id, '同一个作业被两个 waiter 同时等 → 两个都拿到')
 }

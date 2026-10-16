@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 /**
  * test/circle-delete.mjs — 圆圈删除判据（POST /api/whale/circle/delete）
  * ------------------------------------------------------------------
@@ -89,6 +89,7 @@ function makeRouteCtx(packDir) {
   return {
     ctx: {
       paths: { packRoot: packDir, dataDir: packDir },
+      trustedEngine: false,
       log: { info() {}, warn() {}, error() {} },
       registerTool: () => {},
       inject: (names, cb) => cb({ get: () => ({ fetch: { register: (r) => routes.push(r) } }) }),
