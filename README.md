@@ -63,6 +63,17 @@ powershell -ExecutionPolicy Bypass -File install-whale-sensei.ps1
 > 诚实标注：本机一直在用 `link:` 那条；**npm 那条未在本机实测**（装了它会把这个 link 顶掉）。
 > 两条除"代码从哪来"以外没有别的差别。
 
+**这三条路都会自动带上「鲸师模式」预设**（老师人设 + 三条教学纪律 + 课程包 5 个技能）：
+
+插件**每次启动**都会把预设装到 `$DSH_HOME/.agent-presets/whale-mode/`（`lib/mods/preset.js`），
+**幂等**、内容一样一个字节都不写；宿主列预设是每次重读磁盘的，所以**不用等重启**就能在开会话时看到它。
+详见 [⑤ 开会话时选「鲸师模式」](#-开会话时选鲸师模式)。
+
+> 2026-09-27 修：以前预设**只**由安装脚本的 1c 步落盘，于是别人的机器上它根本不存在 ——
+> npm 包的 `files` 没带 `preset/`（连那个 .ps1 也没带）⇒ 1c 从来没机会跑；脚本那条路不给
+> `-PackRoot` 又直接 SKIP。现在渲染规则只有一份（`lib/preset-install.js`），
+> 插件、安装脚本、判据三处共用；模板也随包发出去了。
+
 ### ② 配 `packRoot`（不配等于装了不能用）
 
 `packRoot` 指向你的课程包根目录。它**故意不给默认值** —— 插件不猜路径、也不猜 cwd。
@@ -98,7 +109,8 @@ export DSH_WHALE_PACK="<你的课程包根目录>"   # bash：写进 ~/.bashrc �
 **路线 C（图形界面，推荐给不想碰 YAML 的人）**：宿主起来之后，进设置页 →「鲸师」一节 →
 点 **「选择课程包目录…」** → 在系统文件夹选择框里挑一个目录：
 
-- 挑**空文件夹** → 插件会**就地建好一个课程包**（引擎件 + 空台账），并自动把 `packRoot` 指过去；
+- 挑**空文件夹** → 插件会**就地建好一个课程包**（引擎件 + 空台账 + **5 个教学技能**），并自动把 `packRoot` 指过去；
+  选完这一步**当场**把「鲸师模式」预设的技能目录也刷成这个包的 `skills/`（不用等重启）；
 - 挑**已经是课程包**的目录 → 直接用它，不动它一个字节；
 - 挑其它目录 → 会被拒绝（建包只往空目录里建）。
 
@@ -120,6 +132,40 @@ npx @deepseek-ai/dsh --profile web --dump-config
 重启后在浏览器里打开设置页（齿轮图标），左侧导航栏应出现「鲸师」一节。
 若没出现：**刷新页面**（客户端改了要刷新才生效）。
 卡片里没有黄色警告框、且 `packRoot` 显示为你的课程包绝对路径，才算真的配好了。
+
+**预设也要一起验**（它是**第二个**判据，与 `- id: whale-sensei` 无关 —— 插件装上了、预设照样可能不在）：
+
+```bash
+node lib/preset-install.js --check --dsh-home "$DSH_HOME"
+#   期望：预设 whale-mode：在（<DSH_HOME>/.agent-presets/whale-mode）
+#         技能目录：<课程包>/skills
+```
+
+`--check` 只看不写。要装/刷新就**去掉 `--check`**（加 `--skills-dir "<课程包>/skills"` 把技能一起指过去）。
+
+### ⑤ 开会话时选「鲸师模式」
+
+「鲸师模式」是插件带来的一个 **agent 预设**（不是插件的一部分，是**开会话时选的那套组合**）：
+老师人设 + 三条教学纪律（锁死）+ 教学方式可调项，并把**课程包 `skills/` 的 5 个技能**挂进来
+（`whale-system` 常驻 + `whale-lesson` / `whale-practice` / `whale-qa` / `whale-record` 按需）。
+它**不替换**你已有的技能 —— 那 5 个是**加进来**的。
+
+| 事 | 在哪 / 怎么做 |
+|---|---|
+| 落盘位置 | `$DSH_HOME/.agent-presets/whale-mode/`（`agent.cordis.yml` + `preset.yml`） |
+| 谁装的 | 插件启动时自动装（`lib/mods/preset.js` → `lib/preset-install.js`）；安装脚本的 1c 步也走同一份实现 |
+| 要重启吗 | **不用**。宿主每次列预设都重读磁盘；插件是启动时装的，重启后自然也在 |
+| 技能目录 | `<packRoot>/skills`。**没配 `packRoot` 时留空**（`customSkillDirs: []`），配好后下次启动自动补 |
+| 建/换课程包之后 | **当场刷新**（`lib/mods/pack.js` 调同一个 `ensurePresetForPack`）—— 选完目录技能目录就指过去了，不用等重启 |
+| 新建的课程包里有技能吗 | **有**：建包时随包拷进 5 个 `skills/<名>/SKILL.md`（模板清单 `lib/pack-scaffold.js` 的 `TEMPLATE_FILES`），与课程包原件逐字节相同 |
+| 关掉自动装 | profile 配置里给 `- id: whale-sensei` 的 `config` 加 `installPreset: false` |
+| 换个落盘位置 | 同上加 `presetDir: '<目录>'`（一般**不要**配） |
+| 卸载 | `dsh plugin --profile web remove dsh-whale-sensei` 之后，**再删掉** `$DSH_HOME/.agent-presets/whale-mode/`（插件不会替你删） |
+
+> ⚠️ **别手改**那份 `agent.cordis.yml`：带生成标记的文件会在下次启动被刷新回去。
+> 要改人设就改插件仓的 `preset/whale-mode/persona.md`，再跑
+> `node preset/whale-mode/build-preset.mjs` 重新合成；要改组合（工具行 / 分组）改模板本身。
+> **手写的**那份（没有生成标记）插件一个字都不动 —— 但那样它也不会再被升级。
 
 **不配 `packRoot` 的症状**（各路由处理方式不同，别只盯 503）：
 
@@ -309,11 +355,15 @@ npx @deepseek-ai/dsh --profile web --dump-config
 
 ### ② 侧栏「新课程」按钮 + 开课弹窗（`shell.overlay`）
 
-侧栏那行：DSH 侧栏没有对外可注册的 slot，所以与「技能中心」（skill-explorer）同做法 ——
+侧栏那行：DSH 侧栏对外**只有一条**可注册的缝 —— `sidebar.panellist`，而它是**面板切换器**
+（点它 = `selectPanel(id)`，宿主还要在 `main` 里找到同 key 的一页）。「新课程」是个**动作**
+（点开一张弹窗），塞进去只会变成假面板 ⇒ 与「技能中心」**改版前**同做法：
 往侧栏 DOM 里（`[data-pane="sidebar"]`）插入一个纯 DOM 按钮，紧跟原生「新建会话」下方。
 用 `MutationObserver` 自愈（React 重渲染把它冲掉时立刻插回，且**每次都断言位置**：别的插件行插到我上面就挪回来）。
 样式照抄原生「新建会话」的几何：38px 高、圆角 12、`.5px` 边框、`--dsw-alias-button-elevated-fill` 底、
 14px/500、图标+文字；侧栏收起时变成 36×36 的图标按钮。
+
+> 「课程中心」是**页**而不是动作，所以它走那条缝 —— 见下面 ③。
 
 **点一下开的是官方弹窗**（`primitives.Modal`，注册在 `shell.overlay` —— 官方"整帧浮层"缝，当前零占用）。
 弹窗问的是**做课必要信息**（要学什么 / 学完要能做出什么 / 期望篇幅 / 指定资料 / 其它要求），
@@ -334,6 +384,32 @@ npx @deepseek-ai/dsh --profile web --dump-config
 > 以及**用 40 行 mini-React 真跑一遍整条流程**（点侧栏 → 弹窗开 → 拉载荷 → 填字段 → 点发送 →
 > `setDraft` + `submit` → 弹窗关上）。像素级对齐只能人眼 —— 2026-09-21 现场量到过"差 4px"
 > （`width:100%` 加上左右外边距），修完是 x=14 / w=252 / h=38，与原生逐值相同。
+>
+> **2026-10-13 起「课程中心」的几何不再靠人眼**：它注册进宿主官方面板缝，行的盒子由宿主画。
+> `test/panel.mjs` 判到的是"**两处成对注册 + 同一个 key + 行序 40**"，以及**用 mini-React 真渲染那一页**
+> （第一帧 loading → `POST /api/whale/pack/open` → iframe 指向宿主回的星图地址 → 页里有「在新标签页打开」）。
+
+### ③ 侧栏「课程中心」+ 中间栏课程中心页（`sidebar.panellist` + `main`）
+
+**这一行不自己画**：DSH 0.2.0 起侧栏有了对外可注册的**面板缝** `sidebar.panellist` ——
+「插件」「自动化任务」「任务面板」「技能中心」都注册在这条缝上，**宿主拥有**那一行的盒子、标签、
+选中高亮、收起态与面板切换（`packages/client/ui-sidebar` 的 `PanelRow`）。
+所以「课程中心」= 往那条缝注册一行（`order: 40`，排在技能中心 30 之后）+ 往 `main` keyed slot
+注册**同 key** 的一页。参考实现就是 `@linxin666/dsh-client-ui-skill-explorer` 的
+`registerSkillExplorerPanel`（`slots.inject('sidebar.panellist', …)` + `slots.inject('main', …)`）。
+
+> ⚠️ **两处必须成对**：`main` 里没有同 key 的条目时，点这一行会让 `layout.selectPanel` 抛错
+> （`main panel "…" is not registered`）并保留原面板 —— 表现就是"点一下没反应"。
+
+**为什么以前是歪的**：旧做法是往侧栏 DOM 里插一个自己写样式的按钮（照抄技能中心那份 CSS）。
+抄得再细也还是抄 —— 容器、边距、收起态任何一处变一点就对不齐（现场量到过"窄 4px、左边缘偏右 2px"）。
+走官方缝之后**一行样式都不用写**：图标只画字形，尺寸与选中态由宿主给
+（`{ size, active }`：展开 16 / 收起 18，与其它面板行同一份规格）。
+
+**中间栏那一页**：进页先 `POST /api/whale/pack/open`（宿主确保**课程包自己的**预览服务在跑：
+先探活、没起就**在宿主进程内**起，见 `lib/pack-server.js`），拿到 url 后**内嵌 iframe** 显示星图；
+服务起不来就如实报错 + 重试（**不静默降级**）。页里另留一个「在新标签页打开」——
+星图摊在大屏 / 第二块屏上看还是新窗口舒服。
 
 ---
 
@@ -372,7 +448,7 @@ node <你的课程包根>\tools\app-server.js
 node <你的课程包根>\tools\gate.mjs
 ```
 
-### 插件套件（本版 49 套，2476 条断言）
+### 插件套件（本版 50 套，2525 条断言）
 
 ```bash
 cd <插件仓>
@@ -435,6 +511,14 @@ dsh plugin --profile web remove dsh-whale-sensei
 
 别忘了顺手删掉 profile 里那段 `- id: whale-sensei` 的 `config`（第 2 步加的那个）。
 
+**还有「鲸师模式」预设** —— 插件**不会**替你删它（它是宿主的用户级文件，不是插件的）：
+
+```powershell
+Remove-Item -Recurse -Force "$DSH_HOME\.agent-presets\whale-mode"
+```
+
+（不删也不会坏：宿主照常列出它，只是那套组合里 `whale-*` 技能会加载不到。要留个干净机器就删。）
+
 ---
 
 ## 开发
@@ -462,6 +546,11 @@ node ../dsh-plugin-kit/kit/run-check.mjs . --live   # 加装配检查（会写 p
 | `cordis.patch.yml` 的行 `id` | `whale-sensei` | **静默不生效**，`dump-config` 里查不到 |
 | `lib/index.js` 的 `export const name` | `whale-sensei` | 同上 |
 | `lib/client.js` 的 `__ModuleLoader__.load({ id })` | `dsh-whale-sensei`（**是包名**） | 浏览器半边不出现 |
+| `lib/preset-install.js` 的 `PRESET_ID` | `whale-mode`（**预设目录名 = 预设 id**） | 预设不见了（宿主的目录名规则：`/^[a-z0-9][a-z0-9-]*$/`，大写/下划线/点都不行） |
+
+> 还有**第五处**容易被漏掉：预设是**随包发**的东西 —— `package.json` 的 `files` 必须带
+> `preset`（和 `install-whale-sensei.ps1`）。2026-09-27 的事故就是漏了这一条：
+> 本地跑得好好的，npm 装的人连模板都没有。判据钉在 `test/preset.mjs` ⑩。
 
 ### 硬规则
 

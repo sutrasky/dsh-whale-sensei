@@ -154,6 +154,23 @@ try {
   )
   ok(fs.existsSync(path.join(target, 'lessons', 'src')) && fs.existsSync(path.join(target, 'code')) && fs.existsSync(path.join(target, 'questions')), '目录树落地（lessons/src、code、questions）')
 
+  // —— 2026-09-27：**五个教学技能随包** ——
+  //    预设的 `customSkillDirs` 指的就是 `<packRoot>/skills`（lib/preset-install.js 渲染的那一行）。
+  //    模板里没有这份 ⇒ 走「图形界面建空课程包」的新用户，预设装上了、技能列表却是空的：
+  //    老师拿不到 whale-system 的调度表与那四条纪律，等于只挂了个人设。
+  {
+    const SKILLS = ['whale-system', 'whale-lesson', 'whale-practice', 'whale-qa', 'whale-record']
+    const skillMissing = SKILLS.filter((s) => !fs.existsSync(path.join(target, 'skills', s, 'SKILL.md')))
+    ok(skillMissing.length === 0, `五个教学技能随包（${SKILLS.length} 个 SKILL.md）${skillMissing.length ? '（缺：' + skillMissing.join('、') + '）' : ''}`)
+    const sys = fs.readFileSync(path.join(target, 'skills', 'whale-system', 'SKILL.md'), 'utf8')
+    ok(/^---\r?\n[\s\S]{0,400}?name:\s*whale-system/.test(sys) && sys.length > 800,
+      `技能是真件（frontmatter 带 name、${sys.length} 字节，不是空壳）`)
+    // 与课程包原件逐字节相同（① 那条对拍是模板级；这里判**建出来的包**也是同一份）
+    const srcSys = path.join(PACK, 'skills', 'whale-system', 'SKILL.md')
+    ok(fs.existsSync(srcSys) && Buffer.compare(fs.readFileSync(path.join(target, 'skills', 'whale-system', 'SKILL.md')), fs.readFileSync(srcSys)) === 0,
+      '建出来的技能与课程包原件逐字节相同（技能改一边必须同步另一边）')
+  }
+
   // 页面壳引用的本地脚本必须**件件都在**（上面那条 404 的通用判据：清单漏一件，学生页就静默少一块）
   const frameHtml = fs.readFileSync(path.join(target, 'assets', '_frame.html'), 'utf8')
   const frameSrcs = [...frameHtml.matchAll(/<script[^>]+src="([^"]+)"/g)]
@@ -261,7 +278,9 @@ try {
 
   // ── ⑤ choosePack 三态 + 路由形状 ────────────────────────────────────────
   console.log('\n⑤ choosePack')
-  const hctx = { paths: { packRoot: undefined }, log: { info() {}, warn() {}, error() {} } }
+  // 预设落在**临时目录**（真机的 `.agent-presets` 一个字都不许动 —— 与 ① 的隔离纪律同一条）
+  const presetDir = path.join(tmpRoot, '.agent-presets', 'whale-mode')
+  const hctx = { paths: { packRoot: undefined, presetDir }, log: { info() {}, warn() {}, error() {} } }
 
   const t2 = emptyDir()
   const created = await choosePack({ dir: t2, dshHome: fakeHome }, hctx)
@@ -269,17 +288,34 @@ try {
   ok(hctx.paths.packRoot === path.resolve(t2), 'hctx.paths.packRoot **当场就变**（本次会话立即生效）')
   ok(created.config?.file?.endsWith('cordis.patch.yml') === true, `profile 配置也写了（${created.config?.file}）`)
 
+  // —— 生效 ③：预设的技能目录跟着新课程包走（2026-09-27）——
+  //    启动期装的预设那时 packRoot 还没配 ⇒ 技能目录是空的；不刷新的话新用户第一次
+  //    开会话看到的「鲸师模式」是 0 个技能（老师拿不到那五份技能，等于只挂了个人设）。
+  {
+    const pYml = path.join(presetDir, 'agent.cordis.yml')
+    ok(fs.existsSync(pYml), '选完包就把「鲸师模式」预设刷新了（本次会话立刻生效）')
+    const txt = fs.existsSync(pYml) ? fs.readFileSync(pYml, 'utf8') : ''
+    const wantSkills = path.join(path.resolve(t2), 'skills').replace(/\\/g, '/')
+    ok(txt.includes(wantSkills), `预设的技能目录指向**新建的**那个包（${wantSkills}）`)
+    ok(created.preset?.action === 'created' && created.preset.skillsDir === path.join(path.resolve(t2), 'skills'),
+      `回执里带着预设结果（${JSON.stringify(created.preset)}）`)
+  }
+
   const beforeBytes = walk(PACK).length
-  const hctx2 = { paths: { packRoot: undefined }, log: { info() {}, warn() {}, error() {} } }
+  const hctx2 = { paths: { packRoot: undefined, presetDir }, log: { info() {}, warn() {}, error() {} } }
   const reused = await choosePack({ dir: PACK, dshHome: fakeHome }, hctx2)
   ok(reused.ok === true && reused.mode === 'reused' && reused.created.length === 0, `已经是课程包 → reused 且不建包（${reused.mode}）`)
   ok(walk(PACK).length === beforeBytes, `复用课程包时真包零改动（${beforeBytes} 个文件）`)
   ok(hctx2.paths.packRoot === path.resolve(PACK), '复用时也把 packRoot 设成了它')
+  ok(fs.readFileSync(path.join(presetDir, 'agent.cordis.yml'), 'utf8').includes(path.join(path.resolve(PACK), 'skills').replace(/\\/g, '/')),
+    '复用真包时预设也刷成了它的 skills/（换包就换技能目录）')
 
-  const hctx3 = { paths: { packRoot: undefined }, log: { info() {}, warn() {}, error() {} } }
+  const hctx3 = { paths: { packRoot: undefined, presetDir }, log: { info() {}, warn() {}, error() {} } }
+  const presetBefore = fs.readFileSync(path.join(presetDir, 'agent.cordis.yml'), 'utf8')
   const refused = await choosePack({ dir: dirty, dshHome: fakeHome }, hctx3)
   ok(refused.ok === false && /不是空/.test(refused.error), `非空非课程包 → 拒绝（${refused.error}）`)
   ok(hctx3.paths.packRoot === undefined, '被拒绝时**没有**把 packRoot 设过去（不静默改状态）')
+  ok(fs.readFileSync(path.join(presetDir, 'agent.cordis.yml'), 'utf8') === presetBefore, '被拒绝时预设一个字节都没动')
 
   process.env.WHALE_PICK_FOLDER_FAKE = t2
   const fakePick = pickFolder()
@@ -294,10 +330,13 @@ try {
     inject: (_n, cb) => cb({ get: () => ({ fetch: { register: (r) => routes.push(r) } }) }),
   })
   const route = routes[0]
-  ok(routes.length === 2 && route.path === '/api/whale/pack/choose', `挂了两条路由 ${routes.map((r) => r.path).join('、')}`)
+  ok(routes.length === 3 && route.path === '/api/whale/pack/choose', `挂了三条路由 ${routes.map((r) => r.path).join('、')}`)
   const openRoute = routes.find((r) => r.path === '/api/whale/pack/open')
   ok(!!openRoute && openRoute.methods.join() === 'POST' && openRoute.requestBody === 'buffered',
     '第二条是 POST /api/whale/pack/open（侧栏「进入课程包」靠它）且**显式声明 requestBody**')
+  const exportRoute = routes.find((r) => r.path === '/api/whale/pack/export')
+  ok(!!exportRoute && exportRoute.methods.join() === 'POST' && exportRoute.requestBody === 'buffered',
+    '第三条是 POST /api/whale/pack/export（设置页「课程目录」每节课后面的「导出」靠它）且**显式声明 requestBody**')
   ok(route.methods.join() === 'POST' && route.requestBody === 'buffered', 'methods=POST 且**显式声明 requestBody**（省略会被基座当 streaming ⇒ 400 空体）')
   const req = (method, body) => new Request('http://127.0.0.1:3090/api/whale/pack/choose', {
     method, headers: { 'content-type': 'application/json' }, ...(body === undefined ? {} : { body }),

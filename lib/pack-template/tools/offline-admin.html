@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>鲸师课件 · 离线阅读器</title>
+<!-- 图标与主题都取自课程包**同一份** assets/（同源，服务端已开 /assets/ 路由），不抄第二份令牌。
+     本页**零外链**：没有 http(s)、没有 CDN、没有任何外部脚本引用，一切都在本机。
+     语义：这里是**唯一课程库**的管理台 —— 所有导入的课合并进同一个包、共用同一张星图，
+     所以没有"多包列表"，也没有"每包一个删除按钮"；接口里那条旧的 /api/packs 本页不再依赖。 -->
+<link rel="icon" type="image/x-icon" href="/assets/starmap.ico">
+<link rel="stylesheet" href="/assets/theme.css">
+<link rel="stylesheet" href="/assets/lesson-blocks.css">
+<style>
+  /* 标题字体：课程包同一份 woff2。theme.css 里那条 @font-face 的 src 是 './fonts/…'
+     （相对 assets/ 解析）；这里按服务根再显式声明一次，管理台直连也成立。 */
+  @font-face {
+    font-family: 'Lanxi-朗宋';
+    src: url('/assets/fonts/Lanxi-LangSong.woff2') format('woff2');
+    font-display: swap;
+  }
+
+  /* 规则照 theme.css：组件 CSS 只消费令牌，禁写裸色值；每个 var() 都带兜底值。
+     卡片 / 错误框 / 信息框三样直接复用 lesson-blocks.css 的现成配方
+     （.concept-card / .error-box / .real-path），不另造一套。 */
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--dsw-alias-bg-base, #ffffff);
+    color: var(--dsw-alias-label-primary, #0f1115);
+    font-family: var(--dsw-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', Arial, sans-serif);
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .admin-wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+
+  /* ---------- 顶栏（底色照 DSH 侧栏：--dsw-specific-sidebar-fill） ---------- */
+  .admin-head {
+    background: var(--dsw-specific-sidebar-fill, var(--dsw-alias-bg-layer-1, #f9fafb));
+    border-bottom: 1px solid var(--dsw-alias-border-l2, #0000001a);
+  }
+  .admin-head__row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap; padding-top: 16px; padding-bottom: 14px;
+  }
+  .admin-title {
+    font-family: var(--dsw-font-family-title, var(--dsw-font-family, sans-serif));
+    font-size: 22px; margin: 0; letter-spacing: .2px; line-height: 1.4;
+    color: var(--dsw-alias-label-primary, #0f1115);
+  }
+  /* 大标题色带（theme.css 的 --lesson-title-band 就是为「大标题」备的）：
+     只在不支持 background-clip:text 时才退回纯色，避免文字变透明。 */
+  @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+    .admin-title {
+      background: var(--lesson-title-band, none);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+  }
+  .admin-sub {
+    margin: 5px 0 0; font-size: 12.5px;
+    color: var(--dsw-alias-label-secondary, #61666b);
+    word-break: break-all;
+  }
+
+  /* ---------- 顶栏右侧：外观三态开关 + 刷新 ----------
+     开关本体来自同源 assets/theme.js（它自己挂载，本页**不写第二份**），
+     但 theme.css 把它设成 position: fixed 钉在视口右上角 —— 那会正好压在「刷新」上。
+     所以这里只复位它的定位、让它落回这一行，并把外投影收掉：
+     视觉重量与旁边的 .btn 一致（1px 描边、同底色），不做成第二个花哨面板。
+     选择器带 .admin-head__controls 前缀，优先权 (0,2,0) 高于 theme.css 的 (0,1,0)，
+     两条覆盖都成立、不需要 !important。theme.css 是课程包共用件，只许在这里覆盖，不许去改它。 */
+  .admin-head__controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .admin-head__controls .theme-switch {
+    position: static; top: auto; right: auto; z-index: auto;
+    box-shadow: none;
+  }
+
+  .admin-main { padding: 20px 0 56px; }
+
+  .admin-muted { color: var(--dsw-alias-label-secondary, #61666b); font-size: 13px; margin: 8px 0 0; }
+  .admin-lead { margin: 0 0 14px; font-size: 13.5px; color: var(--dsw-alias-label-secondary, #61666b); }
+
+  /* ---------- 按钮（focus-visible 配方照 theme.css 的 .theme-switch__btn） ---------- */
+  .btn {
+    font: inherit; font-size: 13.5px;
+    border: 1px solid var(--dsw-alias-border-l2, #0000001a);
+    background: var(--dsw-alias-bg-layer-1, #ffffff);
+    color: var(--dsw-alias-label-primary, #0f1115);
+    border-radius: 6px;
+    corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+    padding: 6px 12px; cursor: pointer;
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+  }
+  .btn:hover:not(:disabled) {
+    background: var(--dsw-alias-interactive-bg-hover, #2631480f);
+    border-color: var(--dsw-alias-link, #4176e6);
+    color: var(--dsw-alias-link, #4176e6);
+  }
+  .btn:focus-visible { outline: 2px solid var(--dsw-alias-link, #4176e6); outline-offset: 2px; }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .btn--primary {
+    background: var(--dsw-alias-link, #4176e6);
+    border-color: var(--dsw-alias-link, #4176e6);
+    color: var(--dsw-alias-label-primary-foreground, #ffffff);
+    font-weight: 600;
+  }
+  .btn--primary:hover:not(:disabled) {
+    background: var(--lesson-accent-strong, #4868b2);
+    border-color: var(--lesson-accent-strong, #4868b2);
+    color: var(--dsw-alias-label-primary-foreground, #ffffff);
+  }
+  .btn--danger:hover:not(:disabled) {
+    border-color: var(--dsw-alias-state-error-primary, #ec1313);
+    color: var(--dsw-alias-state-error-primary, #ec1313);
+  }
+  /* 主按钮：整页唯一的显眼动作（打开星图） */
+  .btn--lg { font-size: 15px; padding: 10px 22px; }
+
+  /* ---------- 提示条：只加排版，配色与边框仍由 .error-box / .real-path 给 ---------- */
+  .admin-alert { display: flex; align-items: flex-start; gap: 10px; }
+  .admin-alert__text { flex: 1 1 auto; white-space: pre-wrap; word-break: break-word; font-size: 13.5px; }
+  .admin-alert__link { color: inherit; font-weight: 600; word-break: break-all; }
+  .admin-alert__close { flex: 0 0 auto; font-size: 12px; padding: 2px 8px; }
+
+  /* ---------- 打开星图 ---------- */
+  .admin-open__row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+  /* ---------- 导入区 ---------- */
+  .drop {
+    border: 2px dashed var(--dsw-alias-border-l3, #0000001f);
+    border-radius: 10px;
+    corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+    padding: 26px 18px; text-align: center;
+    background: var(--dsw-alias-bg-layer-1, #ffffff);
+    cursor: pointer;
+    transition: border-color .12s ease, background-color .12s ease;
+  }
+  .drop.is-over {
+    border-color: var(--dsw-alias-link, #4176e6);
+    background: var(--lesson-accent-soft, #edf3fe);
+  }
+  .drop__main { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
+  .drop__sub { margin: 10px 0 0; font-size: 12.5px; color: var(--dsw-alias-label-secondary, #61666b); }
+  .drop__hint {
+    margin: 10px 0 0; font-size: 12.5px;
+    background: var(--lesson-hint-bg, #f6f0fb);
+    border: 1px solid var(--lesson-hint-border, #e0cdf0);
+    border-radius: 5px;
+    corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+    padding: .4rem .6rem;
+    color: var(--dsw-alias-label-secondary, #61666b);
+  }
+
+  .status { margin: 10px 0 0; font-size: 13.5px; color: var(--dsw-alias-label-secondary, #61666b); min-height: 1.3em; }
+  .status--busy { color: var(--dsw-alias-link, #4176e6); }
+  .status--ok { color: var(--dsw-alias-state-success-primary, #22c55e); }
+  .status--warn { color: var(--dsw-alias-state-warn-primary, #f59e0b); }
+  .status--err { color: var(--dsw-alias-state-error-primary, #ec1313); }
+
+  /* ---------- 课程清单（每节课一行，只读） ---------- */
+  .admin-rows { list-style: none; margin: 0; padding: 0; }
+  .admin-row {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 12px 0; border-top: 1px solid var(--dsw-alias-border-l1, #0000000a);
+  }
+  .admin-row:first-child { border-top: 0; }
+  .admin-row__main { flex: 1 1 280px; min-width: 0; }
+  .admin-name { font-weight: 600; font-size: 14.5px; word-break: break-word; }
+  .admin-meta { font-size: 12.5px; color: var(--dsw-alias-label-secondary, #61666b); margin-top: 2px; }
+  .admin-path {
+    font-size: 11.5px; color: var(--dsw-alias-label-tertiary, #81858c); margin-top: 2px;
+    font-family: var(--dsw-font-family-mono, monospace); word-break: break-all;
+  }
+  .badge {
+    font-size: 12px; padding: 2px 9px; border-radius: 999px;
+    corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+    border: 1px solid var(--dsw-alias-border-l2, #0000001a);
+    background: var(--dsw-alias-bg-layer-1, #ffffff);
+    color: var(--dsw-alias-label-tertiary, #81858c);
+    white-space: nowrap;
+  }
+  .badge.is-on {
+    color: var(--dsw-alias-state-success-primary, #22c55e);
+    background: var(--dsw-alias-state-success-tertiary, #e6faed);
+    border-color: var(--dsw-alias-state-success-primary, #22c55e);
+    font-weight: 600;
+  }
+  .admin-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* 清单底部的整库动作 */
+  .admin-foot {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    margin-top: 16px; padding-top: 14px;
+    border-top: 1px solid var(--dsw-alias-border-l1, #0000000a);
+  }
+
+  .admin-empty {
+    text-align: center; padding: 28px 12px;
+    background: var(--dsw-alias-bg-layer-1, #ffffff);
+    border: 1px dashed var(--dsw-alias-border-l2, #0000001a);
+    border-radius: 10px;
+    corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+  }
+  .admin-empty__main { margin: 0; font-size: 15px; font-weight: 600; }
+
+  /* ---------- 重建日志 ---------- */
+  .log-head {
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    font-size: 13px; color: var(--dsw-alias-label-secondary, #61666b); margin-bottom: 10px;
+  }
+  .log-title { font-weight: 600; color: var(--dsw-alias-label-primary, #0f1115); }
+  .log-time { font-family: var(--dsw-font-family-mono, monospace); }
+  .log-sum { font-size: 13px; margin: 0 0 10px; color: var(--dsw-alias-label-secondary, #61666b); }
+  .log-sum.is-ok { color: var(--dsw-alias-state-success-primary, #22c55e); }
+
+  .admin-step {
+    border: 1px solid var(--dsw-alias-border-l2, #0000001a);
+    border-left-width: 3px;
+    border-radius: 6px;
+    corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+    padding: 8px 10px; margin-bottom: 8px;
+    background: var(--dsw-alias-bg-layer-1, #ffffff);
+  }
+  .admin-step.is-ok { border-left-color: var(--dsw-alias-state-success-primary, #22c55e); }
+  .admin-step.is-fail {
+    border-left-color: var(--dsw-alias-state-error-primary, #ec1313);
+    background: var(--lesson-danger-bg, #fef2f2);
+  }
+  .admin-step__head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+  .admin-step__no { color: var(--dsw-alias-label-tertiary, #81858c); font-size: 12px; }
+  .admin-step__script {
+    font-family: var(--dsw-font-family-mono, monospace);
+    font-size: 12.5px; word-break: break-all;
+  }
+  .admin-step__code { margin-left: auto; font-size: 12px; color: var(--dsw-alias-label-secondary, #61666b); }
+  .admin-step.is-fail .admin-step__code {
+    color: var(--dsw-alias-state-error-primary, #ec1313); font-weight: 600;
+  }
+  .admin-out { margin-top: 8px; font-size: 12.5px; }
+  .admin-out > summary {
+    cursor: pointer; font-weight: 600;
+    color: var(--dsw-alias-state-error-primary, #ec1313);
+  }
+  .admin-out > summary:focus-visible { outline: 2px solid var(--dsw-alias-link, #4176e6); outline-offset: 2px; }
+  .admin-out pre {
+    margin: 8px 0 0; padding: 10px;
+    background: var(--dsw-alias-markdown-code-block, #f9fafb);
+    border: 1px solid var(--dsw-alias-border-l2, #0000001a);
+    border-radius: 5px;
+    corner-shape: var(--dsw-corner-shape, superellipse(1.5));
+    max-height: 320px; overflow: auto;
+    white-space: pre-wrap; word-break: break-word;
+    font-family: var(--dsw-font-family-mono, monospace);
+    font-size: 12px; line-height: 1.5;
+    color: var(--dsw-alias-label-primary, #0f1115);
+  }
+
+  /* 关了动画的人：一律不动 */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: .001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- 主题引导：**引课程包同一份** assets/theme-boot.js（`/assets/*` 是管理台的同源路由）。
+     它必须在首帧前同步跑完（防闪白），并把 window.LESSON_THEME 交给 theme.js 复用 ——
+     于是管理台与课程页**共用同一套偏好键、同一份实现**（不抄第二份）。 -->
+<script src="/assets/theme-boot.js"></script>
+
+<header class="admin-head">
+  <div class="admin-wrap admin-head__row">
+    <div>
+      <h1 class="admin-title">鲸师课件 · 离线阅读器</h1>
+      <p class="admin-sub" id="subline">正在读取课程库…</p>
+    </div>
+    <div class="admin-head__controls">
+      <!-- 外观三态开关由同源 assets/theme.js 挂到 body 开头，再由页尾那几行挪进这里
+           （它认的类名就是 theme.css 里的 .theme-switch，所以本页一个标记都不另造） -->
+      <span class="admin-theme-slot"></span>
+      <button type="button" id="refresh" class="btn btn--primary">刷新</button>
+    </div>
+  </div>
+</header>
+
+<main class="admin-wrap admin-main">
+
+  <noscript>
+    <div class="error-box" role="alert">
+      <span class="admin-alert__text">这个页面要脚本才能读课程库 —— 关掉脚本时它什么都显示不了。</span>
+    </div>
+  </noscript>
+
+  <div id="alerts"></div>
+
+  <section class="concept-card" aria-labelledby="h-open">
+    <h2 id="h-open">星图</h2>
+    <p class="admin-lead">所有导入的课都合并进同一个课程库、共用同一张星图 —— 不用一门门加载，
+      这一张图上就是全部导入过的课。</p>
+    <div class="admin-open__row">
+      <button type="button" id="open-btn" class="btn btn--primary btn--lg">打开星图</button>
+      <span class="badge" id="run-badge">状态未知</span>
+    </div>
+    <p class="status" id="open-status" role="status">正在读取课程库…</p>
+  </section>
+
+  <section class="concept-card" aria-labelledby="h-import">
+    <h2 id="h-import">导入课件</h2>
+    <div class="drop" id="drop">
+      <p class="drop__main">把课件包 .zip 拖到这里</p>
+      <button type="button" id="pick-btn" class="btn btn--primary">选择文件…</button>
+      <p class="drop__sub" id="drop-hint">也可以点这块区域选择文件 · 只接受 .zip</p>
+    </div>
+    <p class="drop__hint">老师发来的 .zip 不用解压，原样拖进来就行 —— 里面的课会并进同一个课程库，
+      导入完它就在星图上了。</p>
+    <input type="file" id="file" accept=".zip,application/zip" hidden>
+    <p class="status" id="import-status" role="status">还没有导入动作。</p>
+  </section>
+
+  <section class="concept-card" aria-labelledby="h-lib">
+    <h2 id="h-lib">课程清单</h2>
+    <div id="list"><p class="admin-muted">正在读取…</p></div>
+    <div class="admin-foot">
+      <button type="button" id="rebuild-btn" class="btn">重建</button>
+      <button type="button" id="clear-btn" class="btn btn--danger">清空课程库</button>
+      <span class="admin-muted">重建会重跑离线端那条构建链；清空会把整个库移进回收站（源 .zip 不受影响）。</span>
+    </div>
+  </section>
+
+  <section class="concept-card" aria-labelledby="h-log">
+    <h2 id="h-log">重建日志</h2>
+    <div id="log"><p class="admin-muted">还没有重建记录。</p></div>
+  </section>
+
+</main>
+
+<!-- 模板：内容都是惰性的，只在 JS 里克隆使用（服务端文本一律走 textContent，不拼字符串） -->
+
+<template id="tpl-alert-err">
+  <div class="error-box admin-alert" role="alert">
+    <span class="admin-alert__text"></span>
+    <button type="button" class="btn admin-alert__close" aria-label="关闭这条提示">关闭</button>
+  </div>
+</template>
+
+<template id="tpl-alert-info">
+  <div class="real-path admin-alert" role="status">
+    <span class="admin-alert__text"></span>
+    <button type="button" class="btn admin-alert__close" aria-label="关闭这条提示">关闭</button>
+  </div>
+</template>
+
+<template id="tpl-empty">
+  <div class="admin-empty">
+    <p class="admin-empty__main">还没有课件 —— 把老师发来的 .zip 拖进来，它会直接出现在星图上</p>
+    <p class="admin-muted">导入后这里会列出每一节课：标题、所属圆圈与知识点、课号。</p>
+  </div>
+</template>
+
+<!-- 每节课一行，只读：标题 / 所属圆圈·知识点 / 课号（外加一行来源相对路径） -->
+<template id="tpl-lesson">
+  <li class="admin-row">
+    <div class="admin-row__main">
+      <div class="admin-name"></div>
+      <div class="admin-meta"></div>
+      <div class="admin-path" hidden></div>
+    </div>
+    <span class="badge"></span>
+  </li>
+</template>
+
+<template id="tpl-step">
+  <div class="admin-step">
+    <div class="admin-step__head">
+      <span class="admin-step__no"></span>
+      <code class="admin-step__script"></code>
+      <span class="admin-step__code"></span>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-step-out">
+  <details class="admin-out">
+    <summary>查看这条的输出（out）</summary>
+    <pre></pre>
+  </details>
+</template>
+
+<script>
+(function () {
+  'use strict';
+
+  var subline = document.getElementById('subline');
+  var alerts = document.getElementById('alerts');
+  var openBtn = document.getElementById('open-btn');
+  var openStatus = document.getElementById('open-status');
+  var runBadge = document.getElementById('run-badge');
+  var drop = document.getElementById('drop');
+  var pickBtn = document.getElementById('pick-btn');
+  var fileInput = document.getElementById('file');
+  var importStatus = document.getElementById('import-status');
+  var list = document.getElementById('list');
+  var log = document.getElementById('log');
+  var rebuildBtn = document.getElementById('rebuild-btn');
+  var clearBtn = document.getElementById('clear-btn');
+  var refreshBtn = document.getElementById('refresh');
+
+  /* 库里只有一个包（唯一课程库），所以 state 只留这一份快照 */
+  var state = { lib: null };
+  var importBusy = false;
+
+  /* ---------- 小工具 ---------- */
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined && text !== null) n.textContent = String(text);
+    return n;
+  }
+
+  function fromTemplate(id) {
+    var tpl = document.getElementById(id);
+    if (!tpl) throw new Error('缺少模板 #' + id);
+    return tpl.content.firstElementChild.cloneNode(true);
+  }
+
+  function pad2(x) { return x < 10 ? '0' + x : String(x); }
+
+  function fmtTime(value) {
+    var d = (value instanceof Date) ? value : new Date(value);
+    if (!d || isNaN(d.getTime())) {
+      return (value === undefined || value === null || value === '') ? '—' : String(value);
+    }
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) +
+           ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+
+  function isNum(v) { return typeof v === 'number' && isFinite(v); }
+
+  /** 服务端给的是数就是数，给的是数组就取长度（两种都容得下） */
+  function countOf(v) {
+    if (isNum(v)) return v;
+    if (Array.isArray(v)) return v.length;
+    return null;
+  }
+
+  function lessons() {
+    return (state.lib && Array.isArray(state.lib.lessons)) ? state.lib.lessons : [];
+  }
+
+  function isRunning() { return !!(state.lib && state.lib.running === true); }
+
+  /* ---------- 提示条（错误一律 role="alert"，文本走 textContent） ---------- */
+
+  function alertBox(kind, message, linkHref) {
+    var box = fromTemplate(kind === 'err' ? 'tpl-alert-err' : 'tpl-alert-info');
+    box.querySelector('.admin-alert__text').textContent = message;
+    var closeBtn = box.querySelector('.admin-alert__close');
+    if (linkHref) {
+      var a = el('a', 'admin-alert__link', linkHref);
+      a.href = linkHref;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      box.insertBefore(a, closeBtn);
+    }
+    closeBtn.addEventListener('click', function () { box.remove(); });
+    alerts.appendChild(box);
+    return box;
+  }
+
+  function showError(message, linkHref) { return alertBox('err', message, linkHref); }
+  function showInfo(message) { return alertBox('info', message); }
+
+  /* ---------- 接口调用（每个 fetch 都 try/catch，并检查 ok / 显示 error 原文） ---------- */
+
+  async function requestJson(url, opts) {
+    var res;
+    try {
+      res = await fetch(url, opts);
+    } catch (e) {
+      throw new Error('连不上本地服务（' + url + '）：' + ((e && e.message) ? e.message : String(e)));
+    }
+    var text = '';
+    try { text = await res.text(); } catch (e) { text = ''; }
+    var data = null;
+    if (text) {
+      try { data = JSON.parse(text); } catch (e) { data = null; }
+    }
+    if (!data) {
+      throw new Error('本地服务返回的不是 JSON（HTTP ' + res.status + '）：' +
+                      (text.slice(0, 300) || '（空响应）'));
+    }
+    return { data: data, status: res.status };
+  }
+
+  /** 失败时把服务端的 error 原文当异常消息抛出；e.data 里保留整个响应体 */
+  async function api(url, opts) {
+    var r = await requestJson(url, opts);
+    var d = r.data;
+    if (d.ok !== true) {
+      var msg = d.error
+        ? String(d.error)
+        : ('本地服务返回 ok:' + String(d.ok) + '，却没有给出 error（HTTP ' + r.status + '）');
+      var err = new Error(msg);
+      err.data = d;
+      err.status = r.status;
+      throw err;
+    }
+    return d;
+  }
+
+  /* ---------- 顶部小字 / 运行状态 / 健康检查 ---------- */
+
+  function renderSubline() {
+    var lib = state.lib || {};
+    var parts = ['课程库：' + (lib.dir || '还没有课件')];
+    var bits = [];
+    var c = countOf(lib.circles), p = countOf(lib.points), l = countOf(lib.lessons);
+    if (c !== null) bits.push(c + ' 个圆圈');
+    if (p !== null) bits.push(p + ' 个知识点');
+    if (l !== null) bits.push(l + ' 节课');
+    if (bits.length) parts.push(bits.join(' · '));
+    if (lib.updatedAt) parts.push('更新于 ' + fmtTime(lib.updatedAt));
+    subline.textContent = parts.join(' · ');
+  }
+
+  function renderRunState() {
+    var running = isRunning();
+    runBadge.textContent = running ? '星图跑着' : '星图没跑';
+    if (running) runBadge.classList.add('is-on');
+    else runBadge.classList.remove('is-on');
+    openStatus.className = 'status' + (running ? ' status--ok' : '');
+    openStatus.textContent = running
+      ? '星图正在运行 —— 点「打开星图」直接打开这一张图。'
+      : '星图还没起 —— 点「打开星图」会自动起来，起来的就是全部导入过的课。';
+  }
+
+  async function loadHealth() {
+    try {
+      await api('/api/health');
+    } catch (e) {
+      showError('本地服务没有正常响应：' + e.message + ' —— 这个页面要由本地服务打开才管用。');
+    }
+  }
+
+  /* ---------- 课程清单（每节课一行，只读） ---------- */
+
+  function renderLessons() {
+    list.textContent = '';
+    var all = lessons();
+    if (!all.length) {
+      list.appendChild(fromTemplate('tpl-empty'));
+      return;
+    }
+    var ul = el('ul', 'admin-rows');
+    all.forEach(function (l) { ul.appendChild(rowFor(l)); });
+    list.appendChild(ul);
+  }
+
+  function rowFor(lesson) {
+    var l = lesson || {};
+    var li = fromTemplate('tpl-lesson');
+
+    /* 标题 */
+    var title = (typeof l.title === 'string' && l.title) ? l.title : '';
+    if (!title) title = (typeof l.slug === 'string' && l.slug) ? l.slug : '';
+    if (!title) title = (typeof l.rel === 'string' && l.rel) ? l.rel : '（这一课没有标题）';
+    li.querySelector('.admin-name').textContent = title;
+
+    /* 所属圆圈 · 知识点 */
+    var circle = (typeof l.circle === 'string' && l.circle) ? l.circle : '';
+    var point = (typeof l.point === 'string' && l.point) ? l.point : '';
+    var belong = [circle, point].filter(function (x) { return x !== ''; }).join(' · ');
+    li.querySelector('.admin-meta').textContent = belong || '所属圆圈与知识点未标注';
+
+    /* 来源相对路径（有就显示，没有就留空行不占位） */
+    var relEl = li.querySelector('.admin-path');
+    if (typeof l.rel === 'string' && l.rel) { relEl.textContent = l.rel; relEl.hidden = false; }
+
+    /* 课号 */
+    li.querySelector('.badge').textContent = isNum(l.number) ? ('第 ' + l.number + ' 课') : '课号未知';
+
+    return li;
+  }
+
+  async function loadLibrary() {
+    list.setAttribute('aria-busy', 'true');
+    try {
+      var d = await api('/api/library');
+      state.lib = d;
+      renderLessons();
+      renderSubline();
+      renderRunState();
+      return true;
+    } catch (e) {
+      state.lib = null;
+      list.textContent = '';
+      list.appendChild(el('p', 'admin-muted', '读不到课程库。'));
+      subline.textContent = '课程库：读不到';
+      runBadge.textContent = '状态未知';
+      runBadge.classList.remove('is-on');
+      openStatus.className = 'status';
+      openStatus.textContent = '读不到课程库，星图打不开。';
+      showError(e.message);
+      return false;
+    } finally {
+      list.removeAttribute('aria-busy');
+    }
+  }
+
+  /* ---------- 打开星图（唯一那张；没跑会自动起） ---------- */
+
+  function openWindow(url) {
+    var w = window.open(url, '_blank');
+    if (w) { try { w.opener = null; } catch (e) { /* 忽略 */ } }
+    return w;
+  }
+
+  async function openStarmap() {
+    var old = openBtn.textContent;
+    openBtn.disabled = true;
+    openBtn.textContent = '启动中…';
+    openStatus.className = 'status status--busy';
+    openStatus.textContent = isRunning() ? '正在打开星图…' : '星图还没跑，正在起它…';
+    try {
+      var d = await api('/api/open', { method: 'POST' });
+      var url = d.url || (state.lib && state.lib.url) || '';
+      if (!url) throw new Error('服务端说星图起来了，但没有给出 url。');
+      if (openWindow(url)) {
+        openStatus.className = 'status status--ok';
+        openStatus.textContent = '星图已打开。';
+        showInfo('星图已打开：' + url + (d.started ? '（本次新起）' : '（复用了已经在跑的那个）'));
+      } else {
+        openStatus.className = 'status status--warn';
+        openStatus.textContent = '星图起来了，但浏览器拦下了自动打开的新窗口。';
+        showError('星图已经起来在下面这个地址，但浏览器拦下了自动打开的新窗口 —— 点它打开：', url);
+      }
+      await loadLibrary();
+    } catch (e) {
+      openStatus.className = 'status status--err';
+      openStatus.textContent = '星图没能打开。';
+      showError(e.message);
+    } finally {
+      openBtn.disabled = false;
+      openBtn.textContent = old;
+    }
+  }
+
+  /* ---------- 导入 ---------- */
+
+  function setImportStatus(text, kind) {
+    importStatus.textContent = text;
+    importStatus.className = 'status' + (kind ? ' status--' + kind : '');
+  }
+
+  /** 「这次加入 N 课 · 库里现在共 M 课」——数字缺了就照实说缺，不编 */
+  function importCounts(added, total) {
+    var a = isNum(added) ? ('这次加入 ' + added + ' 课') : '这次加入几课（服务端没给出 added）';
+    var t = isNum(total) ? ('库里现在共 ' + total + ' 课') : '库里现在共几课（服务端没给出 lessons）';
+    return a + ' · ' + t;
+  }
+
+  async function doImport(file) {
+    if (!file) return;
+    var name = file.name || '';
+
+    if (!/\.zip$/i.test(name)) {
+      setImportStatus('已拒绝：不是 .zip 文件', 'err');
+      showError('只接受 .zip 课件包 —— 收到的是「' + (name || '（没有文件名）') +
+                '」。请把老师发来的 .zip 原样拖进来。');
+      return;
+    }
+    if (!file.size) {
+      setImportStatus('已拒绝：空文件', 'err');
+      showError('「' + name + '」是空文件（0 字节），没法导入。');
+      return;
+    }
+
+    importBusy = true;
+    setImportStatus('上传中…', 'busy');
+    try {
+      /* 直接把 File 当 body 发（不是表单对象）—— 服务端按原始 zip 字节收 */
+      var d = await api('/api/import?name=' + encodeURIComponent(name), {
+        method: 'POST',
+        headers: { 'content-type': 'application/zip' },
+        body: file
+      });
+      var label = name ? '「' + name + '」' : '课件包';
+      var counts = importCounts(d.added, d.lessons);
+      var rebuiltOk = d.rebuilt === true;
+      setImportStatus('导入完成：' + label + ' · ' + counts + ' · ' +
+                      (rebuiltOk ? '重建成功' : '重建未成功'), rebuiltOk ? 'ok' : 'warn');
+      if (rebuiltOk) {
+        showInfo('导入完成 ' + label + '：' + counts + '，重建成功 —— 这些课已经在星图上了。');
+      } else {
+        /* 真因优先取 rebuildError（服务端专为「导入后重建失败」留的字段），再兜底 error；
+           并把逐步输出也摆出来 —— 光说「重建未成功」等于没说 */
+        var why = d.rebuildError || d.error || '';
+        showError('导入完成 ' + label + '：' + counts + '，但重建没有成功' +
+                  (why ? '：' + why : '（服务端没有给出原因）'));
+        renderSteps(Array.isArray(d.steps) ? d.steps : null, null);
+      }
+      await loadLibrary();
+    } catch (e) {
+      setImportStatus('导入失败', 'err');
+      showError(e.message);
+      if (e.data && Array.isArray(e.data.steps)) renderSteps(e.data.steps, null);
+    } finally {
+      importBusy = false;
+      fileInput.value = '';   /* 允许再次选择同一个文件 */
+    }
+  }
+
+  /* ---------- 清空课程库（整库进回收站） ---------- */
+
+  async function clearLibrary() {
+    var n = countOf(state.lib && state.lib.lessons);
+    var where = (state.lib && state.lib.dir) ? state.lib.dir : '（位置未给出）';
+    var ok = window.confirm('确定清空整个课程库吗？\n\n' +
+                            '课程库：' + where + '\n' +
+                            '库里现有的 ' + (n === null ? '全部' : n + ' 节') + '课会一起移进回收站，星图会变成一张空图。\n' +
+                            '老师发来的源 .zip 文件不受影响。');
+    if (!ok) return;
+
+    var old = clearBtn.textContent;
+    clearBtn.disabled = true;
+    clearBtn.textContent = '清空中…';
+    try {
+      var d = await api('/api/clear', { method: 'POST' });
+      var extra = (typeof d.moved === 'string' && d.moved) ? '（已移到：' + d.moved + '）' : '';
+      showInfo('课程库已清空' + extra + '。');
+      log.textContent = '';
+      log.appendChild(el('p', 'admin-muted', '课程库已清空，重建日志随之作废。'));
+      await loadLibrary();
+    } catch (e) {
+      showError(e.message);
+    } finally {
+      clearBtn.disabled = false;
+      clearBtn.textContent = old;
+    }
+  }
+
+  /* ---------- 重建（跑整库那条链，逐步回报） ---------- */
+
+  function logHead() {
+    var head = el('div', 'log-head');
+    head.appendChild(el('span', 'log-title', '重建课程库'));
+    head.appendChild(el('span', 'log-time', fmtTime(new Date())));
+    return head;
+  }
+
+  function stepNode(s, i) {
+    var isOk = !!s && s.code === 0;
+    var row = fromTemplate('tpl-step');
+    row.classList.add(isOk ? 'is-ok' : 'is-fail');
+    row.querySelector('.admin-step__no').textContent = '#' + (i + 1);
+    row.querySelector('.admin-step__script').textContent = (s && s.script) ? s.script : '（未给出 script）';
+    row.querySelector('.admin-step__code').textContent = isOk ? 'code 0' : 'code ' + (s ? String(s.code) : '?');
+    if (!isOk) {
+      var det = fromTemplate('tpl-step-out');
+      det.querySelector('pre').textContent = (s && s.out) ? s.out : '（没有输出）';
+      row.appendChild(det);
+    }
+    return row;
+  }
+
+  function renderSteps(steps, errText) {
+    log.textContent = '';
+    log.appendChild(logHead());
+
+    if (errText) showError(errText);
+
+    if (!steps || !steps.length) {
+      log.appendChild(el('p', 'admin-muted', errText
+        ? '服务端没有返回 steps —— 只能看到上面那条错误。'
+        : '服务端没有返回 steps。'));
+      return;
+    }
+
+    var failed = 0;
+    steps.forEach(function (s) { if (!s || s.code !== 0) failed++; });
+    log.appendChild(el('p', failed ? 'log-sum' : 'log-sum is-ok',
+      '共 ' + steps.length + ' 步' + (failed ? '，其中 ' + failed + ' 步失败（已标红）' : '，全部成功') + '。'));
+
+    steps.forEach(function (s, i) { log.appendChild(stepNode(s, i)); });
+  }
+
+  async function doRebuild() {
+    log.textContent = '';
+    log.appendChild(logHead());
+    log.appendChild(el('p', 'admin-muted', '正在重建…'));
+
+    var old = rebuildBtn.textContent;
+    rebuildBtn.disabled = true;
+    rebuildBtn.textContent = '重建中…';
+    try {
+      var d = await api('/api/rebuild', { method: 'POST' });
+      renderSteps(Array.isArray(d.steps) ? d.steps : null, null);
+      await loadLibrary();
+    } catch (e) {
+      var steps = (e.data && Array.isArray(e.data.steps)) ? e.data.steps : null;
+      renderSteps(steps, e.message);
+    } finally {
+      rebuildBtn.disabled = false;
+      rebuildBtn.textContent = old;
+    }
+  }
+
+  /* ---------- 拖放 / 选择文件 ---------- */
+
+  ['dragenter', 'dragover'].forEach(function (t) {
+    drop.addEventListener(t, function (e) {
+      e.preventDefault();   /* 不拦的话浏览器会直接打开这个文件 */
+      e.stopPropagation();
+      if (e.dataTransfer) { try { e.dataTransfer.dropEffect = 'copy'; } catch (err) { /* 忽略 */ } }
+      drop.classList.add('is-over');
+    });
+  });
+
+  drop.addEventListener('dragleave', function (e) {
+    e.preventDefault();
+    if (!drop.contains(e.relatedTarget)) drop.classList.remove('is-over');
+  });
+
+  drop.addEventListener('drop', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    drop.classList.remove('is-over');
+    if (importBusy) return;
+    var files = (e.dataTransfer && e.dataTransfer.files) ? e.dataTransfer.files : null;
+    if (!files || !files.length) {
+      showError('这次拖放里没有文件 —— 请拖一个 .zip 课件包。');
+      return;
+    }
+    if (files.length > 1) {
+      showInfo('一次只导入一个包 —— 先处理「' + files[0].name + '」，其余的请再拖一次。');
+    }
+    doImport(files[0]);
+  });
+
+  /* 点这块区域 = 点「选择文件…」（键盘走那个真按钮，这里只是鼠标的便利） */
+  drop.addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('button')) return;   /* 按钮自己处理 */
+    if (importBusy) return;
+    fileInput.click();
+  });
+
+  pickBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (importBusy) return;
+    fileInput.click();
+  });
+
+  fileInput.addEventListener('change', function () {
+    var f = fileInput.files && fileInput.files[0];
+    if (f) doImport(f);
+  });
+
+  /* 掉在拖放区之外的文件，也不要让浏览器打开它 */
+  window.addEventListener('dragover', function (e) { e.preventDefault(); });
+  window.addEventListener('drop', function (e) {
+    if (!drop.contains(e.target)) e.preventDefault();
+  });
+
+  /* ---------- 动作接线 ---------- */
+
+  openBtn.addEventListener('click', openStarmap);
+  rebuildBtn.addEventListener('click', doRebuild);
+  clearBtn.addEventListener('click', clearLibrary);
+
+  refreshBtn.addEventListener('click', async function () {
+    var old = refreshBtn.textContent;
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = '刷新中…';
+    try {
+      await loadLibrary();
+      await loadHealth();
+    } finally {
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = old;
+    }
+  });
+
+  /* ---------- 启动 ---------- */
+
+  renderSubline();
+  (async function init() {
+    await loadLibrary();
+    await loadHealth();
+  })();
+})();
+</script>
+
+<!-- 外观三态开关（浅色 / 深色 / 跟随系统）：**同源引课程包那一份状态机**，不抄第二份实现。
+     它自包含 —— 键与取值域在 assets/theme.js:20-21 里已有兜底（'lesson-theme-preference'、
+     ['light','dark','system']），首屏那一步本页已由 body 开头的内联引导先做过一遍。
+     所以与课程页共用同一个偏好键：在这边切了，课程页也跟着变，反之亦然。 -->
+<script src="/assets/theme.js"></script>
+
+<!-- 把 theme.js 挂好的开关从 body 开头挪进顶栏（与「刷新」同一行）。
+     放在 theme.js 之后同步执行：DOM 已就绪时它当场就跑完，脚本都在首帧前完成 —— 不会看见控件先跳一下。 -->
+<script>
+(function () {
+  'use strict';
+
+  function place() {
+    var wrap = document.querySelector('body > .theme-switch');
+    var slot = document.querySelector('.admin-theme-slot');
+    if (!wrap || !slot) return false;
+    slot.parentNode.insertBefore(wrap, slot);   /* 先插后摘：搬的是同一个节点，事件与 aria 都跟着走 */
+    slot.remove();
+    return true;
+  }
+
+  /* theme.js 正常时它自己会挂；万一那个文件没取到，这里再试一次，
+     仍没有就留一个空槽（这一格是空的，页面上不出现"半个控件"）。 */
+  if (!place()) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', place);
+    else place();
+  }
+})();
+</script>
+</body>
+</html>

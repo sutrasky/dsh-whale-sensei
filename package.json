@@ -1,6 +1,6 @@
 {
   "name": "dsh-whale-sensei",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "鲸师：把课程包变成可教的课程页 + 知识星图（DSH 插件）",
   "type": "module",
   "main": "lib/index.js",
@@ -16,6 +16,10 @@
   },
   "files": [
     "lib",
+    "preset/whale-mode/agent.cordis.yml",
+    "preset/whale-mode/preset.yml",
+    "preset/whale-mode/persona.md",
+    "install-whale-sensei.ps1",
     "cordis.patch.yml",
     "dsh-plugin.json",
     "README.md",

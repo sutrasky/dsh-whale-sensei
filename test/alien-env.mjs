@@ -42,6 +42,8 @@ const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-alien-'))
 const alienCourse = path.join(tmpRoot, 'course')
 const alienPlug = path.join(tmpRoot, 'plug')
 const alienData = path.join(tmpRoot, 'data')
+/** 「别人的机器」连 DSH 根也是别人的 —— 预设就落在它下面（见 loadAlien 里的隔离）。 */
+const alienHome = path.join(tmpRoot, 'dsh-home')
 
 try {
 	// ── 造机器 ────────────────────────────────────────────────────────────
@@ -60,6 +62,7 @@ try {
 		if (fs.existsSync(s)) fs.cpSync(s, path.join(alienPlug, f), { recursive: true })
 	}
 	fs.mkdirSync(alienData, { recursive: true })
+	fs.mkdirSync(alienHome, { recursive: true })
 
 	ok(fs.existsSync(path.join(alienCourse, 'presets', 'whale-sensei.css')), '课程包副本像课程包（有 presets/whale-sensei.css）')
 	ok(
@@ -107,8 +110,18 @@ try {
 			inject: (_names, cb) => cb({ get: () => ({ fetch: { register: () => {} } }) }),
 		}
 		const mod = await import(pathToFileURL(path.join(alienPlug, 'lib', 'index.js')).href)
-		const dispose = mod.apply(ctx, config)
-		return { mod, tools, dispose }
+		// ⚠️ **隔离 DSH_HOME**（2026-09-27）：插件启动期会往 `$DSH_HOME/.agent-presets/`
+		// 装「鲸师模式」预设（lib/mods/preset.js）。这台「别人的机器」连 DSH 根也是别人的 ——
+		// 不隔离的话，判据会写到**真机**的预设目录去（"跑完测试，我的预设被改了"）。
+		const savedHome = process.env.DSH_HOME
+		process.env.DSH_HOME = alienHome
+		try {
+			const dispose = mod.apply(ctx, config)
+			return { mod, tools, dispose }
+		} finally {
+			if (savedHome === undefined) delete process.env.DSH_HOME
+			else process.env.DSH_HOME = savedHome
+		}
 	}
 
 	let alien
@@ -116,6 +129,14 @@ try {
 		alien = await loadAlien({ packRoot: alienCourse, dataDir: alienData, announceOnBoot: false })
 		ok(typeof alien.mod.apply === 'function', '复制过去的 lib/index.js 能 import 且 apply 是函数（无外部依赖）')
 		ok(typeof alien.mod.resolvePackRoot === 'function', '导出了 resolvePackRoot（课程包定位的唯一入口）')
+		// 「鲸师模式」预设也得跟着插件到这台机器上 —— 2026-09-27 的事故就是它没跟过去
+		// （npm 包里没带 preset/，只有安装脚本会装它）。现在插件启动期自己装。
+		ok(
+			fs.existsSync(path.join(alienHome, '.agent-presets', 'whale-mode', 'agent.cordis.yml')),
+			'启动后「鲸师模式」预设落在 $DSH_HOME/.agent-presets/whale-mode（换台机器也在）',
+		)
+		const presetTxt = fs.readFileSync(path.join(alienHome, '.agent-presets', 'whale-mode', 'agent.cordis.yml'), 'utf8')
+		ok(!presetTxt.includes('__WHALE_SKILLS__'), '预设里的技能目录占位符被替换成了这台机器的课程包')
 	} catch (e) {
 		ok(false, `import / apply 复制过去的插件失败：${e?.message ?? e}`)
 	}

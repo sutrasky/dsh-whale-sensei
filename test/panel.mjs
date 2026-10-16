@@ -259,12 +259,25 @@ ok((gb.entry?.form?.fields || []).filter((f) => f.required).length === 0, '不�
     exportsObj.apply(ctx)
   } catch (e) { applied = e }
   ok(!applied, `apply(ctx) 不抛${applied ? '（' + applied.message + '）' : ''}`)
-  ok(regs.length === 3, `apply 里真的注册了 3 个坐位（实际 ${regs.length}）`)
+  ok(regs.length === 5, `apply 里真的注册了 5 个注册面（实际 ${regs.length}）`)
   ok(regs[0]?.spec?.name === 'settings.section' && regs[0]?.spec?.id === 'whale-sensei', `坐位①：settings.section / whale-sensei（${regs[0]?.spec?.name}/${regs[0]?.spec?.id}）`)
   ok(regs[1]?.spec?.name === 'conversation.input.left' && regs[1]?.spec?.id === 'whale-bridge', `坐位②：conversation.input.left / whale-bridge（${regs[1]?.spec?.name}/${regs[1]?.spec?.id}）`)
   ok(regs[2]?.spec?.name === 'shell.overlay' && regs[2]?.spec?.id === 'whale-new-course-dialog', `坐位③：shell.overlay / whale-new-course-dialog（${regs[2]?.spec?.name}/${regs[2]?.spec?.id}）—— 弹窗挂在官方"整帧浮层"缝上`)
-  ok(regs.every((r) => typeof r.comp === 'function'), '三处注册的都是**组件函数**，不是现造的元素')
+  ok(regs.every((r) => typeof r.comp === 'function'), '注册的都是**组件函数**，不是现造的元素')
   ok(regs[1].comp({ inputActions: {} }) === null, '桥组件渲染 null —— 它只把 inputActions 接出来，不占界面')
+
+  // —— ④ 侧栏「课程中心」：宿主官方面板缝，**两处成对**（行 + 页）——
+  //    2026-10-13 改：不再往侧栏 DOM 里插行 —— 那正是"和插件 / 自动化任务 / 技能中心对不齐"的根因。
+  //    这条钉住三件最容易写错的事：① 两处都注册了；② 两处**同一个 key**（对不上 = 点一下抛错、没反应）；
+  //    ③ 行序排在技能中心（它 order=30）后面。
+  const packRowReg = regs.find((r) => r.spec?.name === 'sidebar.panellist')
+  const packPageReg = regs.find((r) => r.spec?.name === 'main')
+  ok(!!packRowReg && !!packPageReg, '课程中心注册了**两处**：sidebar.panellist（侧栏一行）+ main（中间栏一页）')
+  ok(packRowReg?.spec?.id === 'whale-sensei-pack' && packPageReg?.spec?.key === 'whale-sensei-pack',
+    `两处**同一个 key**（行 ${packRowReg?.spec?.id} / 页 ${packPageReg?.spec?.key}）—— 对不上就是"点一下抛错、没反应"`)
+  ok(packRowReg?.spec?.order === 40, `行序 40 —— 排在技能中心（30）后面（${packRowReg?.spec?.order}）`)
+  ok(packRowReg?.spec?.label === '课程中心', `行上的字是「课程中心」（${packRowReg?.spec?.label}）`)
+  ok(typeof packRowReg?.comp === 'function' && typeof packPageReg?.comp === 'function', '两处注册的都是**组件函数**（现造会让 React 每帧重挂载）')
 
   // —— 侧栏那一行：用**最小假 DOM** 真跑一遍注入逻辑 ——
   //    侧栏没有对外的 slot（我们是往 DOM 里插一行），这段逻辑在 Node 里本来**一条判据都没有**；
@@ -388,22 +401,17 @@ ok((gb.entry?.form?.fields || []).filter((f) => f.required).length === 0, '不�
       ok(row?.textContent === '新课程', `行上的字是「新课程」（${row?.textContent}）`)
       ok(row?.getAttribute('data-dsh-whale-entry') === '' && row?.getAttribute('data-dsh-part') === 'sidebar-entry', '带 data-dsh-whale-entry 与 data-dsh-part（可被识别、可被别的插件避让）')
 
-      // ①b 第二行「课程中心」：**放「新课程」下**（主人 2026-09-25 定），样式抄「技能中心」
-      const packRow = doc1.querySelector('[data-dsh-whale-pack-entry]')
-      ok(!!packRow && packRow.tagName === 'BUTTON', '侧栏第二行「课程中心」也插进了 DOM')
-      ok(packRow?.previousElementSibling === row, '位置①b：紧贴「新课程」下面（链式：新建会话 → 新课程 → 课程中心）')
-      ok(packRow?.textContent === '课程中心', `第二行上的字是「课程中心」（${packRow?.textContent}）`)
-      ok(packRow?.getAttribute('data-dsh-part') === 'sidebar-entry', '第二行也带 data-dsh-part（与第一行同形）')
+      // ①b 「课程中心」**不再**往侧栏 DOM 里插行（2026-10-13 改：它走宿主官方面板缝）。
+      //    这条是**防回归**的：DOM 里再冒出第二行，就等于又回到"和别的面板行对不齐"的老路。
+      ok(!doc1.querySelector('[data-dsh-whale-pack-entry]'), '「课程中心」不再往侧栏 DOM 里插行（改走 sidebar.panellist，几何归宿主）')
 
-      // ② 别的插件行插到我上面 → 触发 observer → **两行都要**挪回原位（链式）
-      const skill = doc1.createElement('button', 'cBrkua_entry')
-      skill.setAttribute('data-dsh-skill-explorer-entry', '')
-      s1.col.insertBefore(skill, row)
-      ok(row.previousElementSibling === skill, '（先把技能中心插到我上面，模拟现场那一幕）')
+      // ② 别的插件行插到我上面 → 触发 observer → 挪回原位
+      const alien = doc1.createElement('button', 'cBrkua_entry')
+      alien.setAttribute('data-dsh-skill-explorer-entry', '')
+      s1.col.insertBefore(alien, row)
+      ok(row.previousElementSibling === alien, '（先把别的插件行插到我上面，模拟现场那一幕）')
       seen.forEach((o) => o.cb())
-      ok(row.previousElementSibling === s1.native, '位置②：被技能中心挤下去后**挪回了「新建会话」正下方**')
-      ok(packRow.previousElementSibling === row, '位置②b：第二行跟着挪回「新课程」正下方（链式一起挪，不是只挪一行）')
-      ok(skill.previousElementSibling === packRow, '技能中心被排到我们**两行之后**（顺序：新建会话 → 新课程 → 课程中心 → 技能中心）')
+      ok(row.previousElementSibling === s1.native, '位置②：被别的插件行挤下去后**挪回了「新建会话」正下方**')
 
       // ③ 侧栏还没渲染出来 → 先不插；等它出现，body observer 要补插（缺这条 = 静默什么都不发生）
       const doc2 = makeDom()
@@ -412,8 +420,6 @@ ok((gb.entry?.form?.fields || []).filter((f) => f.required).length === 0, '不�
       const s2 = withSidebar(doc2)
       seen.filter((o) => o.cb).forEach((o) => o.cb())
       ok(doc2.querySelector('[data-dsh-whale-entry]')?.previousElementSibling === s2.native, '侧栏一出现就补插到「新建会话」正下方（body observer 生效）')
-      ok(doc2.querySelector('[data-dsh-whale-pack-entry]')?.previousElementSibling === doc2.querySelector('[data-dsh-whale-entry]'),
-        '侧栏一出现：第二行也按链式补插到「新课程」下（body observer 对**两行**都生效）')
 
       // ④ 整条真流程：点侧栏那行 → 弹窗开 → 拉载荷 → 填字段 → 点「发送」→ setDraft + submit
       //    这需要 React 的**状态**（弹窗开/关、字段值、phase），所以这里用一个 40 行的 mini-React：
@@ -580,6 +586,90 @@ ok((gb.entry?.form?.fields || []).filter((f) => f.required).length === 0, '不�
           globalThis.window = realWindow
         }
       }
+
+      // ⑤ 「课程中心」那一页：用 mini-React **真渲染一遍**（loading → ready 内嵌星图）
+      //    少了这条，"main 注册上了、页面却渲染不出来 / iframe 没接上地址"就没人管 ——
+      //    而那正是这次改动的核心动作（点一下真的要有东西出来）。
+      {
+        const doc4 = makeDom()
+        withSidebar(doc4)
+        const cells = []
+        let cursor = 0
+        let comp = null
+        let tree = null
+        const effects = []
+        const render = () => {
+          cursor = 0
+          effects.length = 0
+          tree = comp({})
+          for (const fn of effects) fn()
+          return tree
+        }
+        const miniReact = {
+          createElement: (type, p, ...kids) => ({ type, props: p || {}, children: kids.flat().filter((k) => k !== null && k !== undefined && k !== false) }),
+          useState(init) {
+            const i = cursor++
+            if (!(i in cells)) cells[i] = typeof init === 'function' ? init() : init
+            return [cells[i], (v) => { cells[i] = typeof v === 'function' ? v(cells[i]) : v; Promise.resolve().then(render) }]
+          },
+          useRef(v) { const i = cursor++; if (!(i in cells)) cells[i] = { current: v }; return cells[i] },
+          useEffect(fn, deps) {
+            const i = cursor++
+            const prev = cells[i]
+            const changed = !prev || deps === undefined || !prev.deps || prev.deps.length !== deps.length || deps.some((d, k) => d !== prev.deps[k])
+            cells[i] = { deps }
+            if (changed) effects.push(fn)
+          },
+        }
+        const req5 = (n) => {
+          if (n === 'react') return miniReact
+          if (n === '@deepseek-ai/dsh-client-ui-primitives') return primitives
+          throw new Error('意外 require：' + n)
+        }
+        const realFetch5 = globalThis.fetch
+        const realWindow5 = globalThis.window
+        const urls5 = []
+        const STAR_URL = 'http://127.0.0.1:3091/starmap/'
+        globalThis.fetch = (url, init) => {
+          urls5.push(((init && init.method) || 'GET') + ' ' + String(url))
+          return Promise.resolve({ status: 200, text: () => Promise.resolve(JSON.stringify({ ok: true, url: STAR_URL, port: 3091, started: true })) })
+        }
+        globalThis.window = { setTimeout: (fn) => setTimeout(fn, 0), open: () => {} }
+        try {
+          const exportsObj = mod.factory(req5)
+          const regs5 = []
+          globalThis.document = doc4
+          globalThis.MutationObserver = FakeMO
+          exportsObj.apply({ slots: { inject: (n, cb) => cb(), register: (spec, c) => { regs5.push({ spec, comp: c }); return () => {} } }, effect: (fn) => fn() })
+
+          // 图标：宿主给尺寸与选中态，我们只画字形
+          const iconC = regs5.find((r) => r.spec.name === 'sidebar.panellist').comp
+          const glyph = iconC({ size: 18, active: false })
+          ok(glyph?.type === 'svg' && glyph.props.width === 18 && glyph.props.height === 18, `图标按宿主给的 size 画（18 → ${glyph?.props?.width}）`)
+          ok(glyph?.props?.['data-dsh-panel-entry'] === 'whale-sensei-pack', '图标带语义锚 data-dsh-panel-entry（皮肤 / 对拍认得出是哪一行）')
+
+          // 页：进页先 loading，拿到地址后内嵌 iframe
+          comp = regs5.find((r) => r.spec.name === 'main').comp
+          render()
+          ok(JSON.stringify(tree).includes('正在打开课程中心'), '第一帧是 loading（还没拿到地址，不假装已经好了）')
+          await new Promise((r) => setTimeout(r, 0))
+          await new Promise((r) => setTimeout(r, 0))
+          ok(urls5[0] === 'POST /api/whale/pack/open', `进页就确保课程包服务在跑（${urls5[0]}）`)
+          const flat = []
+          const walk5 = (el) => { if (!el || !el.children) return; for (const c of el.children) { flat.push(c); walk5(c) } }
+          walk5(tree)
+          const frameEl = flat.find((c) => c.type === 'iframe')
+          ok(!!frameEl, '拿到地址后内嵌 iframe —— 星图就在中间栏里（与技能中心同一档体验）')
+          ok(frameEl?.props?.src === STAR_URL, `iframe 指向宿主回的星图地址（${frameEl?.props?.src}）`)
+          ok(JSON.stringify(tree).includes('在新标签页打开'), '页里留了「在新标签页打开」的退路')
+          ok(JSON.stringify(tree).includes('已起服务'), '页头如实报服务是这次起的还是复用的（started=true → 已起服务）')
+        } catch (e) {
+          ok(false, `课程中心页渲染跑不通：${e?.message ?? e}`)
+        } finally {
+          globalThis.fetch = realFetch5
+          globalThis.window = realWindow5
+        }
+      }
     } catch (e) {
       ok(false, `侧栏注入假 DOM 跑不通：${e?.message ?? e}`)
     } finally {
@@ -635,29 +725,28 @@ ok((gb.entry?.form?.fields || []).filter((f) => f.required).length === 0, '不�
   ok(/function placeRowAfter/.test(code) && /previousElementSibling === prev/.test(code),
     '**位置断言**：被别的插件行（技能中心）挤下去时挪回上一行正下方（`placeRowAfter` 每次调用都比一遍 previousElementSibling）')
 
-  // 侧栏第二行「课程中心」（2026-09-25 主人定：**放「新课程」下**、**样式参考「技能中心」**）
-  ok(/data-dsh-whale-pack-entry/.test(code), '第二行有独立标记（data-dsh-whale-pack-entry）')
+  // 侧栏「课程中心」（2026-10-13 主人定：**改走宿主官方面板缝**，与「插件 / 自动化任务 / 技能中心」
+  // **逐像素一致** —— 行盒子、标签、高亮、收起态全归宿主，我们不再自己抄一份样式）
+  ok(/slots\.inject\('sidebar\.panellist'/.test(code), '课程中心注册进宿主官方面板缝 sidebar.panellist（行由 ui-sidebar 的 PanelRow 画）')
+  ok(/slots\.inject\('main'/.test(code), '同时注册 main（中间栏那一页）—— 缺了它点一下会抛错"main panel … is not registered"')
+  ok(/PACK_PANEL_ID = '[^']+'/.test(code) && /PACK_PANEL_ORDER = \d+/.test(code),
+    '面板 id 与行序是常量（id / order 各一处 —— 改行序只改一个数）')
+  ok(/id: PACK_PANEL_ID/.test(code) && /key: PACK_PANEL_ID/.test(code),
+    '行用 `id:`、页用 `key:`，**同一个常量** —— 两处不可能写岔（写岔 = 点一下抛错、没反应）')
+  ok(/order: PACK_PANEL_ORDER/.test(code) && /label: PACK_ENTRY_LABEL/.test(code),
+    '行注册带上 order 与 label（宿主拿 label 当行文字 / 无障碍名 / 收起提示）')
+  ok(!/data-dsh-whale-pack-entry/.test(code), '**不再**往侧栏 DOM 里插第二行（旧做法整块删掉了 —— 那正是"歪了"的根因）')
+  ok(!/PACK_ENTRY_CSS|PACK_ENTRY_ATTR/.test(code), '**不再**自己抄面板行的样式（几何归宿主 ⇒ 不存在"差 4px / 左边缘偏 2px"）')
   ok(/function placeEntryRows/.test(code) && /prev = rows\[i\]/.test(code),
-    '两行**链式**摆放（新建会话 → 新课程 → 课程中心），位置断言对两行都生效')
-  ok(/PACK_ENTRY_LABEL = '课程中心'/.test(code), '第二行的字是「课程中心」')
-  ok(/\/api\/whale\/pack\/open/.test(code), '第二行调 POST /api/whale/pack/open 拿星图地址')
-  ok(/window\.open\(''/.test(code), '点第二行时**同步**开一张空白页（异步再 open 会被弹窗拦截器吃掉）')
-  // ⚠️ 样式**只在这个块里判**：`height:36px` 这类串在第一行（新课程）的收起态里也有，
-  //    整份源码里 grep 会**假绿**。先抽块，再判；抽不到就报出来（下面那条自检）。
-  const packCss = (code.match(/var PACK_ENTRY_CSS = \[([\s\S]*?)\]\.join\(''\)/) || [])[1] || ''
-  ok(packCss.length > 200, `抽到了第二行的样式块（${packCss.length} 字符）—— 抽不到的话下面几条会假绿`)
-  // 逐条对齐技能中心那一行（它 lib/client.js:315 的 .cBrkua_entry*）
-  ok(/height:36px/.test(packCss) && /border-radius:8px/.test(packCss) && /background:0 0/.test(packCss)
-    && /interactive-bg-hover/.test(packCss) && /width:24px;height:24px/.test(packCss)
-    && /font-size:13px/.test(packCss) && /padding:0 10px/.test(packCss) && /gap:8px/.test(packCss),
-    '第二行几何逐条对齐「技能中心」（36px / 圆角 8 / 透明底 / hover 才上色 / 图标 24×24 / 13px / padding 0 10px / gap 8px）')
-  ok(/margin:0 0 8px/.test(packCss) && !/margin:0 2px/.test(packCss),
-    '横向**不加 margin** —— 第一版抄了「新课程」的 `margin:0 2px 8px`，比技能中心窄 4px、左边缘偏右 2px（主人 2026-09-25 看截图指出"歪了"）')
-  ok(!/border:\.5px solid/.test(packCss) && !/button-elevated-fill/.test(packCss),
-    '第二行**没有**抄「新课程」那种按钮样（半像素边框 / button-elevated-fill —— 主人明确说不要）')
-  ok(/border-radius:50%/.test(packCss), '第二行收起态是**圆形**（技能中心是 border-radius:50%，与「新课程」的方形变体刻意不同）')
-  ok(/align-self:stretch/.test(code) && !/width:100%/.test(code), '撑满靠 align-self:stretch，**不写 width:100%**（写了总宽比「新会话」多 4px）')
-  ok(/data-sidebar-collapsed/.test(code), '侧栏收起（rail）时切成 36×36 图标按钮（与原生收起变体一致）')
+    '「新课程」那一行仍按链式摆放（rows 形状保留：侧栏以后再加动作行直接加进来）')
+  ok(/PACK_ENTRY_LABEL = '课程中心'/.test(code), '那一行的字是「课程中心」')
+  ok(/\/api\/whale\/pack\/open/.test(code), '课程中心页调 POST /api/whale/pack/open 确保课程包服务在跑')
+  ok(/createElement\('iframe'/.test(code), '拿到地址后内嵌 iframe —— 星图就在中间栏里')
+  ok(/window\.open\(url, '_blank', 'noopener'\)/.test(code), '留了「在新标签页打开」的退路（用户点出来的手势，不会被弹窗拦截器吃掉）')
+  ok(/data-dsh-panel-entry/.test(code), '图标带语义锚 data-dsh-panel-entry（皮肤 / 对拍按它认行）')
+  ok(/data-dsh-panel-view/.test(code), '那一页带 data-dsh-panel-view（可被识别 / 可被皮肤认领）')
+  ok(/align-self:stretch/.test(code) && !/width:100%/.test(code), '「新课程」那一行撑满靠 align-self:stretch，**不写 width:100%**（写了总宽比「新会话」多 4px）')
+  ok(/data-sidebar-collapsed/.test(code), '「新课程」那一行侧栏收起（rail）时切成 36×36 图标按钮（与原生收起变体一致）')
   ok(new RegExp("ENTRY_LABEL = '" + STARTER_LABEL + "'").test(code), `按钮/弹窗标题与宿主侧 STARTER_LABEL 一致（${STARTER_LABEL}）`)
 
   // 弹窗：用**官方 Modal**（不自己造遮罩/Esc/焦点），字段来自宿主

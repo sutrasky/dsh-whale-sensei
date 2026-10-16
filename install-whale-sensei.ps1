@@ -268,10 +268,15 @@ if ($Preflight) {
         Say ("  node            : {0}   (host needs >= 22.19)" -f $nv) 'Green'
     }
     if (Test-Path -LiteralPath (Join-Path $PackageDir 'preset\whale-mode\agent.cordis.yml')) {
-        Say '  preset template : found -- step 1c can run' 'Green'
+        Say '  preset template : found -- 1c installs 鲸师模式' 'Green'
     } else {
-        Say '  preset template : missing -- step 1c will SKIP' 'Yellow'
-        Say '                    (build it: node preset/whale-mode/build-preset.mjs)' 'DarkGray'
+        # RED, not a warning (2026-09-27): this is exactly the state that made 鲸师模式
+        # vanish on other machines -- the npm tarball shipped no preset/ at all. A package
+        # without the template cannot deliver the preset, so "installable" is a lie.
+        Say '  preset template : MISSING -- 鲸师模式 cannot be installed at all' 'Red'
+        Say ("                    expected: {0}\preset\whale-mode\agent.cordis.yml" -f $PackageDir) 'DarkGray'
+        Say '                    (this package is incomplete: rebuild it with  node preset/whale-mode/build-preset.mjs)' 'DarkGray'
+        $bad++
     }
     if (Test-PortOpen $HostPort) {
         Say ("  port {0}        : LISTENING -- close DeepSeek Harness before installing" -f $HostPort) 'Yellow'
@@ -363,37 +368,44 @@ if ($PackRoot) {
 # silently do nothing.  A preset owns those rows itself.
 # ⚠️ We do NOT write `includeDefaultRoots: false` -- that would hide every other
 #    skill in this profile.  The pack's five skills are ADDED, not substituted.
+#
+# WHO WRITES IT (2026-09-27 fix): rendering lives in ONE place -- the plugin's
+# `lib/preset-install.js` -- and this step just calls it:
+#     node lib/preset-install.js --dsh-home <DSH_HOME> [--skills-dir <pack>\skills]
+# Before that, this script carried its own copy of the substitution AND bailed out
+# ("SKIP") whenever -PackRoot was missing -- and the npm package shipped neither
+# `preset/` nor this script, so on other machines 鲸师模式 was simply absent, quietly.
+# Now: the plugin itself installs the preset on every host boot (`lib/mods/preset.js`),
+# so this step is the "have it ready before the first boot" convenience, not the only path.
+# It no longer needs -PackRoot: without it the skills list is left empty and the next
+# boot fills it in (the file carries a generated-by marker, so a refresh is allowed).
 if (-not $SkipPreset) {
     Write-Host ''
     Say '== agent preset 鲸师模式 (.agent-presets/whale-mode) ==' 'Cyan'
-    $presetSrc  = Join-Path $PackageDir 'preset\whale-mode'
-    $presetRoot = Join-Path $DshHome '.agent-presets\whale-mode'
-    if (-not (Test-Path (Join-Path $presetSrc 'agent.cordis.yml'))) {
-        Say "SKIP: 模板不在（$presetSrc\agent.cordis.yml）—— 先跑 node preset/whale-mode/build-preset.mjs" 'Yellow'
-    } elseif (-not $PackRoot) {
-        Say 'SKIP: 预设要把技能目录指到课程包，所以得同时给 -PackRoot' 'Yellow'
+    $presetCli = Join-Path $PackageDir 'lib\preset-install.js'
+    $skillsDir = ''
+    if ($PackRoot) {
+        $cand = Join-Path $rootFull 'skills'
+        if (Test-Path -LiteralPath $cand) { $skillsDir = $cand }
+        else { Say "WARN: 课程包里没有 skills\（$cand）—— 预设先留空技能目录，补上后重启宿主会自动补" 'Yellow' }
+    }
+    $nodeCmd2 = Get-Command node -ErrorAction SilentlyContinue
+    if (-not (Test-Path -LiteralPath $presetCli)) {
+        Say "SKIP: $presetCli 不在（这个包不完整？）—— 宿主启动时插件还会自己再试一次" 'Yellow'
+    } elseif (-not $nodeCmd2) {
+        Say 'SKIP: 找不到 node —— 预设留给宿主启动时的插件自己装' 'Yellow'
     } else {
-        $skillsDir = Join-Path $rootFull 'skills'
-        if (-not (Test-Path -LiteralPath $skillsDir)) {
-            Say "WARN: 课程包里没有 skills\（$skillsDir）—— 预设挂上去也看不到技能" 'Yellow'
-        }
-        $skillsYaml = $skillsDir.Replace('\', '/')
+        $cliArgs = @($presetCli, '--dsh-home', $DshHome)
+        if ($skillsDir) { $cliArgs += @('--skills-dir', $skillsDir) }
         if ($DryRun) {
-            Say "DRY RUN -- 会写 $presetRoot（__WHALE_SKILLS__ -> $skillsYaml）" 'Yellow'
+            Say ("DRY RUN -- 会跑: node {0}" -f ($cliArgs -join ' ')) 'Yellow'
         } else {
-            New-Item -ItemType Directory -Force -Path $presetRoot | Out-Null
-            Copy-Item (Join-Path $presetSrc 'preset.yml') $presetRoot -Force
-            $yml = [System.IO.File]::ReadAllText((Join-Path $presetSrc 'agent.cordis.yml'))
-            if ($yml -notmatch '__WHALE_SKILLS__') { throw 'preset 模板里没有 __WHALE_SKILLS__ 占位符' }
-            $yml = $yml.Replace('__WHALE_SKILLS__', $skillsYaml)
-            [System.IO.File]::WriteAllText((Join-Path $presetRoot 'agent.cordis.yml'), $yml, (New-Object System.Text.UTF8Encoding($false)))
-            $after = [System.IO.File]::ReadAllText((Join-Path $presetRoot 'agent.cordis.yml'))
-            if ($after -match '__WHALE_SKILLS__' -or $after -notmatch [regex]::Escape($skillsYaml)) {
-                Say 'FAIL 占位符没替换干净 —— 手工看一眼' 'Red'
+            & node @cliArgs
+            if ($LASTEXITCODE -ne 0) {
+                Say 'FAIL 预设没装上（见上面那几行）—— 宿主启动时插件还会自己再试一次' 'Red'
                 $script:softFail = $true
             } else {
-                Say "OK   wrote: $presetRoot（技能目录 $skillsYaml）" 'Green'
-                Say '     -> 重启 DeepSeek Harness，开会话时选「鲸师模式」' 'Green'
+                Say '     -> 开会话时选「鲸师模式」（不用等重启：宿主每次列预设都重读磁盘）' 'Green'
             }
         }
     }
@@ -443,6 +455,26 @@ if ($hit) {
     $script:softFail = $true
     Say '     => the plugin did NOT get assembled. Do not trust "installed".' 'Red'
     Say '     roll back with the command below, then send me the dump-config output.' 'Red'
+}
+
+# --- 3b) the agent preset is a SECOND judge ----------------------------------
+# dump-config only proves the plugin got assembled -- it says nothing about 鲸师模式,
+# and "the preset is missing on other people's machines" was exactly this hole
+# (2026-09-27). So judge it here, on disk, where the host will look.
+if (-not $SkipPreset -and -not $DryRun) {
+    $presetYml = Join-Path $DshHome '.agent-presets\whale-mode\agent.cordis.yml'
+    Write-Host ''
+    if (Test-Path -LiteralPath $presetYml) {
+        Say 'OK   agent preset 鲸师模式 is on disk:' 'Green'
+        Say ("       {0}" -f $presetYml) 'Green'
+        Say '       -> 开会话时选它（宿主每次列预设都重读磁盘，不用重启）' 'Green'
+    } else {
+        Say 'FAIL agent preset 鲸师模式 is NOT on disk:' 'Red'
+        Say ("       {0}" -f $presetYml) 'Red'
+        Say '     => 这次安装没带来预设。插件在宿主启动时还会自己装一次（见 lib/mods/preset.js），' 'Red'
+        Say '        但在那之前，别把这次安装当成成功。' 'Red'
+        $script:softFail = $true
+    }
 }
 
 # --- 4) rollback -------------------------------------------------------------

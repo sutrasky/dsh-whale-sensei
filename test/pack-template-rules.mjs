@@ -93,6 +93,14 @@ export const FROM_PACK = [
   'tools/build-public.js',
   'tools/app-server.js',
   'tools/make-icon.js',
+  // —— 2026-09-27：**五个教学技能**（`<packRoot>/skills`，预设的 customSkillDirs 指着它）。
+  //    以前模板里没有这份 ⇒ 「图形界面建空课程包」的新用户预设里 0 个技能。
+  //    五份**没有** SANITIZE 规则 → 判据就是与课程包原件逐字节相等（所以技能里也不许写机器路径）——
+  'skills/whale-system/SKILL.md',
+  'skills/whale-lesson/SKILL.md',
+  'skills/whale-practice/SKILL.md',
+  'skills/whale-qa/SKILL.md',
+  'skills/whale-record/SKILL.md',
 ]
 
 /** 取自课程包侧 `skill-draft/`（技能包）的件：**空台账骨架** —— 一个名词都没有 */

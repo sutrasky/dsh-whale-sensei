@@ -18,14 +18,29 @@
  *    会把该 profile 里其他技能**全部藏掉**。主人 2026-09-25 定：**不藏，并存**。
  */
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
-const DEFAULT_TEMPLATE = 'E:\\App\\dsh\\.agent-presets\\whalegirl-qq\\agent.cordis.yml'
+/**
+ * 模板默认取本机那份**跑通过的**预设（QQ 那套）—— 同一个 DSH 版本、同一个平台，
+ * 是「这个组合真的能挂起来」的现成证据。
+ *
+ * ⚠️ **不许写死盘符**（2026-09-27 改）：以前这里写的是作者那台机器的
+ *    `.agent-presets\whalegirl-qq\agent.cordis.yml` 全路径（带盘符）。改成按 `$DSH_HOME`（退 `~/.dsh`）现算 —— 与宿主、
+ *    与 `lib/preset-install.js` 同一套规则。换台机器要么有同名那份预设，要么显式给模板：
+ *      node preset/whale-mode/build-preset.mjs <一份能用的 agent.cordis.yml>
+ *      DSH_WHALE_PRESET_TEMPLATE=<…> node preset/whale-mode/build-preset.mjs
+ *
+ * 这个脚本是**作者态工具**，不进 npm 包（`package.json` 的 `files` 只带产物那三个文件）——
+ * 但仓库里也不许留机器专属路径（判据：`test/alien-env.mjs`）。
+ */
+const dshHome = (process.env.DSH_HOME ?? '').trim() || path.join(os.homedir(), '.dsh')
+const DEFAULT_TEMPLATE = path.join(dshHome, '.agent-presets', 'whalegirl-qq', 'agent.cordis.yml')
 const SKILLS_PLACEHOLDER = '__WHALE_SKILLS__'
 
-const template = process.argv[2] || DEFAULT_TEMPLATE
+const template = process.argv[2] || process.env.DSH_WHALE_PRESET_TEMPLATE || DEFAULT_TEMPLATE
 const personaPath = path.join(HERE, 'persona.md')
 const outPath = path.join(HERE, 'agent.cordis.yml')
 
