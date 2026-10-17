@@ -15,6 +15,10 @@
  *     `child_process.spawn/spawnSync` 与 `fs.renameSync/rename` 换成**只记账**的替身
  *     （spawn 绝不真起进程 —— 受限沙箱里 piped stdio 的 spawn 会被 EPERM 拒，靠"桩脚本有没有
  *     写标记"判不了，本仓既有纪律）。每条动作**单独** arm/disarm，回执里带该动作的调用清单。
+ *     ⚠️ T05-M1：假子进程**代持**产品要用的那个端口（`tools/app-server.js` + 端口号时，
+ *     在驱动进程里 `listen(127.0.0.1)` 并 destroy 连接）—— 因为 spawn 被换成假的了，
+ *     光把桩文件改成真服务器**不会被执行**，`probe` 仍可能收到别的进程的 200。
+ *     假子进程的 `kill()` 会把代持的端口关掉（与真桩进程退出一致）。
  *   - **负向控制**：先在自建临时副本上跑**基线实现**（`ba22c94` 的 `tools/offline-server.js`，
  *     其余模板不变），留下它**真的越库 spawn / 真的把 `lessons/**.js` 并进库 / 真的启动时自动
  *     合并旧包**的原始输出；再证明新实现对同一批输入**零调用**地拒绝、库树一个字节不变。
@@ -327,11 +331,33 @@ const DRIVER_FILE = path.join(DRIVER_DIR, 'driver.cjs')
  */
 const SPY_SRC = `import Module from 'node:module'
 import fs from 'node:fs'
+import net from 'node:net'
 import { EventEmitter } from 'node:events'
 
 const calls = []
 let armed = false
 const push = (o) => { if (armed) calls.push(o) }
+
+// —— 负向控制的端口确定性（T05-M1）——
+// spawn 仍是"只记账、不起进程"的替身 ⇒ 桩脚本不会被真正执行；而基线 openPack 会在 spawn
+// 之后用 probe(port) 轮询**同一个**端口 6 秒。只要那个端口被别的进程答了 200，负向控制就假红
+// （端口在 0.0.0.0 / :: 上被监听时，基线只试 127.0.0.1 的 portFree 会误判为空闲）。
+// 所以假子进程**代持**产品要用的端口：本进程 listen(127.0.0.1, port) 并 destroy 连接，
+// kill() 时关掉。绑定失败不吭声 —— 让 probe 照实看见现实，不冒充。
+const holders = new Map()
+function holdPort(port) {
+  if (!Number.isInteger(port) || port <= 0 || holders.has(port)) return
+  const srv = net.createServer((sock) => sock.destroy())
+  srv.on('error', () => { /* 抢不到：如实让 probe 看见真实情况 */ })
+  srv.listen(port, '127.0.0.1')
+  holders.set(port, srv)
+}
+function releasePort(port) {
+  const srv = holders.get(port)
+  if (!srv) return
+  holders.delete(port)
+  try { srv.close() } catch { /* 已关 */ }
+}
 
 const origRenameSync = fs.renameSync
 fs.renameSync = function (from, to) {
@@ -349,13 +375,19 @@ function wrap(cp) {
   if (!cp || patched.has(cp)) return cp
   patched.add(cp)
   cp.spawn = (cmd, args, opts) => {
-    push({ kind: 'spawn', cmd: String(cmd), args: (args || []).map(String) })
+    const argv = (args || []).map(String)
+    push({ kind: 'spawn', cmd: String(cmd), args: argv })
     const child = new EventEmitter()
     child.stdout = new EventEmitter()
     child.stderr = new EventEmitter()
     child.pid = 0
     child.exitCode = null
-    child.kill = () => {}
+    // 越库 id 的落点就是带 tools/app-server.js 的目录（../esc-open、a/b、/abs 同一个桩）
+    const heldPort = /tools[\\\\/]app-server\\.js$/.test(String(argv[0] || '')) ? Number(argv[1]) : null
+    if (heldPort !== null) holdPort(heldPort)
+    child.kill = () => {
+      if (heldPort !== null) releasePort(heldPort)
+    }
     process.nextTick(() => { child.emit('exit', 0, null); child.emit('close', 0) })
     return child
   }
@@ -510,9 +542,27 @@ function layLegacyPack(libRoot, id) {
   return dir
 }
 
-/** 给"越库 id"造落点：基线的 `path.join(LIB, id)` 必须真的指到一个带 tools/app-server.js 的目录 */
+/**
+ * 给"越库 id"造落点：基线的 `path.join(LIB, id)` 必须真的指到一个带 tools/app-server.js 的目录。
+ *
+ * ⚠️ T05-M1：这个 app-server 桩**真的占住端口、但永不回 HTTP**（旧版是
+ * `setTimeout(() => {}, 60000)`，什么都不占）。基线 openPack 会 freePort() 选 3092–3141 里
+ * 一个"自认为空闲"的端口，spawn 这个桩，再 probe(port) 轮询 6 秒。只要桩占住那个端口，
+ * probe 就不可能从**别的**进程拿到 200（本机实测：127.0.0.1 的具体绑定会压过
+ * 0.0.0.0 / :: 上的通配监听，连接一律被 destroy）。端口绑定失败就立刻非零退出。
+ * 三个越库落点（../esc-open、a/b、/abs）用**同一个**桩；remove 用的落点不需要。
+ */
 function layEscapeTargets() {
-  const stub = '#!/usr/bin/env node\nsetTimeout(() => {}, 60000)\n'
+  const stub = [
+    '#!/usr/bin/env node',
+    "const net = require('node:net')",
+    'const port = Number(process.argv[2])',
+    'if (!Number.isInteger(port) || port <= 0) process.exit(2)',
+    "const srv = net.createServer((sock) => sock.destroy())",
+    'srv.once(\'error\', () => process.exit(3))',
+    "srv.listen(port, '127.0.0.1')",
+    '',
+  ].join('\n')
   // `../esc-open` → LIB/../esc-open
   W(path.join(LIB_ID, '..', 'esc-open', 'tools', 'app-server.js'), stub)
   // `a/b` → LIB/a/b
