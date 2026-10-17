@@ -107,14 +107,14 @@ try {
   let cancelled = false
   const spec2 = started[1]
   const hooks2 = spec2.run()
-  hooks2.done.then(() => { cancelled = true }) // cancel 会 resolve done（status=cancelled）
+  hooks2.done.then(() => { cancelled = true }) // cancel 会 resolve done（status=killed）
   const un = await tool.execute({ root: tmp, action: 'unwatch' }, { agent })
   await sleep(80)
   ok(un.ok === true && /已撤掉/.test(un.summary), `unwatch → ${un.summary}`)
-  ok(cancelled === true, 'unwatch 通过 hooks.cancel() 走（done 以 cancelled 结算）')
+  ok(cancelled === true, 'unwatch 通过 hooks.cancel() 走（done 以 killed 结算）')
   fs.appendFileSync(PENDING, JSON.stringify({ id: '0006', question: '撤销之后的新提问' }) + '\n', 'utf8')
   const after = await race(hooks2.done, 250)
-  ok(after.settled === true && after.v.status === 'cancelled', '撤销之后的新提问不再被这个监听处理（它已经结算了）')
+  ok(after.settled === true && after.v.status === 'killed' && after.v.detail === '监听被撤销', '撤销之后的新提问不再被这个监听处理（它已经结算了）')
 
   // ── ⑦⑧ 两条明确报错 ──
   const noAgent = await tool.execute({ root: tmp, action: 'watch' })
