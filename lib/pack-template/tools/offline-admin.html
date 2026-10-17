@@ -506,12 +506,63 @@
 
   /* ---------- 接口调用（每个 fetch 都 try/catch，并检查 ok / 显示 error 原文） ---------- */
 
+  /* 会话能力（T07 / 报告 D02）：管理接口要 `X-Whale-Capability`（**admin** 作用域）。
+     令牌由本页 `POST /api/session` 换来 —— 只有**受信来源**（管理台自己）拿得到，
+     课程库里的课件页换不到 admin 令牌（课件源不能调用管理能力）。 */
+  var CAP_HEADER = 'X-Whale-Capability';
+  var capToken = '';
+  var capPending = null;
+
+  function ensureAdminSession(force) {
+    if (!force && capToken) return Promise.resolve(capToken);
+    if (!force && capPending) return capPending;
+    capPending = fetch('/api/session', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ scope: 'admin' })
+    }).then(function (res) {
+      return res.json().then(function (d) {
+        if (!res.ok || !d || d.ok !== true || !d.token) {
+          throw new Error((d && d.error) ? d.error : ('开会话失败（HTTP ' + res.status + '）'));
+        }
+        capToken = String(d.token);
+        return capToken;
+      });
+    }).catch(function (e) {
+      capPending = null;
+      throw e;
+    });
+    return capPending;
+  }
+
   async function requestJson(url, opts) {
     var res;
     try {
-      res = await fetch(url, opts);
+      if (!capToken) await ensureAdminSession(false);
+    } catch (e) {
+      throw new Error('没能和本地服务建立会话（' + ((e && e.message) ? e.message : String(e)) + '）—— 管理接口要授权');
+    }
+    var o = opts || {};
+    var headers = {};
+    var h = o.headers || {};
+    for (var k in h) { if (Object.prototype.hasOwnProperty.call(h, k)) headers[k] = h[k]; }
+    if (capToken) headers[CAP_HEADER] = capToken;
+    o = Object.assign({}, o, { headers: headers });
+    try {
+      res = await fetch(url, o);
     } catch (e) {
       throw new Error('连不上本地服务（' + url + '）：' + ((e && e.message) ? e.message : String(e)));
+    }
+    if (res.status === 403) {
+      // 令牌过期 / 来源变了：**重开一次会话再发一遍**（只重试一次，避免打转）
+      var refreshed = '';
+      try { refreshed = await ensureAdminSession(true); } catch (e) { refreshed = ''; }
+      if (refreshed) {
+        o.headers[CAP_HEADER] = refreshed;
+        try { res = await fetch(url, o); } catch (e) {
+          throw new Error('连不上本地服务（' + url + '）：' + ((e && e.message) ? e.message : String(e)));
+        }
+      }
     }
     var text = '';
     try { text = await res.text(); } catch (e) { text = ''; }
@@ -712,8 +763,10 @@
     importBusy = true;
     setImportStatus('上传中…', 'busy');
     try {
-      /* 直接把 File 当 body 发（不是表单对象）—— 服务端按原始 zip 字节收 */
-      var d = await api('/api/import?name=' + encodeURIComponent(name), {
+      /* 直接把 File 当 body 发（不是表单对象）—— 服务端按原始 zip 字节收。
+         `?confirm=1`（T07）：导入会**写课程库**，算管理写口 —— 服务端要显式确认；
+         这一条路由的体是原始字节，所以确认走 query 不走体。 */
+      var d = await api('/api/import?name=' + encodeURIComponent(name) + '&confirm=1', {
         method: 'POST',
         headers: { 'content-type': 'application/zip' },
         body: file
@@ -859,7 +912,12 @@
     clearBtn.disabled = true;
     clearBtn.textContent = '清空中…';
     try {
-      var d = await api('/api/clear', { method: 'POST' });
+      // `confirm:true`（T07）：整库进回收站是**不可逆的高风险写口**，服务端要显式确认
+      var d = await api('/api/clear', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ confirm: true })
+      });
       var extra = (typeof d.moved === 'string' && d.moved) ? '（已移到：' + d.moved + '）' : '';
       showInfo('课程库已清空' + extra + '。');
       log.textContent = '';

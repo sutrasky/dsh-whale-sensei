@@ -121,8 +121,15 @@ export const FROM_SKILL = ['assets/glossary-data.js']
  *
  * 同理（T06 / 报告 D03）：静态读取的公开清单 `tools/public-files.cjs` 也是插件侧先有的 ——
  * `tools/app-server.js` / `tools/offline-server.js` 都 require 它，漏了它新包预览直接崩。
+ *
+ * 同理（T07 / 报告 D02）：独立服务的授权件 `tools/http-security.cjs` 与页面侧的会话件
+ * `assets/session.js` 也是插件侧先有的 —— 前者被三个服务 require（漏了新包的服务起不来），
+ * 后者被 `assets/_frame.html` 与课程入口页 `<script src>`（漏了页面换不到令牌、写口全 403）。
  */
-export const FROM_PLUGIN = ['tools/path-policy.cjs', 'tools/engine-policy.cjs', 'tools/public-files.cjs']
+export const FROM_PLUGIN = [
+  'tools/path-policy.cjs', 'tools/engine-policy.cjs', 'tools/public-files.cjs',
+  'tools/http-security.cjs', 'assets/session.js',
+]
 
 /**
  * 逐字节取自课程包的**二进制**件（字体 / favicon）。
