@@ -10,7 +10,9 @@
  * 一条不经过认证。所以复用课程包自己的服务。
  *
  * 这组判据钉住四条**错了会静默**的不变式：
- *   ① **先探活再起**：已经有服务在跑就**复用**（`started:false`），不重复 listen；
+ *   ① **先探身份再起**：已经有**这个包自己的**服务在跑就**复用**（`started:false`），不重复 listen
+ *      —— T15 / 报告 A03：复用要先认身份（同包 + 同协议 + 同引擎）并完成合法会话接续，
+ *      无身份的 200 桩不再算数；
  *   ② **真起一次**：`started:true`，起完 `/health` **真的**答 200，关掉后端口**真的**不通；
  *   ③ **绝不静默降级**：缺件 / 没导出 handler / require 就炸 / 端口被**别的**服务占着
  *      → 一律带修法的 `error`，**绝不**回一个打不开的 url；
@@ -20,6 +22,7 @@ import fs from 'node:fs'
 import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
+import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { ensurePackServer, packServerUrl, closePackServers, runningPackServers } from '../lib/pack-server.js'
 import { plugin as packPlugin } from '../lib/mods/pack.js'
@@ -116,6 +119,39 @@ function freePort() {
   })
 }
 
+/**
+ * 在**测试进程里**用夹具包自己的 `tools/app-server.js` 起一个**真服务**。
+ *
+ * ⚠️ T15 / 报告 A03：「已经在跑的服务」不能再拿无身份的 200 桩冒充 ——
+ *    宿主现在只认**身份**（同包 + 同协议 + 同引擎：`/health` 的 `protocol`/`packId`/`engineDigest`），
+ *    而且外部服务还要能完成一次合法会话接续（`POST /api/session`）。所以夹具前提是：
+ *    **同一份包自己**的服务，端口走既有缝（顶掉 `process.argv[2]` + `process.env.PORT`），
+ *    **不改 `app-server.js` 的字节**（它是受信清单里的一件，改了引擎闸会正确地拒）。
+ * @param {string} dir 夹具包根
+ * @param {number} port 让它监听的端口
+ * @returns {Promise<import('node:http').Server>}
+ */
+async function startPackService(dir, port) {
+  const savedArg = process.argv[2]
+  const savedPort = process.env.PORT
+  process.argv[2] = ''
+  process.env.PORT = String(port)
+  try {
+    const mod = createRequire(import.meta.url)(path.join(dir, 'tools', 'app-server.js'))
+    const server = http.createServer(mod.handler)
+    await new Promise((resolve, reject) => {
+      server.once('error', reject)
+      server.listen(port, '127.0.0.1', resolve)
+    })
+    return server
+  } finally {
+    if (savedArg === undefined) delete process.argv[2]
+    else process.argv[2] = savedArg
+    if (savedPort === undefined) delete process.env.PORT
+    else process.env.PORT = savedPort
+  }
+}
+
 /** `GET /health` 答不答 200 */
 function healthOk(port) {
   return new Promise((resolve) => {
@@ -133,17 +169,14 @@ function healthOk(port) {
 
 console.log('\n[pack-open] 「课程中心」：起/复用课程包自己的预览服务')
 
-/* ── ① 先探活再起：已经有服务在跑 → 复用 ───────────────────────────── */
+/* ── ① 先探**身份**再起：已经有**本包**的服务在跑 → 复用 ─────────────── */
 {
   const port = await freePort()
-  const pre = http.createServer((req, res) => {
-    res.writeHead(200, { 'content-type': 'application/json' })
-    res.end('{"ok":true}')
-  })
-  await new Promise((r) => pre.listen(port, '127.0.0.1', r))
-  // 夹具：真引擎闭包；端口走夹具自己的缝（见 ensurePackServerOnPort）——
+  // 夹具（T15 / 报告 A03）：这份"已经在跑的服务"必须是**这个包自己的真服务** ——
+  // 无身份的 `{"ok":true}` 桩不再算数（"答了 200"不是身份，复用要先认身份再走会话接续）。
   // ⚠️ 不改 app-server.js 的字节：它是受信清单里的一件，改了引擎闸会（正确地）拒
   const dir = tmpPack()
+  const pre = await startPackService(dir, port)
   {
     const r = await ensurePackServerOnPort(dir, port)
     ok(r.ok === true && r.started === false, `已经有服务在跑 → **复用**，不重复 listen（started=${r.started}）`)

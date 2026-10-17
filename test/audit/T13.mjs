@@ -5,6 +5,7 @@ import http from 'node:http'
 import net from 'node:net'
 import { fileURLToPath } from 'node:url'
 import { createHash } from 'node:crypto'
+import { createRequire } from 'node:module'
 import { createResourceScope } from '../../lib/resource-scope.js'
 import { apply } from '../../lib/index.js'
 import { selectMods } from '../../lib/mods/index.js'
@@ -198,7 +199,13 @@ try {
   await check('P02',async()=>{socket=net.connect(p1.port,'127.0.0.1');socket.on('error',()=>{});await new Promise(r=>socket.once('connect',r));socket.write('GET /health HTTP/1.1\r\nHost: localhost\r\n');await h1.unload();assert.equal(await health(p1.port),false);assert.equal(socket.destroyed||socket.readableEnded,true)})
   await check('P03',async()=>{p2=await pack('preview2');h2=host(p2.root);const out=await onPort(p2.port,()=>open(h2));assert.equal(out.started,true);assert.equal(await health(p2.port),true);await h2.unload();assert.equal(await health(p2.port),false)})
   await check('P04',async()=>{const p=await pack('owner');owner=createResourceScope();other=createResourceScope();await onPort(p.port,async()=>{eq((await ensurePackServer(p.root,{scope:owner})).started,true);eq((await ensurePackServer(p.root,{scope:other})).started,false)});await other.dispose();eq(await health(p.port),true);await owner.dispose();eq(await health(p.port),false)})
-  await check('P05',async()=>{const p=await pack('external');external=http.createServer((req,res)=>{res.writeHead(200);res.end('external')});await new Promise((r,j)=>{external.once('error',j);external.listen(p.port,'127.0.0.1',r)});const h=host(p.root);const out=await onPort(p.port,()=>open(h));eq(out.started,false);await h.unload();eq(await health(p.port),true);await new Promise(r=>external.close(r));external=null})
+  // ⚠️ T15-A1（规划者授权的**跨卡夹具前提升级**，断言一字未动）：这里的「外部服务」原本是
+  //    一个**无身份**的 200 桩。T15 的新契约是「复用只允许 同包 + 同协议 + 同引擎 + 有合法会话接续」，
+  //    无身份桩按新契约**必须**被拒（reason:'port-conflict'）⇒ 旧夹具会让 P05 红。
+  //    所以夹具前提换成**真正同包的健康服务**：用这个夹具包**自己的** tools/app-server.js 在
+  //    测试进程里起（端口经 process.env.PORT 在 require 前设定，沿用本文件既有的 onPort 手法）。
+  //    P05 的两条判据（复用 started===false / 插件卸载后外部服务仍存活）**原样保留**。
+  await check('P05',async()=>{const p=await pack('external');await onPort(p.port,async()=>{const mod=createRequire(import.meta.url)(path.join(p.root,'tools','app-server.js'));external=http.createServer(mod.handler);await new Promise((r,j)=>{external.once('error',j);external.listen(p.port,'127.0.0.1',r)})});const h=host(p.root);const out=await onPort(p.port,()=>open(h));eq(out.started,false);await h.unload();eq(await health(p.port),true);await new Promise(r=>external.close(r));external=null})
   await check('P06',async()=>{const p=await pack('late');const s=createResourceScope();await s.dispose();eq((await onPort(p.port,()=>ensurePackServer(p.root,{scope:s}))).ok,false);eq(await health(p.port),false)})
   await check('P07',async()=>{const p=await pack('inflight');const h=host(p.root);await onPort(p.port,async()=>{const opening=open(h);await h.unload();eq((await opening).ok,false)});eq(await health(p.port),false)})
   await check('P08',()=>{eq(timers.size,0);for(const h of hosts){eq(h.tools.size,0);eq(h.routes.size,0)}})
