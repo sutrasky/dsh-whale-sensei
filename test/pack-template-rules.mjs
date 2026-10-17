@@ -49,6 +49,11 @@ export const FROM_PACK = [
   'tools/style-adapter.js',
   'tools/style-check.js',
   'tools/build-lessons.js',
+  // 课程星清单生成器（T18 / 报告 D06）：导出侧在包根下 shell-out 它取清单 ⇒ 必须随包发。
+  // 与 `lib/pack-scaffold.js#TEMPLATE_FILES` 的那一行**成对**（那边少一行 = 新包少一件；
+  // 这边少一行 = `test/pack-scaffold.mjs`「两份清单一致」当场红）。
+  // 与课程包原件**逐字节相同**（无 SANITIZE 规则，判据 = 模板 == 原件经中性化）。
+  'tools/build-lessons-index.js',
   'tools/build-notes.js',
   'tools/drain-questions.js',
   'tools/ask-server.js',

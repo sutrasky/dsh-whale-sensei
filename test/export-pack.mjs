@@ -4,6 +4,8 @@
  * ------------------------------------------------------------------
  * 场景 B（离线阅读器）的**导出侧**：设置页「课程目录」里每节课后面的「导出」。
  * 判据自己**造一个最小课程包**（不依赖真包，换机器也能跑），在临时目录里真导、真解、真核。
+ * 包**只用产品自己的 `writeScaffold` 建**，测试**不许**再手工拷补任何引擎件（T18 / 报告 D06）——
+ * 那三行手工拷贝会把「新包缺导出依赖」盖住：测试自己补得上，产品建出来的包却永远导不出去。
  *
  * [1] 真导出：产出 zip，且**恰好 5 个文件**（pack.json + 圈/点结构 + 这一课的产物 + 单课清单）
  * [2] **边界**：包里**不许有** `lessons/src/`、`assets/`、`starmap/`（那些由离线阅读器的包骨架提供）
@@ -17,11 +19,9 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
 import { exportLesson, safeName } from '../lib/pack-export.js'
+import { writeScaffold } from '../lib/pack-scaffold.js'
 
-const HERE = path.dirname(fileURLToPath(import.meta.url))
-const PLUGIN = path.resolve(HERE, '..')
 const TAR = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe')
 
 let pass = 0
@@ -69,6 +69,14 @@ const mk = (rel, content) => {
 
 try {
   /* ── 造一个最小课程包（不依赖真包）──────────────────────────────── */
+  // ⚠️ 包**只用产品自己的 `writeScaffold` 建**（T18 / 报告 D06）：这里**禁止**再手工拷补
+  //    任何引擎件 —— 以前正是那三行 `copyFileSync(...lib/pack-template/tools/build-lessons-index.js)`
+  //    把「新包缺导出依赖」这个缺口盖住了（测试自己补上，产品建出来的包却缺）。
+  //    建包失败 = 夹具前提不成立：当场抛（不占判据计数，也不会把它算成"导出失败"）。
+  fs.mkdirSync(PACK)
+  const scaffolded = writeScaffold(PACK)
+  if (!scaffolded.ok) throw new Error(`夹具：writeScaffold 建空包失败（${scaffolded.error}）—— 卡面要求"只用 writeScaffold 建包"`)
+
   mk('lessons/demo/halo.json', `${JSON.stringify({ halo: 'demo', name: '演示圈', color: '#888888' }, null, 2)}\n`)
   // alpha **依赖 beta**（前置链），而 beta 自己没有课 —— 导出 alpha 的课时必须把 beta 的
   // **结构**（point.json）一起带上：否则收件人那边星图的前置航道缺一条、重建还会被悬空校验拒。
@@ -87,10 +95,6 @@ try {
   mk('lessons/src/demo/alpha/0001-hello.html',
     `<!doctype html><html><head><script type="application/json" data-lesson-meta>${JSON.stringify(META)}</script></head><body>src</body></html>`)
   mk('lessons/demo/alpha/0001-hello.html', '<!doctype html><html><body>rendered</body></html>')
-  fs.mkdirSync(path.join(PACK, 'tools'), { recursive: true })
-  fs.copyFileSync(
-    path.join(PLUGIN, 'lib', 'pack-template', 'tools', 'build-lessons-index.js'),
-    path.join(PACK, 'tools', 'build-lessons-index.js'))
 
   const hctx = { paths: { packRoot: PACK }, log: {} }
   const before = snapshot(PACK)
