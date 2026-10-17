@@ -736,13 +736,15 @@ async function main() {
       // 所以这里**不再断言**新建包里有 CLI，反而断言它**不在**包里（它不是模板件）。
       h.eq(fs.existsSync(path.join(target, 'tools', 'ledger-transaction.cjs')), true, '新建的包里有 tools/ledger-transaction.cjs（事务件随包发）')
       h.eq(fs.existsSync(path.join(target, 'tools', 'recover-ledgers.mjs')), false, '新建的包里没有 tools/recover-ledgers.mjs（恢复 CLI 是仓根工具，不随包）')
-      // 两件都**不在** ENGINE_FILES，但理由不同，别把 CLI 说成模板件：
-      //   · 事务件 = **随包件**，只是今天没有任何引擎入口 require 它（受信闭包是机械重算的；
-      //     接线到台账写口是 T10/T11/T12）；
+      // 两件的 ENGINE_FILES 归属不同，别把 CLI 说成模板件：
+      //   · 事务件 = **随包件**。T11 起 `ask-server.js` / `drain-questions.js` **直接 require** 它
+      //     ⇒ T04 的机械闭包（从入口跟传递依赖）把它算进来了 —— 所以今天它**在** `ENGINE_FILES`
+      //     （闭包是机械重算的，不是许愿池）。T10 是宿主侧、不进包的引擎闭包；T12 只是接线，
+      //     不改变闭包归属。
       //   · 恢复 CLI = **仓根运维工具**（住在仓根 `tools/`，不在 `lib/pack-template/` 里），
       //     它永远不该出现在"包的引擎闭包"里。
       const EP = require_(path.join(REPO, 'lib', 'pack-template', 'tools', 'engine-policy.cjs'))
-      h.eq(EP.ENGINE_FILES.includes('tools/ledger-transaction.cjs'), false, 'ENGINE_FILES 不收事务件（随包件，但闭包是机械重算的：今天没有引擎入口 require 它）')
+      h.eq(EP.ENGINE_FILES.includes('tools/ledger-transaction.cjs'), true, 'ENGINE_FILES 收事务件（T11 起 ask-server.js / drain-questions.js 直接 require 它 ⇒ 机械闭包把它算进来了；它仍是随包件）')
       h.eq(EP.ENGINE_FILES.includes('tools/recover-ledgers.mjs'), false, 'ENGINE_FILES 不收恢复 CLI（它是仓根运维工具，不是模板件）')
 
       // —— 正例（T09-A1）：证明「隐藏分量一律不公开」这条形状规则**没有变成过度拒绝** ——
