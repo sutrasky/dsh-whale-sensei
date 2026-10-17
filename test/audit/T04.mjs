@@ -1395,6 +1395,8 @@ h.case('T04-BYPASS-visibility-list', 'pass', () => {
     'test/rebuild-wiring.mjs',
     'test/circle-delete.mjs',
     'test/ask-answer.mjs',
+    // T10 的「重建必须在释放锁后启动」夹具用桩引擎，库不是真包 ⇒ 显式传旁路，登记在此
+    'test/audit/T10.mjs',
     // `lib/mods/note.js` 的**自带 --selftest**（合成包，不是真包）—— 不是测试文件，但要登记
     'lib/mods/note.js',
   ]
