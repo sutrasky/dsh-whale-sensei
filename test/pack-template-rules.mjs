@@ -125,11 +125,21 @@ export const FROM_SKILL = ['assets/glossary-data.js']
  * 同理（T07 / 报告 D02）：独立服务的授权件 `tools/http-security.cjs` 与页面侧的会话件
  * `assets/session.js` 也是插件侧先有的 —— 前者被三个服务 require（漏了新包的服务起不来），
  * 后者被 `assets/_frame.html` 与课程入口页 `<script src>`（漏了页面换不到令牌、写口全 403）。
+ *
+ * 同理（T09 / 报告 C01）：包级跨进程事务件 `tools/ledger-transaction.cjs` 也是插件侧先有的 ——
+ * 课程包里今天没有对应原件（它是「新包也要有的协议」）。注意它**不在** `ENGINE_FILES`：
+ * 受信引擎闭包是从入口机械重算的，而它今天没有任何引擎入口 require（接线到台账写口是 T10/T11/T12）。
+ *
+ * **事务件随包发 / 恢复 CLI 是仓根运维工具，不随包**（T09-A1 归位）：离线恢复 CLI 建在
+ * **仓根** `tools/recover-ledgers.mjs`（与 `tools/upgrade-pack.mjs` 同层），按
+ * `../lib/pack-template/tools/ledger-transaction.cjs` 相对自己解析事务件 —— 那两件来自
+ * **同一次插件安装**。所以这一份"随包件"清单里**只有事务件、没有 CLI**。
  */
 export const FROM_PLUGIN = [
   'tools/path-policy.cjs', 'tools/engine-policy.cjs', 'tools/public-files.cjs',
   'tools/http-security.cjs', 'assets/session.js',
   'tools/http-request.cjs',
+  'tools/ledger-transaction.cjs',
 ]
 
 /**
