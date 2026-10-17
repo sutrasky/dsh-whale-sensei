@@ -129,6 +129,7 @@ export const FROM_SKILL = ['assets/glossary-data.js']
 export const FROM_PLUGIN = [
   'tools/path-policy.cjs', 'tools/engine-policy.cjs', 'tools/public-files.cjs',
   'tools/http-security.cjs', 'assets/session.js',
+  'tools/http-request.cjs',
 ]
 
 /**
