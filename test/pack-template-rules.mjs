@@ -146,6 +146,7 @@ export const FROM_PLUGIN = [
   'tools/http-security.cjs', 'assets/session.js',
   'tools/http-request.cjs',
   'tools/ledger-transaction.cjs',
+  'tools/publish-policy.cjs',
 ]
 
 /**
