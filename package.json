@@ -59,5 +59,8 @@
     "test": "node test/run-all.mjs",
     "test:all": "node test/all.mjs"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "axe-core": "^4.14.0"
+  }
 }

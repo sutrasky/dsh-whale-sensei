@@ -491,7 +491,36 @@ console.log(`\n[settings-catalog] 课程包：${PACK}`)
  */
 {
   const src = fs.readFileSync(path.join(PLUGIN, 'lib', 'client.js'), 'utf8')
-  const prim = { Modal: function Modal() {}, Button: function Button() {} }
+  /**
+   * 弹窗在不在，锚在**官方原语给出的标记**上：`data-dsh-modal`（**只由下面这个桩产生**）。
+   *
+   * 兼容分支（见两处选择器）：T25 之前那版删除确认是**手写遮罩**，它根本不调 `primitives.Modal`，
+   * 只认标记的话「旧 client.js + 本夹具」必然 5 条全红 —— 而"基线交叉"要求它仍然 63/0。
+   * 所以两个分支都留着：**主锚点是官方原语的标记**，旧 key 只是给"T25 之前那版产品"留的桥。
+   * （"删除确认必须用官方 Modal"另有把关：`test/audit/T25.mjs` 的 M01/overlayDivs 判据，
+   *   它在旧实现上**必须红** —— 那一条才是这条产品缝的判据，本套件不重复承担。）
+   */
+  const MODAL_MARK = 'data-dsh-modal'
+  /**
+   * `Modal` 桩：**如实渲染 children**。
+   *
+   * 宿主 `primitives.Modal` 是函数组件，真 React 把 children 放进 `props.children` 渲染出去。
+   * 本夹具的 mini-React 把 children 挂在**元素节点**上（`{type, props, children}`，见 `mount()`），
+   * 而 `evalFn()` 是以 `node.type(node.props)` 这种**方法调用**的形式求值的 ⇒ 桩里的 `this`
+   * 就是那个元素节点，children 从这里拿。两边都取：真 React 口径（`props.children`）优先。
+   *
+   * 原状（桩返回 `undefined`）时，产品用 `primitives.Modal` 包起来的 children **整棵从渲染树上
+   * 掉下来**（`walk()` 只往下走桩的返回值），[9] 里"弹窗里有什么"的断言就全部取不到料。
+   */
+  const prim = {
+    Modal: function Modal(props) {
+      const raw = (props && props.children != null)
+        ? props.children
+        : (this && this.children && this.children.length ? this.children : [])
+      return { type: 'div', props: { [MODAL_MARK]: true }, children: [].concat(raw).flat(Infinity).filter((k) => k != null && k !== false) }
+    },
+    Button: function Button() {},
+  }
 
   const catalogData = { ok: true, configured: true, canCreate: true, circles: [
     { id: 'math', name: '数学', points: [
@@ -644,7 +673,9 @@ console.log(`\n[settings-catalog] 课程包：${PACK}`)
     ok(calls[0] && calls[0].body.confirm === undefined, '[9] dryRun 那一次**不许**带 confirm（这时还没确认）')
 
     // ⑤ 弹窗：把真实清单摆出来
-    const modal = walk(h.render(), (n) => n.props && n.props.key === 'delete-modal')[0]
+    // 弹窗**只认官方原语产生的标记**（规划者 2026-10-19 裁定）：T25 之后删除确认必须走 `primitives.Modal`，
+    // 手写遮罩（旧实现的 `key: 'delete-modal'`）**不再被这条判据接受** —— 否则"退回手写遮罩"这种回归会被放过。
+    const modal = walk(h.render(), (n) => n.props && n.props[MODAL_MARK] === true)[0]
     ok(!!modal, '[9] dryRun 回来后弹出确认弹窗（不是直接删）')
     const mt = textsOf(modal).join(' ')
     ok(mt.includes('删除知识圆圈「数学」'), `[9] 弹窗点名要删的是「数学」（${mt.slice(0, 30)}…）`)
@@ -662,7 +693,7 @@ console.log(`\n[settings-catalog] 课程包：${PACK}`)
 
     // ⑦ 删完弹窗关掉 + 结果横幅摆出重建命令
     const after = h.render()
-    ok(walk(after, (n) => n.props && n.props.key === 'delete-modal').length === 0, '[9] 删成功后弹窗关闭')
+    ok(walk(after, (n) => n.props && n.props[MODAL_MARK] === true).length === 0, '[9] 删成功后弹窗关闭')
     const at = textsOf(after).join(' ')
     ok(at.includes('已删除圆圈「数学」'), `[9] 结果横幅说明删了什么（${at.slice(0, 40)}…）`)
     ok(at.includes('node tools/build-lessons.js'), '[9] 结果横幅摆出重建命令（照抄服务端返回的那批）')

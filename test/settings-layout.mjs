@@ -38,6 +38,34 @@ const slice = lines.slice(startAt, endAt).join('\n')
 const codeOnly = (text) => text.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n')
 const sliceCode = codeOnly(slice)
 
+/**
+ * 只数**卡片自己的** `open:` 旗标 —— 在 `react.createElement(Card, { … })` 的 props 块里（配对花括号扫描）。
+ *
+ * 为什么不数整段里的 `open: true,`（规划者 2026-10-19 收口修正）：那个全段计数是**代理**，
+ * 它把同一段里别的合法的 `open:`（`newCircle` 表单的开关态、以及 T25 之后删除确认弹窗
+ * 传给 `primitives.Modal` 的 `open: true`）也算进来 —— 于是"五张卡全收起"这条会因**无关代码**
+ * 变红。判据要判的是**卡**，就只数卡。
+ */
+function cardOpenFlags(text) {
+  let open = 0
+  let closed = 0
+  const re = /createElement\(Card,\s*\{/g
+  let m
+  while ((m = re.exec(text))) {
+    const start = m.index + m[0].length - 1 // 指向 props 块的 '{'
+    let depth = 0
+    let i = start
+    for (; i < text.length; i++) {
+      if (text[i] === '{') depth++
+      else if (text[i] === '}') { depth--; if (depth === 0) break }
+    }
+    const block = text.slice(start, i + 1)
+    open += (block.match(/open:\s*true,/g) || []).length
+    closed += (block.match(/open:\s*false,/g) || []).length
+  }
+  return { open, closed }
+}
+
 const uniq = (arr) => [...new Set(arr)].sort()
 
 // ── ① 字号阶梯：只有 12 / 14 / 16 ────────────────────────────────────────
@@ -135,10 +163,11 @@ const homeKeys = keysInHome(src)
 // 用户 2026-09-26 拍板两次，以最后一条为准：先是「采用 b（五张卡全展开）」，
 // 随后改成「五张卡全部改成默认收起」。**卡与卡内的组现在都是收起态**。
 {
-  const cardsOpen = (slice.match(/open: true,/g) || []).length
-  const cardsClosed = (slice.match(/open: false,/g) || []).length
+  const cardFlags = cardOpenFlags(slice)
+  const cardsOpen = cardFlags.open
+  const cardsClosed = cardFlags.closed
   ok(cardsOpen === 0 && cardsClosed >= 5,
-    `五张卡**全部默认收起**（open: true 出现 ${cardsOpen} 次 · open: false ${cardsClosed} 次）`)
+    `五张卡**全部默认收起**（卡内 open: true 出现 ${cardsOpen} 次 · open: false ${cardsClosed} 次）`)
   ok(/var isCollapsed = collapsed\[key\] !== false;/.test(src),
     '教学方式的层**默认收起**（`!== false`；写成 `=== true` 就是默认展开 —— 第一版就是这么错的）')
   ok(/var isExpanded = !!expanded\[c\.id\];/.test(src),
@@ -148,7 +177,7 @@ const homeKeys = keysInHome(src)
   ok(!/var isCollapsed = collapsed\[key\] !== false;/.test(broken),
     '反空转：把教学层的默认改回「展开」后，默认收起那条当场变红')
   const brokenCard = slice.replace("trailing: headText, open: false,", "trailing: headText, open: true,")
-  ok((brokenCard.match(/open: true,/g) || []).length === 1,
+  ok(cardOpenFlags(brokenCard).open === 1,
     '反空转：把概览卡改回展开后，「五张卡全收起」那条当场变红')
 }
 
