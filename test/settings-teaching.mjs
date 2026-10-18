@@ -256,8 +256,10 @@ try {
 		//   StatusPanel 0–3（state / tick / pick / useEffect）
 		//   CatalogPanel 4–12（catState / catTick / expanded / rename / newCircle / del / notice / **exp** / useEffect）
 		//     —— exp 是「导出课件包」（离线包 · 2026-09-26）的状态；它加在 notice 之后 ⇒ 下面所有槽位 +1
-		//   GroupPanel 13–18（state / tick / grp / msg / ui / useEffect）—— 知识组（中星）独立卡片（2026-09-26）
-		//   TeachingPanel 19–23（state / drafts / sends / collapsed / useEffect）
+		//   GroupPanel 13–23（state / tick / grp / msg / ui / useEffect / rw / **useRebuildJob** / 重建后翻新 effect）
+		//     —— `rw` + `useRebuildJob`：知识组改完轮询重建作业（T24 的 C2/G01 要求），
+		//        `useRebuildJob` 自身吃掉 3 个槽位（useState / useRef / useEffect）⇒ 下面整体 +5
+		//   TeachingPanel 24–28（state / drafts / sends / collapsed / useEffect）
 		// ⚠️ 这个桩对**结构变化**很脆：谁在前面插一个 useState，下面全错位。
 		//    所以渲染完有一条 `cursor` 判据兜底（见文末），错位会当场红而不是静默少渲染。
 		slots[0] = { phase: 'ok', data: { ok: true, configured: true, sections: [] }, at: null }
@@ -271,10 +273,10 @@ try {
 		slots[8] = { open: false, name: '', id: '', saving: false, error: null }
 		slots[9] = null
 		slots[10] = null
-		slots[19] = { phase: 'ok', data: payload, error: null }
-		slots[20] = {}
-		slots[21] = {}
-		slots[22] = {}
+		slots[24] = { phase: 'ok', data: payload, error: null }
+		slots[25] = {}
+		slots[26] = {}
+		slots[27] = {}
 
 		const texts = []
 		const classes = []
@@ -317,7 +319,7 @@ try {
 		ok(askN === layerCount, `「跟老师说」是**每层各一个**（实得 ${askN} 个，期望 ${layerCount}）`)
 
 		ok(typeof Comp === 'function', '拿得到设置节那个组件（whale-sensei）')
-		ok(cursor === 24, `渲染消耗 ${cursor} 个 hook 槽位（预期 24 —— 对不上说明面板结构变了，上面的槽位表要跟着更新）`)
+		ok(cursor === 29, `渲染消耗 ${cursor} 个 hook 槽位（预期 29 —— 对不上说明面板结构变了，上面的槽位表要跟着更新）`)
 		ok(all.includes('教学方式'), '渲染结果里有「教学方式」这一块')
 		ok(all.includes('老师下次生成课程时，实际会收到这一段'), '渲染结果里带「注入原文」的说明')
 		ok(all.includes(payload.circles[0].name), `渲染结果里有圆圈名（${payload.circles[0].name}）`)
