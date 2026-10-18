@@ -23,6 +23,8 @@ import {
 } from './_pack.mjs'
 import { adaptLegacyText, validateRunResult, makeRunResult } from './_result.mjs'
 
+import { discoverSuites } from './_suite-manifest.mjs'
+
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 
 /**
@@ -45,7 +47,7 @@ if (!CTX.packRoot) {
 const CHILD_ARGS = contextArgs(CTX)
 const CHILD_ENV = contextEnv(CTX)
 const CTX_LINE = formatTestContext(CTX)
-const SUITES = [
+const DESCRIPTIONS = new Map([
   ['pack-parity', '课程包读取：同输入 → 同输出'],
   ['build-verify', '产物校验：坏样会被抓出'],
   ['probe-audit', '路径判定 + 五条审计'],
@@ -96,7 +98,8 @@ const SUITES = [
   ['pack-scaffold', '选课程包：原生选择框 / 只往空目录建 / 引擎模板中性化对拍 / profile 层就地改一行 / 拒绝面'],
   ['pack-open', '课程中心：先探活再起（复用不重复 listen）/ 起完真的答 / 缺件与端口被占一律如实报'],
   ['export-pack', '导出这一节课（离线课件包）：真导出恰好 5 个文件 / 不带 src·assets·starmap / 文件名用课程名且同名加课号 / 路径穿越与缺源一律拒 / 导出是纯读'],
-]
+])
+const SUITES = discoverSuites(HERE).map(id => [id, DESCRIPTIONS.get(id) ?? '自动发现的顶层套件'])
 
 const outPath = process.env.DSH_WHALE_RESULT || path.join(HERE, '.tmp-run-all-result.json')
 const base = `node test/run-all.mjs ${CHILD_ARGS.join(' ')}`.trim()
@@ -105,8 +108,12 @@ const base = `node test/run-all.mjs ${CHILD_ARGS.join(' ')}`.trim()
  * 用途只有一个 —— **审计夹具**要造「某套假绿」的最小复现；默认（不设）恒等于全跑。
  */
 const only = (process.env.DSH_WHALE_SUITES ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+const unknown = only.filter(id => !SUITES.some(([name]) => name === id))
+if (unknown.length) { console.error('❌ 未知套件：' + unknown.join(',')); process.exit(1) }
 const PLAN = only.length ? SUITES.filter(([n]) => only.includes(n)) : SUITES
 
+const childDir = fs.mkdtempSync(path.resolve(path.dirname(outPath), path.basename(outPath) + '.children-'))
+const MACHINE_SUITES = new Set(['render-parity','circle-create','brief','teaching-view','visual','practice','wording','parity-registry'])
 let failed = 0
 let total = 0
 const cases = []
@@ -116,12 +123,15 @@ const ctxDrift = []
 
 for (const [name, what] of PLAN) {
   const t0 = Date.now()
+  const childPath = path.join(childDir, name + '.json')
+  fs.rmSync(childPath, { force: true })
   // **必须同时收 stdout 与 stderr**：套件摘要走 stdout，而 `[test-context]`（T02 的判据）
   // 走 stderr —— 只收 stdout 就会把"参数传没传到"这件事整个丢掉。
   const r = spawnSync(process.execPath, [path.join(HERE, name + '.mjs'), ...CHILD_ARGS], {
     encoding: 'utf8',
     maxBuffer: 32 * 1024 * 1024,
-    env: { ...process.env, ...CHILD_ENV },
+    env: { ...process.env, ...CHILD_ENV, DSH_WHALE_RESULT: childPath },
+    timeout: 600000,
   })
   const code = typeof r.status === 'number' ? r.status : null
   let spawnError = null
@@ -142,13 +152,32 @@ for (const [name, what] of PLAN) {
     })
   }
   // **严格 adapter**：单套摘要唯一 / 条数与正文红行逐项对账 / 执行量非零 / 退出码为 0
-  const a = adaptLegacyText({ kind: 'one-suite', out, code, label: name })
+  let a = adaptLegacyText({ kind: 'one-suite', out, code, label: name })
+  let machine = null
+  let machineError = null
+  if (fs.existsSync(childPath)) {
+    try {
+      machine = JSON.parse(fs.readFileSync(childPath, 'utf8'))
+      const v = validateRunResult(machine)
+      const summary = [...out.matchAll(/^\s*[^\d\s=]{0,4}\s*={2,}\s*(\d+)\s*通过\s*\/\s*(\d+)\s*失败\s*={2,}\s*$/gm)]
+      const errors = [...v.errors]
+      if (machine.packRoot !== CTX.packRoot) errors.push('machine packRoot differs from explicit context')
+      if (machine.skipped !== machine.cases?.filter(c => c.status === 'skip').length) errors.push('skip count differs from cases')
+      if (summary.length !== 1 || +summary[0]?.[1] !== machine.passed || +summary[0]?.[2] !== machine.failed) errors.push('machine/text summary mismatch')
+      if (code !== (machine.failed ? 1 : 0)) errors.push('machine/exit mismatch')
+      if (!a.parsed || a.summaries !== 1 || a.redLines.length !== machine.failed) errors.push('legacy text reconciliation failed')
+      if (errors.length) throw new Error(errors.join('; '))
+      a = { ...a, ok: machine.failed === 0, passed: machine.passed, failed: machine.failed, skipped: machine.skipped, reason: machine.reason }
+    } catch (e) { machineError = 'invalid child machine: ' + e.message }
+  } else if (MACHINE_SUITES.has(name)) machineError = 'required child machine missing'
+  if (machineError) a = { ...a, ok: false, reason: machineError }
+  fs.writeFileSync(path.join(childDir, name + '.execution.json'), JSON.stringify({ code, spawnError, stdout: r.stdout, stderr: r.stderr, machineError }, null, 2), 'utf8')
   const p = a.ok ? (a.passed ?? 0) : (a.parsed ? (a.passed ?? 0) : 0)
   const f = a.ok ? 0 : (a.parsed ? Math.max(1, a.failed ?? 0) : 1)
   total += p
   if (!a.ok) failed++
   const secs = ((Date.now() - t0) / 1000).toFixed(1)
-  const mark = a.ok ? '✓' : '✗'
+  const mark = !a.ok ? '✗' : a.skipped ? '↷' : '✓'
   console.log(`${mark} ${name.padEnd(18)} ${String(p).padStart(3)} 通过${f ? ` / ${f} 失败` : ''}  (${secs}s)  ${what}`)
   if (!a.parsed) console.log(String(out).split('\n').slice(0, 8).map((l) => '    ' + l).join('\n'))
   // 有摘要但失败了 → 把该套件自己的 FAIL/✗ 行打出来。
@@ -161,7 +190,15 @@ for (const [name, what] of PLAN) {
   }
   // 机器结果：每条用例带自己的子进程退出码（记录说全绿、退出码非零 = 红）
   const ctxNote = childCtx ? `ctx=${childCtx.mode}/${childCtx.packRoot}` : 'ctx=(未报)'
-  cases.push({ id: name, status: a.ok ? 'pass' : 'fail', exitCode: code, note: a.reason ?? (a.ok ? undefined : '未通过'), ctx: ctxNote })
+  const skips = machine && !machineError ? machine.cases.filter(c => c.status === 'skip') : []
+  cases.push({ id: name, status: !a.ok ? 'fail' : skips.length ? 'skip' : 'pass', exitCode: code,
+    note: !a.ok ? a.reason ?? '未通过' : skips.length ? skips[0].note ?? skips[0].id : undefined, ctx: ctxNote })
+  // Preserve executed work without crediting any unexecuted branch as a pass.
+  if (a.ok && skips.length && p > 0) cases.push({ id: `executed:${name}`, status: 'pass', exitCode: code, note: `${p} actual passed assertions; skipped branches excluded`, ctx: ctxNote })
+  for (const [i, skipped] of skips.entries()) {
+    if (a.ok && i === 0) continue
+    cases.push({ id: `skip:${name}:${skipped.id}`, status: 'skip', note: skipped.note ?? skipped.id, ctx: ctxNote })
+  }
   if (code !== 0) cases.push({ id: `exit:${name}`, status: 'fail', exitCode: code, note: code === null ? `子进程没有退出码（崩溃/超时）：${spawnError ?? ''}`.trim() : `子进程退出码 ${code}${a.ok ? '（摘要却全绿：先打绿再崩）' : ''}` })
 }
 

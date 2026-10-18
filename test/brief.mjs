@@ -16,6 +16,7 @@
  *   ⑧ 学生笔记：空台账 → 这段在、写「还没有笔记」、不崩；有笔记时总条数正确、正文出现、课次显示名、截断、无时间戳
  *   ⑨ ② 终点契约 / ③(a) 课后调整 / ③(c) 学习记录读内容（影副本：空态、验收 k/n 随数据变、截断、时间戳剥离、上限不静默丢）
  */
+import { makeRunResult, validateRunResult } from './_result.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
@@ -35,11 +36,23 @@ import { readNotes } from '../lib/notes-io.js'
 import { packRoot } from './_pack.mjs'
 
 const ROOT = packRoot()
+const realBrief = path.join(ROOT, 'learning-records', 'brief.md')
+const briefSnapshot = () => fs.existsSync(realBrief) ? crypto.createHash('sha256').update(fs.readFileSync(realBrief)).digest('hex') : null
+const briefBefore = briefSnapshot()
 let pass = 0
 const fails = []
+const suiteCases = []
 function ok(cond, msg) {
+  suiteCases.push({ id: 'brief:' + String(suiteCases.length + 1).padStart(3, '0'), status: cond ? 'pass' : 'fail', note: msg })
   if (cond) { pass++; console.log('ok   ' + msg) } else { fails.push(msg); console.log('FAIL ' + msg) }
 }
+function writeSuiteResult() {
+  const result = makeRunResult({ packRoot: ROOT, base: null, cases: suiteCases })
+  const valid = validateRunResult(result)
+  if (!valid.ok) throw new Error(valid.errors.join('; '))
+  if (process.env.DSH_WHALE_RESULT) fs.writeFileSync(process.env.DSH_WHALE_RESULT, JSON.stringify(result, null, 2), 'utf8')
+}
+
 const sha = (b) => crypto.createHash('sha256').update(b).digest('hex').slice(0, 16)
 /** 两段文本的首处差异（诊断用：只说"不一样"等于没说） */
 const firstDiff = (a, b) => {
@@ -114,6 +127,8 @@ ok(!/\d{4}-\d{2}-\d{2}T/.test(v1.markdown), 'brief 里没有时间戳（可对�
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-brief-'))
 try {
   fs.cpSync(ROOT, tmp, { recursive: true })
+  // Establish the default-no-write precondition only in the owned copy; preserve any user's real brief.
+  fs.rmSync(path.join(tmp, 'learning-records', 'brief.md'), { force: true })
   // ⚠️ 判据**不许依赖真包是不是空的**：真包现在有 teaching.jsonl（P2 给 programming 落了
   //    spec + guide），而下面 ⑪ 有一条"空态"判据。所以先把影副本的台账清掉，空态由本判据
   //    自己造出来 —— 否则真包一变，这条就红（实测踩过）。
@@ -540,8 +555,9 @@ try {
 
 // ── ⑦ 真包没被动过 ──
 ok(hashTree(path.join(ROOT, 'code')) + '|' + sha(fs.readFileSync(path.join(ROOT, 'questions', 'pending.jsonl'))) === realBefore, '真包未被改动（code/ 全树 + pending.jsonl）')
-ok(!fs.existsSync(path.join(ROOT, 'learning-records', 'brief.md')) || true, '（真包里的 brief.md 由使用者决定，测试只用影副本）')
+ok(briefSnapshot() === briefBefore, '真包 brief.md 存在性与字节哈希保持不变')
 
+writeSuiteResult()
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
 console.log('✅ 上下文包：七段与各来源对拍一致，建议随数据变，不猜、可对拍、可落盘')

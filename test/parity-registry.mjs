@@ -24,6 +24,8 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { packRoot, PLUGIN } from './_pack.mjs'
+import { discoverSuites } from './_suite-manifest.mjs'
+import { makeRunResult, validateRunResult } from './_result.mjs'
 import { templatePaths } from './pack-template-rules.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -32,7 +34,8 @@ const REGISTRY = path.join(PACK, '_plugin-prep', '同源实现-对拍登记表.m
 
 let pass = 0
 const fails = []
-const ok = (cond, msg) => { if (cond) { pass++; console.log('  ok  ' + msg) } else { fails.push(msg); console.log(` FAIL ${msg}`) } }
+const machineCases = []
+const ok = (cond, msg) => { machineCases.push({id: `registry:${machineCases.length + 1}`, status: cond ? 'pass' : 'fail', note: msg}); if (cond) { pass++; console.log('  ok  ' + msg) } else { fails.push(msg); console.log(`FAIL ${msg}`) } }
 
 /** 从登记表里抓出数据行：[A, B, 落点]（只认三列的表格行，且首列以 包: 或 插件: 开头） */
 export function parseRegistry(text) {
@@ -64,7 +67,7 @@ export function checkRegistry(rows, opts = {}) {
   const problems = []
   const pack = opts.pack ?? PACK
   const plugin = opts.plugin ?? PLUGIN
-  const runAll = fs.existsSync(path.join(plugin, 'test', 'run-all.mjs')) ? fs.readFileSync(path.join(plugin, 'test', 'run-all.mjs'), 'utf8') : ''
+  const suites = new Set(discoverSuites(path.join(plugin, 'test')))
   const gate = fs.existsSync(path.join(pack, 'tools', 'gate.mjs')) ? fs.readFileSync(path.join(pack, 'tools', 'gate.mjs'), 'utf8') : ''
   const runCmd = opts.runCmd ?? ((file, extra) => spawnSync(process.execPath, [file, ...extra], { cwd: plugin, encoding: 'utf8', timeout: 120_000 }))
 
@@ -89,7 +92,7 @@ export function checkRegistry(rows, opts = {}) {
       if (r.status !== 0) problems.push(`${label}：${T.side}:${T.file} --selftest 退出码 ${r.status}（对拍没跑通）`)
     } else if (T.side === '插件') {
       const name = path.basename(T.file).replace(/\.mjs$/, '')
-      if (!runAll.includes(`'${name}'`)) problems.push(`${label}：对拍 ${T.file} 不在 test/run-all.mjs 的套件表里 → 没人跑它`)
+      if (!suites.has(name) || path.resolve(T.abs) !== path.resolve(plugin, 'test', name + '.mjs')) problems.push(`${label}：对拍 ${T.file} 不在 test/run-all.mjs 的套件表里 → 没人跑它`)
     } else {
       const rel = path.relative(pack, T.abs).split(path.sep).join('/')
       if (!gate.includes(rel)) problems.push(`${label}：对拍 ${rel} 不在 tools/gate.mjs 的检查表里 → 没人跑它`)
@@ -236,7 +239,7 @@ export function discoverMirrors(opts = {}) {
 console.log(`\n[parity-registry] 课程包：${PACK}`)
 
 if (!fs.existsSync(REGISTRY)) {
-  console.log(` FAIL 找不到登记表 ${REGISTRY}`)
+  console.log(`FAIL 找不到登记表 ${REGISTRY}`)
   console.log('\n=== 0 通过 / 1 失败 ===')
   process.exit(1)
 }
@@ -297,6 +300,10 @@ if (found.yellow.length) {
   }
 }
 
+const machineResult = makeRunResult({packRoot: PACK, base: null, cases: machineCases})
+const machineValidation = validateRunResult(machineResult)
+if (!machineValidation.ok) throw new Error(machineValidation.errors.join('; '))
+if (process.env.DSH_WHALE_RESULT) fs.writeFileSync(process.env.DSH_WHALE_RESULT, JSON.stringify(machineResult, null, 2), 'utf8')
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
 console.log('✅ 同源实现对拍：每对的两个实现都在、落点存在且**真的在跑**')

@@ -11,6 +11,7 @@
  *   B. **真浏览器**（有服务就真跑）：dump DOM，断言实践区**真的渲染出来了**、
  *      并且显示的就是"达成 3 / 共 3"（服务没在跑则**大声跳过**）
  */
+import { makeRunResult, validateRunResult } from './_result.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
@@ -27,13 +28,26 @@ import { packRoot } from './_pack.mjs'
 const ROOT = packRoot()
 let pass = 0
 const fails = []
+const suiteCases = []
 function ok(cond, msg) {
+  suiteCases.push({ id: 'practice:' + String(suiteCases.length + 1).padStart(3, '0'), status: cond ? 'pass' : 'fail', note: msg })
   if (cond) { pass++; console.log('ok   ' + msg) } else { fails.push(msg); console.log('FAIL ' + msg) }
 }
+function skip(msg) {
+  suiteCases.push({ id: 'practice:' + String(suiteCases.length + 1).padStart(3, '0'), status: 'skip', note: msg })
+  console.log('SKIP ' + msg)
+}
+function writeSuiteResult() {
+  const result = makeRunResult({ packRoot: ROOT, base: LIVE_BASE, cases: suiteCases })
+  const valid = validateRunResult(result)
+  if (!valid.ok) throw new Error(valid.errors.join('; '))
+  if (process.env.DSH_WHALE_RESULT) fs.writeFileSync(process.env.DSH_WHALE_RESULT, JSON.stringify(result, null, 2), 'utf8')
+}
+
 const sha = (b) => crypto.createHash('sha256').update(b).digest('hex').slice(0, 12)
 const DATA_REL = 'assets/practice-data.js'
 const realBefore = sha(fs.readFileSync(path.join(ROOT, DATA_REL))) + '|' + sha(fs.readFileSync(path.join(ROOT, 'lessons', 'programming', 'spring-boot', '0001-spring-boot-hello-world.html')))
-const LIVE_BASE = process.env.WHALE_VISUAL_BASE || 'http://127.0.0.1:3091'
+const LIVE_BASE = process.env.WHALE_VISUAL_BASE || null
 
 console.log(`\n[practice] 课程包：${ROOT}`)
 
@@ -188,9 +202,9 @@ try {
 
 // ── B. 真浏览器：实践区真的显示出来了吗 ──
 const exe = findBrowser()
-const probe = exe ? await probeBase(LIVE_BASE, '/lessons/programming/spring-boot/0001-spring-boot-hello-world.html') : { ok: false, why: '找不到浏览器' }
+const probe = exe && LIVE_BASE ? await probeBase(LIVE_BASE, '/lessons/programming/spring-boot/0001-spring-boot-hello-world.html') : { ok: false, why: !LIVE_BASE ? '未提供显式浏览器 base' : '找不到浏览器' }
 if (!exe || !probe.ok) {
-  console.log(`⚠️  跳过真浏览器那一层：${exe ? `${LIVE_BASE} 连不上（${probe.why}）` : '本机找不到 Edge/Chrome'} —— 起了服务再跑就是绿的：node tools/app-server.js`)
+  skip(`⚠️  跳过真浏览器那一层：${exe ? `${LIVE_BASE} 连不上（${probe.why}）` : '本机找不到 Edge/Chrome'} —— 起了服务再跑就是绿的：node tools/app-server.js`)
 } else {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-practice-prof-'))
   try {
@@ -212,6 +226,7 @@ ok(
   '真包未被改动（practice-data.js + 课程页哈希相同）'
 )
 
+writeSuiteResult()
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
 console.log('✅ 实践区：数据与探针一致、没有百分比、可判漂移；真浏览器里显示得出来')

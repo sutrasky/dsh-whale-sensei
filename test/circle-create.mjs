@@ -18,10 +18,11 @@
  *        不是"建出一个没 color 的圈"，被拒的不落盘
  */
 
+import { makeRunResult, validateRunResult } from './_result.mjs'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { packRoot } from './_pack.mjs'
@@ -47,9 +48,18 @@ const realBefore = gitStatus(PACK)
 
 let pass = 0
 const fails = []
+const suiteCases = []
 function ok(cond, msg) {
+  suiteCases.push({ id: 'circle-create:' + String(suiteCases.length + 1).padStart(3, '0'), status: cond ? 'pass' : 'fail', note: msg })
   if (cond) { pass++; console.log('ok   ' + msg) } else { fails.push(msg); console.log('FAIL ' + msg) }
 }
+function writeSuiteResult() {
+  const result = makeRunResult({ packRoot: PACK, base: null, cases: suiteCases })
+  const valid = validateRunResult(result)
+  if (!valid.ok) throw new Error(valid.errors.join('; '))
+  if (process.env.DSH_WHALE_RESULT) fs.writeFileSync(process.env.DSH_WHALE_RESULT, JSON.stringify(result, null, 2), 'utf8')
+}
+
 
 // ── 造临时课程包副本 ──
 const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-create-'))
@@ -352,26 +362,27 @@ try {
     ok(styleMissing.length === 0,
       `[8] 0. 风格输入由测试显式构造（${Object.keys(STYLE_SAMPLES).length} 份，无兄弟仓依赖）${styleMissing.length ? '（缺：' + styleMissing.join('、') + '）' : ''}`)
 
-    // helper：跑一次 gate.mjs，返回失败检查名集合
+    // helper：真实执行 gate，逐目标与摘要/退出码严格对账，保留两条原始输出流
     function runGate(cwd) {
-      let out = ''
-      try {
-        out = execFileSync(process.execPath, ['tools/gate.mjs'], { cwd, encoding: 'utf8', timeout: 120_000 })
-      } catch (e) {
-        out = (e.stdout || '') + '\n' + (e.stderr || '')
-      }
-      const failed = new Set()
-      // gate.mjs 输出格式：✗ node tools/xxx（exit N）
-      for (const m of out.matchAll(/✗\s+(.+?)（exit \d+）/g)) {
-        failed.add(m[1].trim())
-      }
-      return failed
+      const r = spawnSync(process.execPath, ['tools/gate.mjs'], { cwd, encoding: 'utf8', timeout: 120_000, maxBuffer: 32 * 1024 * 1024, env: { ...process.env, DSH_WHALE_RESULT: '' } })
+      const stdout = r.stdout || '', stderr = r.stderr || ''
+      const rows = [...stdout.matchAll(/^(PASS|FAIL)\s+\d+ms\s+(node .+)$/gm)].map(m => ({ target: m[2].trim(), passed: m[1] === 'PASS' }))
+      const summaries = [...stdout.matchAll(/^=== 闸门：(\d+) \/ (\d+) 通过[^\n]*$/gm)]
+      const failed = new Set(rows.filter(x => !x.passed).map(x => x.target))
+      const valid = !r.error && [0, 1].includes(r.status) && summaries.length === 1 && rows.length > 0
+        && new Set(rows.map(x => x.target)).size === rows.length
+        && Number(summaries[0][2]) === rows.length
+        && Number(summaries[0][1]) === rows.filter(x => x.passed).length
+        && (r.status === 0) === (failed.size === 0)
+      console.log('    [circle-gate-record] ' + JSON.stringify({ cwd, status: r.status, error: r.error?.message || null, stdout, stderr }))
+      return { valid, failed, rows, status: r.status, error: r.error?.message || null, stdout, stderr }
     }
+    const targetPassed = (r, target) => r.valid && r.rows.some(x => x.target === target && x.passed)
 
     try {
       // ── A. 对照段：复制完先跑一次闸门，收失败集合 base ──
       const base = runGate(gatePack)
-      ok(true, `[8] A. 对照基线：${base.size} 条红（${base.size}/19 失败，排除清单造成的已知缺件）`)
+      ok(base.valid, `[8] A. 对照基线：结构可信=${base.valid}，${base.failed.size} 条红，exit=${base.status}`)
 
       // ⚠️ **基线闸门里有的检查会往包里写产物**：`tools/shape-pipeline.test.mjs` 走的是
       //    真构建器（`node tools/build-lessons.js`，全量），于是刚剪掉的 `lessons/<圈>/<点>/`
@@ -417,27 +428,37 @@ try {
 
       // ── C. 断言 ──
       // C1. 新红 = 0：after 里不许出现 base 里没有的检查名
-      const newRed = [...after].filter((x) => !base.has(x))
-      ok(newRed.length === 0, `[8] C1. 新红 = 0（新出现的失败：${newRed.length ? newRed.join(', ') : '无'}）`)
+      const newRed = [...after.failed].filter((x) => !base.failed.has(x))
+      ok(base.valid && after.valid && newRed.length === 0, `[8] C1. 新红 = 0（新出现的失败：${newRed.length ? newRed.join(', ') : '无'}）`)
 
       // C2. build-starmap.js --check 在 after 里是 PASS
       // ⚠️ **逐字比**，不用 `includes('build-starmap')` —— 那会把 `build-starmap-svg.js --check`
       //    一起算进来（同族命令名互相污染判据，C3 原来就栽在这上面）。
-      const starmapFail = [...after].some((x) => x === 'node tools/build-starmap.js --check')
+      const starmapFail = !targetPassed(after, 'node tools/build-starmap.js --check')
       ok(!starmapFail, `[8] C2. build-starmap.js --check 在 after 里 ${starmapFail ? '仍红' : 'PASS'}`)
 
       // C3. build-lessons.js --check 在 after 里是 PASS
       // 原来是 `includes('build-lessons')` —— 把 `build-lessons-extract.test.mjs` 也算进来，
       // 而那条在剪过的包里本来就红（缺 fixture）⇒ **C3 永远不可能绿**（2026-09-25 定位）。
-      const lessonsFail = [...after].some((x) => x === 'node tools/build-lessons.js --check')
+      const lessonsFail = !targetPassed(after, 'node tools/build-lessons.js --check')
       ok(!lessonsFail, `[8] C3. build-lessons.js --check 在 after 里 ${lessonsFail ? '仍红' : 'PASS'}`)
 
-      // ── D. 反空转：故意在 after 里加一条假红，断言集合差会捕获 ──
-      const afterWithFake = new Set(after)
-      afterWithFake.add('node tools/fake-red-check.js（exit 1）')
-      const fakeNewRed = [...afterWithFake].filter((x) => !base.has(x))
-      ok(fakeNewRed.length === 1 && fakeNewRed[0].includes('fake-red-check'),
-        `[8] D. 反空转：故意加一条假红 → 集合差捕获 ${fakeNewRed.length} 条（期望 1 条 fake-red-check）`)
+      // D: mutate a real product tool in the owned copy, run the real gate, and restore bytes.
+      const mutantTool = path.join(gatePack, 'tools', 'build-starmap.js')
+      const originalTool = fs.readFileSync(mutantTool)
+      let caught = false
+      try {
+        const text = originalTool.toString('utf8')
+        const anchor = "const fs = require('fs');"
+        const at = text.indexOf(anchor)
+        if (at < 0 || text.indexOf(anchor, at + anchor.length) !== -1) throw new Error('starmap mutation anchor not unique')
+        const marker = "console.error('T23_REAL_STARMAP_MUTANT'); process.exit(3);\n"
+        fs.writeFileSync(mutantTool, text.slice(0, at) + marker + text.slice(at), 'utf8')
+        const mutated = runGate(gatePack)
+        caught = mutated.valid && mutated.failed.has('node tools/build-starmap.js --check')
+          && !after.failed.has('node tools/build-starmap.js --check') && mutated.stdout.includes('T23_REAL_STARMAP_MUTANT')
+      } finally { fs.writeFileSync(mutantTool, originalTool) }
+      ok(caught && fs.readFileSync(mutantTool).equals(originalTool), '[8] D. 真实工具源码变异被真实 gate 检出，且工具字节已还原')
 
       // ── E. 真包零改动（**相对基线**，不是"必须为空"）──
       const afterGate = gitStatus(PACK)
@@ -494,6 +515,7 @@ try {
   try { fs.rmSync(tmpRoot, { recursive: true, force: true }) } catch { /* best effort */ }
 }
 
+writeSuiteResult()
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
 console.log('✅ 写入口：新建圆圈/知识点（原子、拒覆盖、坏 id 拒绝、绝不碰真包）')

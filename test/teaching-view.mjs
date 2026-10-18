@@ -17,6 +17,7 @@
  *   ⑦ **只读**：这一层没有任何写盘路径；
  *   ⑧ **学科中立**：整个源文件命中学科数 ≠ 1（禁词表，主人 2026-09-25 裁定）。
  */
+import { makeRunResult, validateRunResult } from './_result.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
@@ -33,9 +34,22 @@ const ROOT = packRoot()
 
 let pass = 0
 const fails = []
+const suiteCases = []
 function ok(cond, msg) {
-	if (cond) { pass++; console.log('ok   ' + msg) } else { fails.push(msg); console.log('FAIL ' + msg) }
+  suiteCases.push({ id: 'teaching-view:' + String(suiteCases.length + 1).padStart(3, '0'), status: cond ? 'pass' : 'fail', note: msg })
+  if (cond) { pass++; console.log('ok   ' + msg) } else { fails.push(msg); console.log('FAIL ' + msg) }
 }
+function skip(msg) {
+  suiteCases.push({ id: 'teaching-view:' + String(suiteCases.length + 1).padStart(3, '0'), status: 'skip', note: msg })
+  console.log('SKIP ' + msg)
+}
+function writeSuiteResult() {
+  const result = makeRunResult({ packRoot: ROOT, base: null, cases: suiteCases })
+  const valid = validateRunResult(result)
+  if (!valid.ok) throw new Error(valid.errors.join('; '))
+  if (process.env.DSH_WHALE_RESULT) fs.writeFileSync(process.env.DSH_WHALE_RESULT, JSON.stringify(result, null, 2), 'utf8')
+}
+
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-tview-'))
 // 真包基线：判据只在副本上跑，跑完真包必须**逐字节未变**。
@@ -162,7 +176,7 @@ try {
 			const t2 = requestText({ circle: other.id, request: '讲慢一点', view })
 			ok(t2.includes('还没有固定做法'), '没声明过的圆圈：正文如实说"还没有固定做法"')
 		} else {
-			ok(true, '（课程包只有一个圆圈，跳过"没有固定做法"的判据）')
+			skip('（课程包只有一个圆圈，跳过"没有固定做法"的判据）')
 		}
 	}
 
@@ -221,7 +235,7 @@ try {
 			const o = requestText({ circle: other, request: '换个教法', view })
 			ok(o.includes('还没声明过可调项'), '圆圈没声明 spec → 正文提示"先声明再写取值"')
 		} else {
-			ok(true, '（课程包只有一个圆圈，跳过"没声明 spec"的判据）')
+			skip('（课程包只有一个圆圈，跳过"没声明 spec"的判据）')
 		}
 
 		// 拿不到视图也不能崩（少一段现状，正文仍可用）
@@ -271,6 +285,7 @@ try {
 	fs.rmSync(tmp, { recursive: true, force: true })
 }
 
+writeSuiteResult()
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { for (const f of fails) console.log('  ✗ ' + f); process.exit(1) }
 console.log('✅ 视图列出全部圆圈 · from 不串台 · 注入原文逐字节同源 · 正文带齐节奏与锁死集 · 只读 · 学科中立')

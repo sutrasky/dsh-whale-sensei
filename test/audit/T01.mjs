@@ -239,6 +239,7 @@ function makeRunAllFixture(tag, suites) {
   fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 't01-fixture', type: 'module' }, null, 2), 'utf8')
   fs.copyFileSync(path.join(TEST_DIR, 'run-all.mjs'), path.join(root, 'test', 'run-all.mjs'))
   fs.copyFileSync(path.join(TEST_DIR, '_result.mjs'), path.join(root, 'test', '_result.mjs'))
+  fs.copyFileSync(path.join(TEST_DIR, '_suite-manifest.mjs'), path.join(root, 'test', '_suite-manifest.mjs'))
   // T02（F02）后 `run-all.mjs` 会 import `./_pack.mjs`（定源 + 逐进程对账）——
   // 假插件仓里也得有它，否则子进程直接 ERR_MODULE_NOT_FOUND（那不是本卡要测的东西）。
   fs.copyFileSync(path.join(TEST_DIR, '_pack.mjs'), path.join(root, 'test', '_pack.mjs'))

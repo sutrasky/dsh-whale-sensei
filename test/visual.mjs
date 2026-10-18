@@ -8,6 +8,7 @@
  *
  * 判据里刻意不含"好不好看"：那部分仍然是人眼的事（见 lib/mods/visual.js 的边界说明）。
  */
+import { makeRunResult, validateRunResult } from './_result.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
@@ -21,10 +22,23 @@ import { packRoot } from './_pack.mjs'
 const ROOT = packRoot()
 let pass = 0
 const fails = []
+const suiteCases = []
 function ok(cond, msg) {
+  suiteCases.push({ id: 'visual:' + String(suiteCases.length + 1).padStart(3, '0'), status: cond ? 'pass' : 'fail', note: msg })
   if (cond) { pass++; console.log('ok   ' + msg) } else { fails.push(msg); console.log('FAIL ' + msg) }
 }
-const LIVE_BASE = process.env.WHALE_VISUAL_BASE || 'http://127.0.0.1:3091'
+function skip(msg) {
+  suiteCases.push({ id: 'visual:' + String(suiteCases.length + 1).padStart(3, '0'), status: 'skip', note: msg })
+  console.log('SKIP ' + msg)
+}
+function writeSuiteResult() {
+  const result = makeRunResult({ packRoot: ROOT, base: LIVE_BASE, cases: suiteCases })
+  const valid = validateRunResult(result)
+  if (!valid.ok) throw new Error(valid.errors.join('; '))
+  if (process.env.DSH_WHALE_RESULT) fs.writeFileSync(process.env.DSH_WHALE_RESULT, JSON.stringify(result, null, 2), 'utf8')
+}
+
+const LIVE_BASE = process.env.WHALE_VISUAL_BASE || null
 const sha = (b) => crypto.createHash('sha256').update(b).digest('hex').slice(0, 12)
 const realBefore = sha(fs.readFileSync(path.join(ROOT, 'lessons', 'programming', 'spring-boot', '0001-spring-boot-hello-world.html')))
 
@@ -105,11 +119,11 @@ const exe = findBrowser()
 ok(exe === null || fs.existsSync(exe), `findBrowser 要么给一个真实存在的路径、要么明确 null（${exe ? path.basename(exe) : 'null'}）`)
 
 // ── B. 真浏览器（有服务才跑；没服务大声跳过） ──
-const probe = await probeBase(LIVE_BASE, '/starmap/')
+const probe = LIVE_BASE ? await probeBase(LIVE_BASE, '/starmap/') : { ok: false, why: '未提供显式浏览器 base' }
 if (!exe) {
-  console.log(`⚠️  跳过真浏览器那一层：本机找不到 Edge/Chrome`)
+  skip(`⚠️  跳过真浏览器那一层：本机找不到 Edge/Chrome`)
 } else if (!probe.ok) {
-  console.log(`⚠️  跳过真浏览器那一层：${LIVE_BASE} 连不上（${probe.why}）—— 起了服务再跑就是绿的：node tools/app-server.js`)
+  skip(`⚠️  跳过真浏览器那一层：${LIVE_BASE} 连不上（${probe.why}）—— 起了服务再跑就是绿的：node tools/app-server.js`)
 } else {
   const tools = []
   visualPlugin.install({ paths: { packRoot: ROOT }, log: { info: () => {}, warn: () => {}, error: () => {} }, registerTool: (d) => tools.push(d) })
@@ -137,6 +151,7 @@ if (!exe) {
 
 ok(sha(fs.readFileSync(path.join(ROOT, 'lessons', 'programming', 'spring-boot', '0001-spring-boot-hello-world.html'))) === realBefore, '真包未被改动（课程页哈希相同）')
 
+writeSuiteResult()
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
 console.log('✅ 视觉检查：纯层判据齐全（含坏样本）；真浏览器那层跑过就是绿的')

@@ -10,6 +10,7 @@
  *
  * 判据由主线程制定；红/绿必须能说明问题。
  */
+import { makeRunResult, validateRunResult } from './_result.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
@@ -23,9 +24,18 @@ const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = packRoot()
 let pass = 0
 const fails = []
+const suiteCases = []
 function ok(cond, msg) {
+  suiteCases.push({ id: 'render-parity:' + String(suiteCases.length + 1).padStart(3, '0'), status: cond ? 'pass' : 'fail', note: msg })
   if (cond) { pass++; console.log('ok   ' + msg) } else { fails.push(msg); console.log('FAIL ' + msg) }
 }
+function writeSuiteResult() {
+  const result = makeRunResult({ packRoot: ROOT, base: null, cases: suiteCases })
+  const valid = validateRunResult(result)
+  if (!valid.ok) throw new Error(valid.errors.join('; '))
+  if (process.env.DSH_WHALE_RESULT) fs.writeFileSync(process.env.DSH_WHALE_RESULT, JSON.stringify(result, null, 2), 'utf8')
+}
+
 function firstDiff(a, b) {
   const n = Math.min(a.length, b.length)
   let i = 0
@@ -99,10 +109,11 @@ try {
   fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace('<!--@body-->', `<!--@body-->\n${MARK}`), 'utf8')
 
   // CLI 在影子副本里重渲染（它会写盘 —— 写的是影子，不碰真包）
-  let cliOk = true
+  let cliOk = false
   try {
     execFileSync(process.execPath, [path.join(tmp, 'tools', 'build-lessons.js')], { cwd: tmp, stdio: 'pipe' })
-  } catch (e) { cliOk = true }
+    cliOk = true
+  } catch (e) { cliOk = false }
   ok(cliOk, 'CLI 在影子副本里重渲染成功')
 
   const shadowPlan = planBuild(tmp, readPack(tmp))
@@ -286,6 +297,7 @@ export function checkTermListDead(sources) {
   }
 }
 
+writeSuiteResult()
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
 console.log('✅ 同样的输入 → 同样的页面（插件与 CLI 逐字节等价）')

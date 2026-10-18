@@ -13,7 +13,7 @@
  *   ② 三类结构性短语：回执里「下一步 / 缺什么 / 去哪看」各有出处，不是散文；
  *   ③ 结构性快照：只钉**标题行与字段名**，不钉整段散文 —— 散文快照是负债，改一个字就红。
  *
- * 反空转（防"文件在就算过"的裸快照）：把源文本**在内存里变异**（删掉关键句）后，
+ * 反空转（防"文件在就算过"的裸快照）：把临时产品源码变异（删掉关键句）并起真实套件后，
  * 同一套检查**必须报红** —— 证明断言咬的是内容，不是"文件存在"。
  *
  * 2026-09-24 F1b 已把开课协议从**四步改成三段**（`lib/starter.js:48-65`）—— 判据跟着盘上走。
@@ -21,23 +21,56 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import { spawnSync } from 'node:child_process'
+import { makeRunResult, validateRunResult } from './_result.mjs'
 import { PLUGIN, packRoot } from './_pack.mjs'
 import { buildStarter, STARTER_HINT } from '../lib/starter.js'
 
 let pass = 0
 const fails = []
-const ok = (c, m) => { if (c) { pass++; console.log(`  ok  ${m}`) } else { fails.push(m); console.log(` FAIL ${m}`) } }
+const machineCases = []
+const PACK = packRoot()
+const ok = (c, m) => { machineCases.push({id: `wording:${machineCases.length + 1}`, status: c ? 'pass' : 'fail', note: m}); if (c) { pass++; console.log(`  ok  ${m}`) } else { fails.push(m); console.log(`FAIL ${m}`) } }
 
 const read = (rel) => fs.readFileSync(path.join(PLUGIN, rel), 'utf8')
 const missing = (text, marks) => marks.filter((m) => !text.includes(m))
 
-/** 反空转：把某个标记从文本里删掉后，检查函数**必须**报出它 */
+/** Mutate a temporary product source, then run this actual suite in a fresh process. */
 function bites(text, marks, label) {
   const before = missing(text, marks)
   if (before.length) return `源文件里本来就缺：${before.join(' / ')}`
-  const mutated = missing(text.replace(marks[0], ''), marks)
-  if (!mutated.length) return `删掉「${marks[0]}」后仍然全绿 ⇒ 断言是空的（裸快照）`
-  return null
+  // Child runs every original assertion; only nested mutation spawning is suppressed.
+  if (process.env.DSH_WORDING_MUTANT_CHILD === '1') return null
+  const tmp = fs.mkdtempSync('E:/Temp/whale-wording-')
+  try {
+    fs.cpSync(path.join(PLUGIN, 'lib'), path.join(tmp, 'lib'), { recursive: true })
+    fs.copyFileSync(path.join(PLUGIN, 'package.json'), path.join(tmp, 'package.json'))
+    fs.mkdirSync(path.join(tmp, 'test'))
+    for (const name of ['wording.mjs','_pack.mjs','_result.mjs']) fs.copyFileSync(path.join(PLUGIN,'test',name), path.join(tmp,'test',name))
+    const target = path.join(tmp, label)
+    const original = fs.readFileSync(target)
+    const count = text.split(marks[0]).length - 1
+    if (count < 1 || original.toString('utf8') !== text) throw new Error('mutation source/anchor mismatch')
+    let r, result
+    try {
+      fs.writeFileSync(target, text.split(marks[0]).join('T23_REMOVED_WORDING'), 'utf8')
+      const resultPath = path.join(tmp, 'result.json')
+      r = spawnSync(process.execPath, [path.join(tmp,'test/wording.mjs'), `--pack=${PACK}`, '--mode=real'], {
+        cwd: tmp, encoding: 'utf8', timeout: 120000, maxBuffer: 16*1024*1024,
+        env: {...process.env, DSH_WORDING_MUTANT_CHILD: '1', DSH_WHALE_RESULT: resultPath},
+      })
+      if (fs.existsSync(resultPath)) result = JSON.parse(fs.readFileSync(resultPath, 'utf8'))
+    } finally { fs.writeFileSync(target, original) }
+    const restored = fs.readFileSync(target).equals(original)
+    const evidence = path.join(PLUGIN,'audit-evidence/T23/wording-runtime')
+    fs.mkdirSync(evidence, {recursive:true})
+    fs.writeFileSync(path.join(evidence, label.replaceAll('/','_') + '.json'), JSON.stringify({label, marker: marks[0], anchorCount: count, code:r?.status, error:r?.error?.message, stdout:r?.stdout, stderr:r?.stderr, result, restored},null,2),'utf8')
+    if (!restored || r?.error || r?.status !== 1 || !validateRunResult(result).ok || !result.cases.some(c => c.status === 'fail' && c.note.startsWith(label + ' 含 '))) return '真实产品源码变异未命中对应断言/执行异常'
+    return null
+  } finally {
+    if (path.dirname(path.resolve(tmp)) !== path.resolve('E:/Temp') || !path.basename(tmp).startsWith('whale-wording-')) throw new Error('unsafe mutation cleanup')
+    fs.rmSync(tmp, {recursive:true,force:true})
+  }
 }
 
 console.log('\n[话术] 开课协议与回执的三类结构性短语')
@@ -46,7 +79,7 @@ console.log('\n[话术] 开课协议与回执的三类结构性短语')
 let protocolPrompt = ''
 let SEGMENTS = []
 {
-  const starter = buildStarter(packRoot())
+  const starter = buildStarter(PACK)
   const prompt = String(starter?.prompt || '')
   protocolPrompt = prompt
 
@@ -113,6 +146,10 @@ let SEGMENTS = []
   ok(longOnes.length === 0, `快照标记全是短结构（最长 ${Math.max(...allMarks.map((m) => m.length))} 字），没有整段散文${longOnes.length ? ' — 超长：' + longOnes.join('、') : ''}`)
 }
 
+const machineResult = makeRunResult({packRoot: PACK, base: null, cases: machineCases})
+const machineValidation = validateRunResult(machineResult)
+if (!machineValidation.ok) throw new Error(machineValidation.errors.join('; '))
+if (process.env.DSH_WHALE_RESULT) fs.writeFileSync(process.env.DSH_WHALE_RESULT, JSON.stringify(machineResult, null, 2), 'utf8')
 console.log(`\n=== ${pass} 通过 / ${fails.length} 失败 ===`)
 if (fails.length) { fails.forEach((f) => console.log('  ✗ ' + f)); process.exit(1) }
 console.log('✅ 开课协议三段齐全 · 回执收在「下一步」 · 断言删字即红（不是裸快照）')
