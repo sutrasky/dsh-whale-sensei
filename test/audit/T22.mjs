@@ -22,7 +22,7 @@
  *      ⚠️ 假命令有一根**保险丝**：解析出来的 home 不在本次夹具根之下就拒绝动手（绝不碰真 home）。
  *   ④ "恢复没恢复"用**内容差分**判（相对路径 + 类型 + 字节哈希），不靠 stdout 说了什么；
  *      V05 再把 `Restore-InstallPlan` 打桩成空操作跑一遍，证明 V01–V03 真的会红（反空转）。
- *   ⑤ `R11`/`R12` 直接 import 两个模块并**与 `git show HEAD:` 的字节对拍** —— 本批一个字节都没改它们。
+ *   ⑤ `R11`/`R12` 直接 import 两个模块并**与 T22 之前那次提交（钉死的 revision，不是会漂移的 HEAD）的字节对拍** —— 本批一个字节都没改它们。
  *
  * 一行判词：`PASS T22 checks=32 failed=0 skipped=0` / `FAIL T22 …` exit1 / `BLOCKED T22 …` exit2。
  * 固定用例 ID 集合见 EXPECTED_IDS（T22-R1 的 25 条 + T22-R2 新增的 7 条 Y01–Y07 = 32；缺 / 多 / 重都算失败）。
@@ -483,16 +483,25 @@ const GUARD = {
   pack: fpPack(LIVE_PACK),
 }
 
-// ───────────────────────────────────────────────────────── 基线（T22 之前那份 = HEAD）
+// ───────────────────────────────────────────────────────── 基线（T22 之前那份）
+// ⚠️ 这里**必须钉死一个固定 revision**，不能用 `HEAD`：候选一旦被提交，`HEAD` 就变成"修好之后的自己"，
+//    负向控制会去对照一份**没有 bug** 的基线，于是"基线确实落错了 home / 确实写出重复键"这类断言
+//    反而变红（实测：提交后 `H02` 立刻从绿翻红）。`c1e9aaa` = 本卡两个批次开始之前的那次提交
+//    （批次 8 的 T21），也就是"T22 之前的实现"。
+const T22_BASELINE_REV = 'c1e9aaa'
+{
+  const g = runProc('git', ['rev-parse', '--verify', `${T22_BASELINE_REV}^{commit}`], { timeoutMs: 60000 })
+  if (g.code !== 0 || !/^[0-9a-f]{40}$/.test(String(g.out).trim())) h.block(`拿不到本卡的基线 revision ${T22_BASELINE_REV}：${g.err}`)
+}
 const BASELINE_PS1 = SESSION ? path.join(SESSION, 'baseline-install-whale-sensei.ps1') : null
 let BASELINE_OK = false
 if (SESSION) {
-  const g = runProc('git', ['show', `${'HEAD'}:install-whale-sensei.ps1`], { timeoutMs: 60000 })
+  const g = runProc('git', ['show', `${T22_BASELINE_REV}:install-whale-sensei.ps1`], { timeoutMs: 60000 })
   if (g.code === 0 && g.out.length > 1000) {
     fs.writeFileSync(BASELINE_PS1, g.raw)   // **按字节写**：基线那份的 UTF-8 BOM 必须原样留着
     BASELINE_OK = true
   }
-  logRun('baseline-git-show', g, `git show HEAD:install-whale-sensei.ps1 → ${BASELINE_OK ? BASELINE_PS1 : 'FAILED'}`)
+  logRun('baseline-git-show', g, `git show ${T22_BASELINE_REV}:install-whale-sensei.ps1 → ${BASELINE_OK ? BASELINE_PS1 : 'FAILED'}`)
 }
 
 // ───────────────────────────────────────────────────────── R11/R12 要 import 的两个模块（本批一个字节都不许改）
@@ -502,7 +511,8 @@ const PACKROOT_FILE = path.join(REPO, PACKROOT_REL)
 const PRESET_FILE = path.join(REPO, PRESET_REL)
 const GIT_HEAD_FILE = {}
 for (const rel of [PACKROOT_REL, PRESET_REL]) {
-  const g = runProc('git', ['show', `HEAD:${rel}`], { timeoutMs: 60000 })
+  // 同一理由：对照的是"T22 之前那份"，钉死 revision，不用会随提交漂移的 HEAD。
+  const g = runProc('git', ['show', `${T22_BASELINE_REV}:${rel}`], { timeoutMs: 60000 })
   GIT_HEAD_FILE[rel] = { ok: g.code === 0, sha: g.code === 0 ? sha(g.raw) : null, err: g.err }
 }
 const packrootMod = await import(pathToFileURL(PACKROOT_FILE).href)
@@ -615,7 +625,7 @@ h.case('K01 parse-5.1-after-t22', 'pass', () => {
   for (const fn of ['Get-InstallPlan', 'Invoke-InstallPlan', 'Restore-InstallPlan', 'Get-WriteRecord', 'Get-InstalledVersion']) {
     h.assert(Object.prototype.hasOwnProperty.call(cur.funcs, fn), `5.1 解析出来的函数表里必须有 ${fn}：${JSON.stringify(Object.keys(cur.funcs))}`)
   }
-  h.assert(BASELINE_OK, '基线安装器（git show HEAD）拿得到，才能拿它对照同一解析器')
+  h.assert(BASELINE_OK, `基线安装器（git show ${T22_BASELINE_REV}）拿得到，才能拿它对照同一解析器`)
   const bl = parseWith51(BASELINE_PS1, 'k01-ast-baseline')
   h.eq(bl.errors, 0, '基线安装器用 5.1 解析也必须 0 错（同一判据改前改后都成立）')
   ev('K01-parse', `current: exit=${cur.code} parse-errors=${cur.errors}\nfuncs=${JSON.stringify(cur.funcs)}\nbaseline(HEAD): exit=${bl.code} parse-errors=${bl.errors}\n\n-- current raw --\n${clip(cur.run.out, 6000)}`)
@@ -920,14 +930,14 @@ h.case('H02 same-home-when-caller-home-differs', 'pass', () => {
   h.eq(node.dshHomeArg, fx.home, 'node 收到的 --dsh-home 仍是夹具 home')
   h.eq(node.dshHomeEnv, fx.home, 'node 看到的 DSH_HOME 仍是夹具 home')
   h.eq(planHome((runInstaller(fx, dumpArgs(fx), fixtureEnv(fx, { DSH_HOME: fx.caller }), 'h02-dryrun')).out), fx.home, 'H01 的三者一致仍成立（计划 home == 夹具 home）')
-  // 负向控制：T22 **之前**那份（HEAD）在同一夹具上，dsh 调用会落在调用者那个 home 上
+  // 负向控制：T22 **之前**那份（`${T22_BASELINE_REV}`，钉死的 revision，不用会随提交漂移的 HEAD）在同一夹具上，dsh 调用会落在调用者那个 home 上
   h.assert(BASELINE_OK, '拿不到基线实现 —— 负向控制做不了')
   const bl = mkFixture('h02-baseline', { installer: BASELINE_PS1 })
   const blArgs = [...baseArgs(), '-PackageDir', REPO, '-PackRoot', bl.pack]
   const blr = runInstaller(bl, blArgs, fixtureEnv(bl, { DSH_HOME: bl.caller }), 'h02-baseline-caller-other-home')
   const blCalls = logOf(bl).filter((c) => c.tool === 'dsh')
   h.assert(blCalls.length > 0, `基线那次也要真的起 dsh（否则负向控制是空转）：${JSON.stringify(logOf(bl))}`)
-  h.assert(blCalls.some((c) => c.dshHomeEnv === bl.caller) || blr.code !== 0, `基线（HEAD）在调用者 home 不同时确实落错了 home 或直接失败：exit=${blr.code} calls=${JSON.stringify(blCalls.map((c) => c.dshHomeEnv))}`)
+  h.assert(blCalls.some((c) => c.dshHomeEnv === bl.caller) || blr.code !== 0, `基线（${T22_BASELINE_REV}）在调用者 home 不同时确实落错了 home 或直接失败：exit=${blr.code} calls=${JSON.stringify(blCalls.map((c) => c.dshHomeEnv))}`)
   h.assert(!blCalls.some((c) => c.dshHomeEnv === bl.home) || blr.code !== 0, '基线那次不该出现"两条调用都落在夹具 home 且装成功"')
   ev('H02-caller-differs', `fixture home=${fx.home}\ncaller home=${fx.caller}\nexit=${r.code}\ndash calls=${JSON.stringify(calls, null, 2)}\n--- baseline（HEAD）负向控制 ---\nexit=${blr.code}\ndash calls=${JSON.stringify(blCalls.map((c) => ({ argv: c.argv, dshHomeEnv: c.dshHomeEnv })), null, 2)}`)
 })
@@ -1082,7 +1092,7 @@ h.case('V05 restore-failure-keeps-material', 'pass', () => {
 // ══════════════════════════════════════════════════════ R11/R12/R13：既有面不许动
 h.case('R11 profile-packroot-return-shapes-intact', 'pass', () => {
   const head = GIT_HEAD_FILE[PACKROOT_REL]
-  h.assert(head.ok, `git show HEAD:${PACKROOT_REL} 要拿得到：${JSON.stringify(head.err?.slice(0, 200))}`)
+  h.assert(head.ok, `git show ${T22_BASELINE_REV}:${PACKROOT_REL} 要拿得到：${JSON.stringify(head.err?.slice(0, 200))}`)
   // ⚠️ T22-R2（第二批）**被迫**改写了这一条：卡面 §3.2 明令在同一个文件里**新增导出**
   //    checkPackRootYml，§3.4 又明令把 patchPackRootYml 的 id 识别修成"带引号的也算"，
   //    所以 R1 那句"整份文件与 HEAD 逐字节相同"在本批**不可能**成立。
@@ -1090,7 +1100,7 @@ h.case('R11 profile-packroot-return-shapes-intact', 'pass', () => {
   //    · findProfileDir / writeProfilePackRoot 的**函数体**仍必须与 HEAD 逐字节相同
   //    · patchPackRootYml 的签名一字不动
   //    · 三个既有导出的形参、返回形状、行为（下面那段真跑）照旧逐条判
-  const headText = stripBom(runProc('git', ['show', `HEAD:${PACKROOT_REL}`], { timeoutMs: 60000 }).raw.toString('utf8'))
+  const headText = stripBom(runProc('git', ['show', `${T22_BASELINE_REV}:${PACKROOT_REL}`], { timeoutMs: 60000 }).raw.toString('utf8'))
   const workText = readText(PACKROOT_FILE)
   const blockOf = (text, name) => {
     const ls = String(text).split('\n')
@@ -1136,8 +1146,8 @@ h.case('R11 profile-packroot-return-shapes-intact', 'pass', () => {
 
 h.case('R12 preset-install-actions-intact', 'pass', () => {
   const head = GIT_HEAD_FILE[PRESET_REL]
-  h.assert(head.ok, `git show HEAD:${PRESET_REL} 要拿得到`)
-  h.eq(shaFile(PRESET_FILE), head.sha, `${PRESET_REL} 必须与本批之前（HEAD）逐字节相同 —— 本批明令一个字节都不许动它`)
+  h.assert(head.ok, `git show ${T22_BASELINE_REV}:${PRESET_REL} 要拿得到`)
+  h.eq(shaFile(PRESET_FILE), head.sha, `${PRESET_REL} 必须与本批之前（${T22_BASELINE_REV}）逐字节相同 —— 本批明令一个字节都不许动它`)
   const names = Object.keys(presetMod).sort()
   h.eq(names.join(','), ['MARKER', 'PRESET_ID', 'PRESET_ROOT_DIR', 'SKILLS_PLACEHOLDER', 'defaultSrcDir', 'ensurePresetForPack', 'installPreset', 'presetDirFor', 'presetStatus', 'renderComposition', 'resolveDshHome'].sort().join(','), `导出名集合不许变（实得 ${names.join(',')}）`)
   const tmp = path.join(SESSION, 'r12')
