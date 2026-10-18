@@ -159,11 +159,19 @@ function Get-PatchedYml([string[]] $Lines, [string] $Root) {
     $list = New-Object System.Collections.Generic.List[string]
     if ($Lines) { foreach ($l in $Lines) { $list.Add($l) } }
 
-    $idRe   = '^(?<ind>\s*)-\s*id:\s*whale-sensei\s*$'
+    $idRe   = '^(?<ind>\s*)-\s*id:\s*(?<v>.*?)\s*$'
     $nextRe = '^\s*-\s+\S'
     $idAt   = -1
     for ($i = 0; $i -lt $list.Count; $i++) {
-        if ($list[$i] -match $idRe) { $idAt = $i; break }
+        if ($list[$i] -match $idRe) {
+            # T22-R2 §3.4：同级 id 可能带引号（- id: 'whale-sensei' / "whale-sensei"）。
+            # 只认**标量**且值就是这个 id 的那种，才叫"这一段"（否则那对引号会被吃进值里）。
+            $v = [string]$Matches['v']
+            if ($v.Length -ge 2 -and (($v[0] -eq "'" -and $v[$v.Length - 1] -eq "'") -or ($v[0] -eq '"' -and $v[$v.Length - 1] -eq '"'))) {
+                $v = $v.Substring(1, $v.Length - 2)
+            }
+            if ($v -eq 'whale-sensei') { $idAt = $i; break }
+        }
     }
 
     if ($idAt -lt 0) {
@@ -210,6 +218,100 @@ function Get-PatchedYml([string[]] $Lines, [string] $Root) {
     return ,$list.ToArray()
 }
 
+
+<#
+  T22-R2 §3.1: shape check for the profile-level cordis.patch.yml.
+
+  PURE READ -- same family as Get-PatchedYml: no disk, no child process.  It says
+  whether the target block is one this installer is allowed to edit in place, so
+  an unsupported shape is refused BEFORE anything is written (never "write a
+  second `config:` key and hope").
+
+  Returns @{ ok = $true|$false; rule = '<id>'; reason = '<one line>' }.
+  rule is one of: '' (ok) / non-scalar-id / duplicate-id-sections /
+  ambiguous-nesting / inline-target-config -- the SAME four ids, decided in the
+  SAME order, as the JS twin lib/profile-packroot.js#checkPackRootYml, on the
+  same table (test/audit/T22.mjs#YAML_SHAPE_TABLE).
+
+  Only two things about the target block are judged here:
+    · config: present, packRoot: present, and packRoot's indent is NOT deeper
+      than config's  => ambiguous-nesting (packRoot is not inside config's map)
+    · config: present and has something after the colon (an inline flow map)
+      => inline-target-config
+#>
+function Test-PatchedYmlShape([string[]] $Lines) {
+    $heads = New-Object System.Collections.Generic.List[hashtable]
+    if ($Lines) {
+        $idx = -1
+        foreach ($line in @($Lines)) {
+            $idx++
+            if ($line -notmatch '^\s*-\s') { continue }
+            if ($line -notmatch '^(?<ind>\s*)-\s*id:\s*(?<v>.*?)\s*$') { continue }
+            # 先把 $Matches 里要的两样取出来：下面任何一次 -match 都会把它冲掉
+            $ind = [string]$Matches['ind']
+            $raw = [string]$Matches['v']
+            $kind = 'scalar'
+            $value = $raw
+            $mentions = $false
+            if ($raw.Length -gt 0 -and ($raw[0] -eq '[' -or $raw[0] -eq '{')) {
+                $kind = 'non-scalar'
+                if ($raw -match '(^|[^\w-])whale-sensei([^\w-]|$)') { $mentions = $true }
+            } elseif ($raw.Length -ge 2) {
+                $q = $raw[0]
+                if (($q -eq "'" -or $q -eq '"') -and $raw[$raw.Length - 1] -eq $q) {
+                    $value = $raw.Substring(1, $raw.Length - 2)
+                }
+            }
+            $heads.Add(@{ at = $idx; ind = $ind; kind = $kind; value = $value; mentions = $mentions })
+        }
+    }
+
+    $nonScalar = @($heads | Where-Object { $_.kind -eq 'non-scalar' -and $_.mentions })
+    if ($nonScalar.Count -gt 0) {
+        return @{ ok = $false; rule = 'non-scalar-id'; reason = '目标块的 id 值不是标量（id: [whale-sensei] / {..: whale-sensei}）—— 就地改哪一段都是猜' }
+    }
+
+    $scalar = @($heads | Where-Object { $_.kind -eq 'scalar' -and $_.value -eq 'whale-sensei' })
+    if ($scalar.Count -gt 1) {
+        return @{ ok = $false; rule = 'duplicate-id-sections'; reason = '文档里有多个 - id: whale-sensei 段，就地改哪一段都是猜' }
+    }
+    if ($scalar.Count -eq 0) {
+        return @{ ok = $true; rule = ''; reason = '' }
+    }
+
+    $all = @($Lines)
+    $at = [int]$scalar[0].at
+    $end = $all.Count
+    for ($i = $at + 1; $i -lt $all.Count; $i++) {
+        if ($all[$i] -match '^\s*-\s+\S') { $end = $i; break }
+    }
+
+    $cfgInd = -1
+    $cfgInline = $false
+    $prFound = $false
+    $prInd = -1
+    for ($i = $at + 1; $i -lt $end; $i++) {
+        if ($cfgInd -lt 0 -and $all[$i] -match '^(?<ind>\s*)config\s*:(?<rest>.*)$') {
+            $cfgInd = ([string]$Matches['ind']).Length
+            $rest = ([string]$Matches['rest']).Trim()
+            if ($rest.Length -gt 0 -and -not $rest.StartsWith('#')) { $cfgInline = $true }
+        }
+        if (-not $prFound -and $all[$i] -match '^(?<ind>\s*)packRoot\s*:') {
+            $prFound = $true
+            $prInd = ([string]$Matches['ind']).Length
+        }
+    }
+
+    # 顺序与 JS 侧 checkPackRootYml 逐字一致：先歧义嵌套，再 inline config
+    if ($cfgInd -ge 0 -and $prFound -and ($prInd -le $cfgInd)) {
+        return @{ ok = $false; rule = 'ambiguous-nesting'; reason = '目标块里的 packRoot: 缩进不比 config: 深 —— 它不在 config 的映射里，就地改会插出重复键' }
+    }
+    if ($cfgInd -ge 0 -and $cfgInline) {
+        return @{ ok = $false; rule = 'inline-target-config'; reason = '目标块里的 config: 是 inline 流式映射 —— 就地改会插出第二个 config 键' }
+    }
+    return @{ ok = $true; rule = ''; reason = '' }
+}
+
 # ---------------------------------------------------------------------------
 # The install PLAN and its ONE executor (report G01).
 #
@@ -222,10 +324,12 @@ function Get-PatchedYml([string[]] $Lines, [string] $Root) {
 #                       copies a file, writes text or starts a process.  It
 #                       walks $Plan.operations in order and does exactly those
 #                       things -- no more.  -DryRun simply never calls it.
-#   Restore-InstallPlan The counterpart of the recorded writes: it turns the
-#                       "original bytes / did not exist yet" material back into
-#                       a restore list.  (Wiring restore to the command line is
-#                       a later card; T21 only has to RECORD the material.)
+#   Restore-InstallPlan The counterpart of the recorded writes (T22 wires it to
+#                       the command line): it puts every recorded target back --
+#                       original bytes for what existed, delete for what did not,
+#                       and it deletes the recovery material only when every
+#                       target really was restored.  It moves files ONLY: it
+#                       never talks to dsh or node.
 #
 # Why this shape: -DryRun used to still create ~\.dsh-plugin-backup and copy
 # package.json, because the snapshot ran BEFORE any -DryRun check; and
@@ -238,18 +342,55 @@ function Get-PatchedYml([string[]] $Lines, [string] $Root) {
 <#
   Read-only "before" picture of ONE write target: its bytes right now, or
   "it did not exist yet".  This is the rollback material the plan carries.
+
+  T22 adds the two fields the record was missing: `home` (which DSH root the
+  target belongs to) and `installedVersion` (what the profile package.json says
+  is installed right now; '' for every target that is not that package.json).
 #>
-function Get-WriteRecord([string] $Path, [string] $Kind) {
+function Get-WriteRecord([string] $Path, [string] $Kind, [string] $HomeRoot = '', [string] $InstalledVersion = '') {
     if (-not (Test-Path -LiteralPath $Path)) {
-        return @{ path = $Path; existed = $false; bytes = 0; sha256 = ''; kind = $Kind }
+        return @{ path = $Path; existed = $false; bytes = 0; sha256 = ''; kind = $Kind; home = $HomeRoot; installedVersion = $InstalledVersion }
     }
     $raw = [System.IO.File]::ReadAllBytes($Path)
     return @{
-        path    = $Path
-        existed = $true
-        bytes   = $raw.Length
-        sha256  = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
-        kind    = $Kind
+        path             = $Path
+        existed          = $true
+        bytes            = $raw.Length
+        sha256           = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+        kind             = $Kind
+        home             = $HomeRoot
+        installedVersion = $InstalledVersion
+    }
+}
+
+<#
+  Read-only: the version the PROFILE package.json currently pins for
+  dsh-whale-sensei.  Missing file / missing key / unparseable JSON => '' (never
+  a guess).  Pure read: no disk write, no child process.
+#>
+function Get-InstalledVersion([string] $PkgJsonPath) {
+    if (-not $PkgJsonPath) { return '' }
+    if (-not (Test-Path -LiteralPath $PkgJsonPath)) { return '' }
+    try {
+        $obj = [System.IO.File]::ReadAllText($PkgJsonPath) | ConvertFrom-Json
+        if ($obj -and $obj.dependencies -and $obj.dependencies.PSObject.Properties['dsh-whale-sensei']) {
+            return [string]$obj.dependencies.'dsh-whale-sensei'
+        }
+    } catch { }
+    return ''
+}
+
+<#
+  Append one write record AND keep its original bytes in memory.  The record
+  itself stays exactly the shape Get-WriteRecord documents (path / existed /
+  bytes / sha256 / kind / home / installedVersion); the bytes live in a side
+  table keyed by path, because "restore by original bytes" needs the bytes and
+  the after-the-fact file no longer has them.
+#>
+function Add-WriteRecord($List, $Originals, $Rec) {
+    $List.Add($Rec)
+    if ($Rec.existed -and -not $Originals.ContainsKey([string]$Rec.path)) {
+        $Originals[[string]$Rec.path] = [System.IO.File]::ReadAllBytes([string]$Rec.path)
     }
 }
 
@@ -273,7 +414,9 @@ function Get-InstallPlan {
     $profDir   = Join-Path $HomeDir "profiles\$Prof"
     $pkgJson   = Join-Path $profDir 'package.json'
     $patchYml  = Join-Path $profDir 'cordis.patch.yml'
-    $presetYml = Join-Path $HomeDir '.agent-presets\whale-mode\agent.cordis.yml'
+    $presetDir = Join-Path $HomeDir '.agent-presets\whale-mode'
+    $presetYml = Join-Path $presetDir 'agent.cordis.yml'
+    $presetTpl = Join-Path $PkgDir 'preset\whale-mode'
     $presetCli = Join-Path $PkgDir 'lib\preset-install.js'
     $mode      = if ($OnlyPackRoot) { 'packroot-only' } else { 'install' }
 
@@ -286,6 +429,8 @@ function Get-InstallPlan {
     $patchText  = ''
     $nl         = "`r`n"
     $patchThere = Test-Path -LiteralPath $patchYml
+    # T22-R2：形状判定（纯读）。默认 ok —— 只有给了 -PackRoot、真的要写这份 patch 时才可能为 false。
+    $patchShape = @{ ok = $true; rule = ''; reason = '' }
     if ($Root) {
         if (-not (Test-Path -LiteralPath $Root)) { throw "PackRoot does not exist: $Root" }
         $rootFull = (Resolve-Path -LiteralPath $Root).Path
@@ -308,6 +453,8 @@ function Get-InstallPlan {
                 $lines = @($lines[0..($lines.Count - 2)])
             }
         }
+        # T22-R2 §3.1：写盘前先判形状（不支持的形状必须**写前拒绝**，不许用正则插第二个 config）
+        $patchShape = Test-PatchedYmlShape $lines
         $patchText = ((Get-PatchedYml $lines $rootFull) -join $nl) + $nl
     }
 
@@ -323,34 +470,66 @@ function Get-InstallPlan {
     #     (only the ones that apply; nothing is left as an empty placeholder) ---
     $ops    = New-Object System.Collections.Generic.List[hashtable]
     $writes = New-Object System.Collections.Generic.List[hashtable]
+    $originals = @{}                       # path -> 原字节（回滚材料，见 Restore-InstallPlan）
+    $installedVersion = Get-InstalledVersion $pkgJson
+    $presetFiles = @()
 
     if ($snapDir) {
         $ops.Add(@{ kind = 'snapshot'; path = $snapDir; why = '回滚材料：把 profile 的 package.json 拷进带时间戳的快照目录'; sideEffect = $true })
-        $writes.Add(@{ path = $snapDir; existed = $false; bytes = 0; sha256 = ''; kind = 'snapshot' })
-        $writes.Add(@{ path = (Join-Path $snapDir 'package.json'); existed = $false; bytes = 0; sha256 = ''; kind = 'snapshot' })
+        # 备份根自身也记一条：本次安装才建出来、且回滚后空了，就得连它一起收掉。
+        # 它是**目录**：existed 只用来决定"能不能删"，不读字节（Add-WriteRecord 会读）。
+        $writes.Add(@{ path = $BackupRoot; existed = [bool](Test-Path -LiteralPath $BackupRoot); bytes = 0; sha256 = ''; kind = 'snapshot'; home = $HomeDir; installedVersion = '' })
+        Add-WriteRecord $writes $originals @{ path = $snapDir; existed = $false; bytes = 0; sha256 = ''; kind = 'snapshot'; home = $HomeDir; installedVersion = '' }
+        Add-WriteRecord $writes $originals @{ path = (Join-Path $snapDir 'package.json'); existed = $false; bytes = 0; sha256 = ''; kind = 'snapshot'; home = $HomeDir; installedVersion = '' }
     }
 
     $backupPattern = ''
     if ($rootFull) {
         $backupPattern = "$patchYml.bak-whale-<ts>"
         $ops.Add(@{ kind = 'patch-write'; path = $patchYml; why = "把 packRoot '$rootFull' 写进 profile 级 cordis.patch.yml"; sideEffect = $true; backupPattern = $backupPattern })
-        $writes.Add((Get-WriteRecord $patchYml 'patch-write'))
+        Add-WriteRecord $writes $originals (Get-WriteRecord $patchYml 'patch-write' $HomeDir '')
         if ($patchThere) {
-            $writes.Add(@{ path = $backupPattern; existed = $false; bytes = 0; sha256 = ''; kind = 'patch-write' })
+            # 模式项：真时间戳只有执行时才知道，计划里先记模式（回滚时不许把它当字面路径）
+            Add-WriteRecord $writes $originals @{ path = $backupPattern; existed = $false; bytes = 0; sha256 = ''; kind = 'patch-write'; home = $HomeDir; installedVersion = '' }
         }
     }
 
     if ($mode -eq 'install') {
         if (-not $SkipPre) {
             $ops.Add(@{ kind = 'preset-install'; path = $presetYml; why = '跑 lib\preset-install.js 把鲸师模式预设写进 .agent-presets'; sideEffect = $true })
-            $writes.Add((Get-WriteRecord $presetYml 'preset-install'))
+            # 预设树**逐文件**进 writes（不是"整棵目录一句话带过"）：落盘面就是
+            # lib/preset-install.js 会写的那几个 —— agent.cordis.yml 与（模板里有的）preset.yml。
+            $presetNames = @('agent.cordis.yml')
+            if (Test-Path -LiteralPath (Join-Path $presetTpl 'preset.yml')) { $presetNames += 'preset.yml' }
+            foreach ($pn in $presetNames) {
+                Add-WriteRecord $writes $originals (Get-WriteRecord (Join-Path $presetDir $pn) 'preset-install' $HomeDir '')
+            }
+            $presetFiles = $presetNames
         }
         $ops.Add(@{ kind = 'plugin-add'; path = $pkgJson; why = "dsh plugin --profile $Prof add link:$pkgFull"; sideEffect = $true })
-        $writes.Add((Get-WriteRecord $pkgJson 'plugin-add'))
+        Add-WriteRecord $writes $originals (Get-WriteRecord $pkgJson 'plugin-add' $HomeDir $installedVersion)
+
+        # `dsh plugin add` 到底会改动哪些目标：profile 侧的这几个文件是它可能碰的。
+        # 存在的都要记原字节（回滚靠它），**读不动就说明目标集无法完整枚举**。
+        $addTargets = New-Object System.Collections.Generic.List[string]
+        $addTargets.Add($pkgJson)
+        $addTargetsEnumerated = $true
+        foreach ($tn in @('pnpm-lock.yaml', 'pnpm-workspace.yaml', 'cordis.yml', 'npm-shrinkwrap.json', 'package-lock.json', 'yarn.lock', 'node_modules\.modules.yaml')) {
+            $tp = Join-Path $profDir $tn
+            if (-not (Test-Path -LiteralPath $tp)) { continue }
+            $addTargets.Add($tp)
+            try { [void][System.IO.File]::ReadAllBytes($tp) } catch { $addTargetsEnumerated = $false; continue }
+            Add-WriteRecord $writes $originals (Get-WriteRecord $tp 'plugin-add' $HomeDir '')
+        }
+
         $ops.Add(@{ kind = 'dump-config'; path = ''; why = '只读判定：dump-config 里必须出现  - id: whale-sensei'; sideEffect = $true })
         if (-not $SkipPre) {
             $ops.Add(@{ kind = 'preset-verify'; path = $presetYml; why = '只读判定：预设文件必须已经落在磁盘上'; sideEffect = $false })
         }
+    } else {
+        $addTargets = New-Object System.Collections.Generic.List[string]
+        $addTargetsEnumerated = $true
+        $presetFiles = @()
     }
 
     return @{
@@ -364,13 +543,20 @@ function Get-InstallPlan {
         snapshotDir        = $snapDir
         operations         = $ops.ToArray()
         writes             = $writes.ToArray()
+        originalBytes      = $originals
+        actualBackups      = @()
+        addTargets         = $addTargets.ToArray()
+        addTargetsEnumerated = [bool]$addTargetsEnumerated
         backupRoot         = $BackupRoot
         pkgJson            = $pkgJson
         patchYml           = $patchYml
         patchText          = $patchText
+        patchShape         = $patchShape
         patchExists        = $patchThere
         patchBackupPattern = $backupPattern
+        presetDir          = $presetDir
         presetYml          = $presetYml
+        presetFiles        = $presetFiles
         presetCli          = $presetCli
         presetSkills       = $skillsDir
         presetNode         = [bool](Get-Command node -ErrorAction SilentlyContinue)
@@ -403,6 +589,49 @@ function Invoke-InstallPlan {
         presetOnDisk  = $false
         aborted       = $false
         softFail      = $false
+        refused       = $false
+        rolledBack    = $false
+        restoreFailed = $false
+        addTargets    = @()
+        addTargetsEnumerated = $true
+    }
+    # 每一步的"成功"判词先攒着：整条事务没失败才打印 —— 失败/回滚的那次输出里
+    # 不许出现任何"成功 / OK / 装好了"类字样（卡面 §3.4 / V04）。
+    $okLines = New-Object System.Collections.Generic.List[string]
+
+    # --- T22 §3.3：所有 dsh / node 子进程都在**同一个显式** DSH_HOME 下跑 ---
+    # 先把调用者原来的值（连"原来有没有设"）记下来；无论正常返回、throw 还是 exit，
+    # 都在 finally 里恢复。恢复必须发生在脚本退出之前，所以这里是 try/finally。
+    $prevHadHome = Test-Path Env:\DSH_HOME
+    $prevHomeVal = $env:DSH_HOME
+    $env:DSH_HOME = $Plan.home
+    try {
+
+    # --- §3.6：执行前向 dsh 要一份"有效配置"，据它确认 `dsh add` 的目标集确实
+    #     枚举得到。这一步在**任何写之前**；拿不到就以"无法完整枚举"为由拒绝，
+    #     一个字节都不写（全树不变）。
+    $out.addTargets = @($Plan.addTargets)
+    $out.addTargetsEnumerated = [bool]$Plan.addTargetsEnumerated
+    if ($Plan.mode -eq 'install') {
+        $probeCode = -1
+        $probeText = ''
+        try {
+            $probeText = (& $dshBin @dshPre --profile $Plan.profile --dump-config 2>&1 | Out-String)
+            $probeCode = $LASTEXITCODE
+        } catch {
+            $probeCode = -1
+            $probeText = ''
+        }
+        if ($probeCode -ne 0 -or -not $probeText.Trim()) { $out.addTargetsEnumerated = $false }
+        if (-not $out.addTargetsEnumerated) {
+            Write-Host ''
+            Say '拒绝事务安装：无法完整枚举 `dsh add` 的目标。' 'Red'
+            Say ("  dsh 有效配置探针：exit={0}，输出 {1} 字节 —— 拿不到它就没有可核对的改动面" -f $probeCode, $probeText.Length) 'DarkGray'
+            Say ("  候选目标（profile 侧）：{0}" -f (@($Plan.addTargets) -join ', ')) 'DarkGray'
+            Say '  一个字节都没写。' 'Red'
+            $out.refused = $true
+            return $out
+        }
     }
 
     foreach ($op in $Plan.operations) {
@@ -418,11 +647,24 @@ function Invoke-InstallPlan {
 
             'patch-write' {
                 Write-Host ''
+                # T22-R2 §3.1：写盘前再判一次形状。不支持 ⇒ **这一笔都不写**（连那份 .bak-whale-* 也不建），
+                # 该步失败 → 走下面的回滚 → 调用方非零退出。
+                if ($Plan.ContainsKey('patchShape') -and -not $Plan.patchShape.ok) {
+                    Say '== packRoot (profile-level cordis.patch.yml) ==' 'Cyan'
+                    Say 'FAIL 这份 cordis.patch.yml 的形状不支持就地修改 -- 拒绝写入（一个字节都没写）。' 'Red'
+                    Say ("     rule={0}" -f $Plan.patchShape.rule) 'Red'
+                    Say ("     reason={0}" -f $Plan.patchShape.reason) 'Red'
+                    Say ("     目标：{0}" -f $Plan.patchYml) 'DarkGray'
+                    $out.softFail = $true
+                    break
+                }
                 Say '== packRoot (profile-level cordis.patch.yml) ==' 'Cyan'
                 if ($Plan.patchExists) {
                     $bak = "$($Plan.patchYml).bak-whale-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
                     Copy-Item -LiteralPath $Plan.patchYml -Destination $bak -Force
                     $out.patchBackup = $bak
+                    # 实际备份路径回填：回滚时按真路径处理，不拿模式去 Test-Path
+                    $Plan.actualBackups = @($bak)
                     Say "backup   : $bak" 'DarkGray'
                 } else {
                     Say "creating : $($Plan.patchYml)" 'DarkGray'
@@ -433,8 +675,8 @@ function Invoke-InstallPlan {
                 $hitLine = ($after -split "`r?`n") | Where-Object { $_ -match '^\s*packRoot\s*:' } | Select-Object -First 1
                 if ($hitLine) {
                     $out.patchWritten = $true
-                    Say ('OK   wrote: ' + $hitLine.Trim()) 'Green'
-                    Say '     -> RESTART DeepSeek Harness: packRoot is resolved once, at boot.' 'Green'
+                    $okLines.Add('OK   wrote: ' + $hitLine.Trim())
+                    $okLines.Add('     -> RESTART DeepSeek Harness: packRoot is resolved once, at boot.')
                 } else {
                     Say 'FAIL packRoot did not land in cordis.patch.yml -- inspect it by hand.' 'Red'
                     $out.softFail = $true
@@ -459,7 +701,7 @@ function Invoke-InstallPlan {
                         $out.softFail = $true
                     } else {
                         $out.presetRan = $true
-                        Say '     -> 开会话时选「鲸师模式」（不用等重启：宿主每次列预设都重读磁盘）' 'Green'
+                        $okLines.Add('     -> 开会话时选「鲸师模式」（不用等重启：宿主每次列预设都重读磁盘）')
                     }
                 }
             }
@@ -486,11 +728,11 @@ function Invoke-InstallPlan {
                 Write-Host ''
                 if ($hit) {
                     $out.dumpHit = $true
-                    Say 'OK   dump-config contains:' 'Green'
-                    $hit | Select-Object -First 3 | ForEach-Object { Say ("       " + $_.Trim()) 'Green' }
-                    Say ''
-                    Say 'Next: start DeepSeek Harness and check that boot.json got a version fingerprint,' 'Green'
-                    Say '      then ask the agent to call the tool  whale_ping  (it should echo back).' 'Green'
+                    $okLines.Add('OK   dump-config contains:')
+                    $hit | Select-Object -First 3 | ForEach-Object { $okLines.Add('       ' + $_.Trim()) }
+                    $okLines.Add('')
+                    $okLines.Add('Next: start DeepSeek Harness and check that boot.json got a version fingerprint,')
+                    $okLines.Add('      then ask the agent to call the tool  whale_ping  (it should echo back).')
                     if (-not $Plan.packRoot) {
                         Say ''
                         Say 'NOTE: packRoot was NOT configured -- the plugin is assembled but still cannot' 'Yellow'
@@ -512,9 +754,9 @@ function Invoke-InstallPlan {
                 Write-Host ''
                 if (Test-Path -LiteralPath $Plan.presetYml) {
                     $out.presetOnDisk = $true
-                    Say 'OK   agent preset 鲸师模式 is on disk:' 'Green'
-                    Say ("       {0}" -f $Plan.presetYml) 'Green'
-                    Say '       -> 开会话时选它（宿主每次列预设都重读磁盘，不用重启）' 'Green'
+                    $okLines.Add('OK   agent preset 鲸师模式 is on disk:')
+                    $okLines.Add(("       {0}" -f $Plan.presetYml))
+                    $okLines.Add('       -> 开会话时选它（宿主每次列预设都重读磁盘，不用重启）')
                 } else {
                     Say 'FAIL agent preset 鲸师模式 is NOT on disk:' 'Red'
                     Say ("       {0}" -f $Plan.presetYml) 'Red'
@@ -530,7 +772,32 @@ function Invoke-InstallPlan {
                 $out.aborted  = $true
             }
         }
-        if ($out.aborted) { break }
+        # 第一步失败就停：后面的步骤只会多写东西，"全部恢复"反而更难兑现。
+        if ($out.softFail -or $out.aborted) { break }
+    }
+
+    # --- 全成功才打印那些"成功"判词 ---
+    if (-not $out.softFail -and -not $out.aborted) {
+        foreach ($line in $okLines) { Say $line 'Green' }
+    }
+
+    # --- T22 §3.2/§3.4：任一步失败 ⇒ 按 $Plan.writes 的原字节/原不存在回滚 ---
+    if ($out.softFail -or $out.aborted) {
+        Write-Host ''
+        Say '== 回滚（Restore-InstallPlan）==' 'Cyan'
+        $rb = Restore-InstallPlan $Plan
+        $out.restore = $rb
+        if ($rb.ok) {
+            # restore 成功 = 事务失败但机器已经还原，所以是"已回滚"而不是"成功"。
+            $out.rolledBack = $true
+            Say ("已回滚：{0} 个目标按原字节 / 原不存在恢复。" -f @($rb.restored).Count) 'Yellow'
+            foreach ($rp in @($rb.restored)) { Say ("  已恢复 {0}" -f $rp) 'DarkGray' }
+        } else {
+            $out.restoreFailed = $true
+            Say '恢复失败 —— 下面这些目标没能还原（恢复材料保留，别删）：' 'Red'
+            foreach ($rf in @($rb.failed)) { Say ("  失败 {0}  :: {1}" -f $rf.path, $rf.error) 'Red' }
+            foreach ($rk in @($rb.kept)) { Say ("  保留材料 {0}" -f $rk) 'Yellow' }
+        }
     }
 
     # --- rollback hint: the last thing a full install prints ---
@@ -543,38 +810,162 @@ function Invoke-InstallPlan {
     }
 
     return $out
+    } finally {
+        # 无论正常返回、throw 还是 exit，调用者的 DSH_HOME 都在这里恢复原样
+        # （原来没设 ⇒ 删掉这个变量，原来有值 ⇒ 写回原值）。
+        if ($prevHadHome) { $env:DSH_HOME = $prevHomeVal } else { Remove-Item Env:\DSH_HOME -ErrorAction SilentlyContinue }
+    }
+}
+
+<#
+  删掉"因此变空"的目录：从 $Path 的父目录往上走，只要**确实空**、且**严格在
+  $StopAt 之下**就收掉；非空目录一律不删（预设目录里可能还有别的文件）。
+  $StopAt 自己与它上面的目录永远不碰。
+#>
+function Remove-EmptyParents([string] $Path, [string] $StopAt) {
+    if (-not $Path) { return }
+    $stop = ([string]$StopAt).TrimEnd('\')
+    if (-not $stop) { return }
+    $dir = Split-Path -Parent $Path
+    while ($dir) {
+        if (-not $dir.StartsWith($stop + '\', [System.StringComparison]::OrdinalIgnoreCase)) { break }
+        if (-not (Test-Path -LiteralPath $dir -PathType Container)) { break }
+        $kids = @(Get-ChildItem -LiteralPath $dir -Force -ErrorAction SilentlyContinue)
+        if ($kids.Count -gt 0) { break }
+        Remove-Item -LiteralPath $dir -Force
+        $dir = Split-Path -Parent $dir
+    }
 }
 
 <#
   The other half of the recorded writes: every target in $Plan.writes carries
-  its original bytes (or "it did not exist yet"), so a restore can put the
-  machine back.  This entry point exists so that material has exactly one
-  consumer; wiring it to the command line is a later card's job.
+  "its original bytes" (side table $Plan.originalBytes) or "it did not exist
+  yet", so this can put the machine back.
+
+  Contract (T22):
+    · existed=$true  -> 把**原字节**写回 path（WriteAllBytes，不是重新生成一遍）
+    · existed=$false -> 删掉 path；只有它因此变空才连目录一起删（非空目录一律不删）
+    · path 形如 …\cordis.patch.yml.bak-whale-<ts> 的**模式项**不按字面路径处理：
+      真时间戳只有执行时才知道，改用执行时回填的 $Plan.actualBackups
+    · 这里**只动文件**：不调 dsh、不调 node
+    · 返回 @{ ok; restored; failed; kept }；恢复材料（快照树与 .bak-whale-*）
+      只在**全部恢复成功**时才删，任一目标写不回就一份都不删并列进 kept。
 #>
 function Restore-InstallPlan {
     param([hashtable] $Plan)
 
-    $items = New-Object System.Collections.Generic.List[hashtable]
+    $restored = New-Object System.Collections.Generic.List[string]
+    $failed   = New-Object System.Collections.Generic.List[hashtable]
+    $kept     = New-Object System.Collections.Generic.List[string]
+
+    $originals = @{}
+    if ($Plan.ContainsKey('originalBytes') -and $Plan.originalBytes) { $originals = $Plan.originalBytes }
+    $actualBackups = @()
+    if ($Plan.ContainsKey('actualBackups') -and $Plan.actualBackups) { $actualBackups = @($Plan.actualBackups) }
+
+    # writes -> 要恢复的条目。模式项跳过（见函数头注释）。
+    $work = New-Object System.Collections.Generic.List[hashtable]
+    $seen = @{}
     foreach ($w in $Plan.writes) {
-        $items.Add(@{
-            path    = $w.path
-            existed = $w.existed
-            bytes   = $w.bytes
-            sha256  = $w.sha256
-            kind    = $w.kind
-        })
+        $p = [string]$w.path
+        if (-not $p) { continue }
+        if ($p.Contains('<ts>')) { continue }
+        if ($seen.ContainsKey($p)) { continue }
+        $seen[$p] = $true
+        $work.Add(@{ path = $p; existed = [bool]$w.existed; kind = [string]$w.kind; isMaterial = $false })
     }
-    $backups = New-Object System.Collections.Generic.List[string]
-    foreach ($op in $Plan.operations) {
-        if ($op.ContainsKey('backupPattern') -and $op.backupPattern) { $backups.Add($op.backupPattern) }
+    foreach ($b in $actualBackups) {
+        if (-not $b) { continue }
+        $work.Add(@{ path = [string]$b; existed = $false; kind = 'patch-backup'; isMaterial = $true })
     }
+
+    # 恢复材料 = 快照树（kind=snapshot）与执行时真造出来的 .bak-whale-*。
+    foreach ($e in $work) {
+        if ($e.kind -eq 'snapshot' -or $e.kind -eq 'patch-backup') { $e.isMaterial = $true }
+    }
+
+    $regular  = @($work | Where-Object { -not $_.isMaterial })
+    $material = @($work | Where-Object { $_.isMaterial })
+    $stopHome = [string]$Plan.home
+    $stopBak  = [string]$Plan.backupRoot
+
+    # ---- 第一遍：普通目标（原字节写回 / 原不存在删掉）----
+    foreach ($e in $regular) {
+        $p = $e.path
+        try {
+            $existsNow = Test-Path -LiteralPath $p
+            $isDirNow  = $existsNow -and (Test-Path -LiteralPath $p -PathType Container)
+            if ($e.existed) {
+                if ($isDirNow) { throw "目标现在是个目录，写不回原字节" }
+                if (-not $originals.ContainsKey($p)) { throw "计划里没有留下原字节，无法按字节恢复" }
+                $parent = Split-Path -Parent $p
+                if ($parent -and -not (Test-Path -LiteralPath $parent -PathType Container)) { throw "父目录不在：$parent" }
+                [System.IO.File]::WriteAllBytes($p, [byte[]]$originals[$p])
+                $restored.Add("$p （按原字节写回）")
+            } else {
+                if ($isDirNow) {
+                    $kids = @(Get-ChildItem -LiteralPath $p -Force -ErrorAction SilentlyContinue)
+                    if ($kids.Count -gt 0) { throw "非空目录不许删：$p（留着 $($kids.Count) 项）" }
+                    Remove-Item -LiteralPath $p -Force
+                    $restored.Add("$p （删掉空目录：本来没有）")
+                } elseif ($existsNow) {
+                    Remove-Item -LiteralPath $p -Force
+                    $restored.Add("$p （删掉：本来没有）")
+                } else {
+                    $restored.Add("$p （本来就没有，未动）")
+                }
+                if ($e.kind -eq 'snapshot') { Remove-EmptyParents $p $stopBak } else { Remove-EmptyParents $p $stopHome }
+            }
+        } catch {
+            $failed.Add(@{ path = $p; error = [string]$_.Exception.Message })
+        }
+    }
+
+    # ---- 第二遍：恢复材料（快照树 / 实际备份）。有一项失败就一份都不删。----
+    if ($failed.Count -eq 0) {
+        $matSorted = @($material | Sort-Object -Property @{ Expression = { $_.path.Length } } -Descending)
+        foreach ($e in $matSorted) {
+            $p = $e.path
+            try {
+                if ($e.existed) { continue }   # 本来就有 → 一个字节一个目录都不动
+                if (-not (Test-Path -LiteralPath $p)) { continue }
+                if (Test-Path -LiteralPath $p -PathType Container) {
+                    $kids = @(Get-ChildItem -LiteralPath $p -Force -ErrorAction SilentlyContinue)
+                    if ($kids.Count -gt 0) { continue }      # 非空目录一律不删（可能还有别人的东西）
+                    Remove-Item -LiteralPath $p -Force
+                } else {
+                    Remove-Item -LiteralPath $p -Force
+                }
+                Remove-EmptyParents $p $stopBak
+            } catch {
+                $failed.Add(@{ path = $p; error = [string]$_.Exception.Message })
+            }
+        }
+    } else {
+        foreach ($e in $material) {
+            if (Test-Path -LiteralPath $e.path) { $kept.Add($e.path) }
+        }
+    }
+
+    $ok = ($failed.Count -eq 0)
+    if (-not $ok) {
+        # 恢复失败：材料一份都不许删，全部列出来（调用方据此 exit 非零、不称成功）
+        foreach ($e in $material) {
+            if ((Test-Path -LiteralPath $e.path) -and -not $kept.Contains($e.path)) { $kept.Add($e.path) }
+        }
+    }
+
     return @{
-        schema  = 'whale-install-restore/1'
-        plan    = $Plan.schema
-        home    = $Plan.home
-        profile = $Plan.profile
-        items   = $items.ToArray()
-        backups = $backups.ToArray()
+        schema    = 'whale-install-restore/1'
+        plan      = $Plan.schema
+        home      = $Plan.home
+        profile   = $Plan.profile
+        ok        = $ok
+        restored  = $restored.ToArray()
+        failed    = $failed.ToArray()
+        kept      = $kept.ToArray()
+        backups   = @($actualBackups)
+        material  = @($material | ForEach-Object { $_.path })
     }
 }
 
@@ -690,6 +1081,13 @@ if ($DryRun) {
     foreach ($w in $Plan.writes) {
         Say ("PLAN writes path={0} existed={1} bytes={2} sha256={3}" -f $w.path, $w.existed, $w.bytes, $w.sha256) 'Gray'
     }
+    # T22 的两个新字段另起一行：上面那行的形状被 T21 的用例钉死了，不许改。
+    foreach ($w in $Plan.writes) {
+        Say ("PLAN write-meta path={0} home={1} installedVersion={2}" -f $w.path, $w.home, $w.installedVersion) 'Gray'
+    }
+    # T22-R2：形状判定也如实进计划。-DryRun 只打印、本来就不写盘 ⇒ **绝不**因为形状不支持而让它非零退出。
+    Say ("PLAN patch-shape ok={0} rule={1} reason={2}" -f $Plan.patchShape.ok, $Plan.patchShape.rule, $Plan.patchShape.reason) 'Gray'
+    Say ("PLAN add-targets enumerated={0} :: {1}" -f $Plan.addTargetsEnumerated, (@($Plan.addTargets) -join '; ')) 'Gray'
     foreach ($op in $Plan.operations) {
         Say ("PLAN op kind={0} path={1} sideEffect={2}" -f $op.kind, $op.path, $op.sideEffect) 'Gray'
     }
@@ -715,9 +1113,15 @@ if ($Plan.mode -eq 'packroot-only') {
     exit 0
 }
 
+# §3.6：连 `dsh add` 的目标都枚举不出来 ⇒ 拒绝事务安装（这时一个字节都没写过）。
+if ($Result.refused) { exit 5 }
+
 # A failed 'dsh plugin add' used to stop right there -- keep stopping there.
 if ($Result.aborted) { exit 1 }
 
 # A FAIL above must not look like success to a caller or to CI.
 $script:softFail = $Result.softFail
 if ($script:softFail) { exit 1 }
+
+# 恢复本身失败：exit 非零、材料保留、不称成功（判词已经在上面打过）。
+if ($Result.restoreFailed) { exit 1 }
