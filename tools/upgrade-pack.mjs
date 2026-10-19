@@ -22,6 +22,8 @@
  *     任一步失败：`FAIL <一句话>`（stderr 同内容）
  */
 import fs from 'node:fs'
+import crypto from 'node:crypto'
+import { validateAdapters } from '../lib/adapters/jvm.js'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -93,6 +95,101 @@ if (wantApply) {
   if (typeof args['plan-digest'] !== 'string' || !args['plan-digest']) {
     die(1, '--apply 必须给 --plan-digest=<digest>（先跑 --plan 拿它）—— 没有它判不了"这份计划还是不是当初那一份"')
   }
+}
+
+// Adapter migration is explicit and independent from engine replacement.
+if (Object.prototype.hasOwnProperty.call(args, 'adapters')) {
+  try {
+    if (args.adapters !== 'jvm' && args.adapters !== '') throw new Error('--adapters 必须是 jvm 或空字符串')
+    const adapters = validateAdapters(args.adapters === '' ? [] : args.adapters.split(','))
+    // Reject a linked root or linked ancestor before enumerating anything.
+    for (let current = abs;; current = path.dirname(current)) {
+      if (fs.lstatSync(current).isSymbolicLink()) throw new Error('拒绝链接路径：' + current)
+      if (path.dirname(current) === current) break
+    }
+    const files = []
+    // JSON was parsed first; locate only the declared property's value so all
+    // unrelated configuration bytes (including formatting/BOM) survive.
+    function setAdapters(raw) {
+      const whitespace = at => { while (/\s/.test(raw[at] || '') && at < raw.length) at++; return at }
+      function end(at) {
+        if (raw[at] === '"') {
+          for (let i = at + 1; i < raw.length; i++) { if (raw[i] === '\\') i++; else if (raw[i] === '"') return i + 1 }
+          throw new Error('无法定位 JSON 字符串')
+        }
+        if (raw[at] === '{' || raw[at] === '[') {
+          const closing = raw[at] === '{' ? '}' : ']'
+          let i = at + 1
+          while (i < raw.length) { if (raw[i] === closing) return i + 1; if (raw[i] === '"' || raw[i] === '{' || raw[i] === '[') i = end(i); else i++ }
+          throw new Error('无法定位 JSON 对象')
+        }
+        let i = at; while (i < raw.length && !/[\s,}\]]/.test(raw[i])) i++; return i
+      }
+      function properties(at) {
+        const entries = []; let i = whitespace(at + 1)
+        while (raw[i] !== '}') {
+          const keyEnd = end(i), key = JSON.parse(raw.slice(i,keyEnd))
+          i = whitespace(keyEnd); if (raw[i] !== ':') throw new Error('无法定位 JSON 属性')
+          const start = whitespace(i + 1), finish = end(start)
+          entries.push({key,start,finish}); i = whitespace(finish)
+          if (raw[i] === ',') i = whitespace(i + 1); else break
+        }
+        return entries
+      }
+      const practice = properties(whitespace(0)).filter(p=>p.key === 'practice').at(-1)
+      if (!practice || raw[practice.start] !== '{') throw new Error('无法定位 practice 声明')
+      const adapter = properties(practice.start).filter(p=>p.key === 'adapters').at(-1)
+      if (adapter) return raw.slice(0,adapter.start) + JSON.stringify(adapters) + raw.slice(adapter.finish)
+      const close = practice.finish - 1
+      return raw.slice(0,close) + ', "adapters": ' + JSON.stringify(adapters) + raw.slice(close)
+    }
+    function walk(dir) {
+      if (!fs.existsSync(dir)) return
+      for (const entry of fs.readdirSync(dir, {withFileTypes:true}).sort((a,b)=>a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) {
+        const target = path.join(dir, entry.name)
+        if (entry.isSymbolicLink()) throw new Error('拒绝链接目标：' + target)
+        if (entry.isDirectory()) { walk(target); continue }
+        if (!entry.isFile() || !/^(halo|point)\.json$/.test(entry.name)) continue
+        const before = fs.readFileSync(target)
+        const doc = JSON.parse(before.toString('utf8').replace(/^\uFEFF/, ''))
+        if (!Array.isArray(doc?.practice?.dirs) || !doc.practice.dirs.length) continue
+        for (const declared of doc.practice.dirs) {
+          if (typeof declared !== 'string' || !declared.trim()) throw new Error('非法实践区：' + target)
+          const rel = path.relative(abs, path.resolve(abs, declared))
+          if (path.isAbsolute(rel) || rel === '..' || rel.startsWith('..' + path.sep)) throw new Error('实践区越界：' + declared)
+        }
+        const after = Buffer.from(setAdapters(before.toString('utf8')))
+        files.push({path: path.relative(abs,target).replace(/\\/g,'/'), before:before.toString('base64'), after:after.toString('base64')})
+      }
+    }
+    walk(path.join(abs, 'lessons'))
+    const planDigest = crypto.createHash('sha256').update(JSON.stringify({root:abs,adapters,files})).digest('hex')
+    if (!wantApply) {
+      process.stdout.write('PLAN ok=true digest=' + planDigest + ' files=' + files.length + '\n')
+      for (const file of files) process.stdout.write('  声明 ' + file.path + ' adapters=' + JSON.stringify(adapters) + '\n')
+      if (args.json) process.stdout.write(JSON.stringify({op:'adapter-plan',ok:true,root:abs,adapters,planDigest,files}) + '\n')
+      process.exit(0)
+    }
+    if (args['plan-digest'] !== planDigest) throw new Error('adapter 计划摘要不匹配：源文件或目标声明已变化')
+    const written = []
+    try {
+      for (const file of files) {
+        const target = path.join(abs,file.path)
+        if (fs.lstatSync(target).isSymbolicLink() || fs.readFileSync(target).toString('base64') !== file.before) throw new Error('提交前源变化或链接：' + file.path)
+      }
+      for (const file of files) {
+        const target = path.join(abs,file.path), temporary = target + '.adapters-' + process.pid
+        try { fs.writeFileSync(temporary, Buffer.from(file.after,'base64'), {flag:'wx'}); fs.renameSync(temporary,target); written.push(file) }
+        finally { if (fs.existsSync(temporary)) fs.unlinkSync(temporary) }
+      }
+    } catch (error) {
+      for (const file of written.reverse()) fs.writeFileSync(path.join(abs,file.path),Buffer.from(file.before,'base64'))
+      throw error
+    }
+    process.stdout.write('APPLY ok=true digest=' + planDigest + ' declarations=' + files.length + '\n')
+    if (args.json) process.stdout.write(JSON.stringify({op:'adapter-apply',ok:true,root:abs,adapters,planDigest,files:files.map(f=>f.path)}) + '\n')
+    process.exit(0)
+  } catch (error) { die(1,error.message) }
 }
 
 if (wantPlan) {

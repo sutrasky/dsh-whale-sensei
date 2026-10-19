@@ -830,7 +830,9 @@ function mapPromptProblems(text, exp = { id: 'programming/spring-boot', names: [
 	const libDir = path.join(PLUGIN, 'lib')
 	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-map-prompt-'))
 	for (const f of fs.readdirSync(libDir)) {
-		if (f.endsWith('.js')) fs.copyFileSync(path.join(libDir, f), path.join(tmp, f))
+		const from = path.join(libDir, f)
+		if (f.endsWith('.js')) fs.copyFileSync(from, path.join(tmp, f))
+		else if (fs.statSync(from).isDirectory()) fs.cpSync(from, path.join(tmp, f), { recursive: true })
 	}
 	const src = fs.readFileSync(path.join(libDir, 'starter.js'), 'utf8')
 	const mutated = src.replace(/export function composeMapPrompt\([\s\S]*?\n}/, "export function composeMapPrompt() {\n\treturn ''\n}")

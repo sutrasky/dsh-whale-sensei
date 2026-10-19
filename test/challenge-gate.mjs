@@ -25,9 +25,11 @@ import { challengeGate, judgeSnapshot, previousLesson, readSnapshot } from '../l
 import { digestTree, PROBE_VERSION, PROBE_SOURCES } from '../lib/fingerprint.js'
 import { plugin as authorPlugin } from '../lib/mods/author.js'
 import { plugin as starterPlugin } from '../lib/mods/starter.js'
+import { migratedPack } from './_t26-migrated-pack.mjs'
 import { packRoot, PLUGIN } from './_pack.mjs'
 
-const ROOT = packRoot()
+const INPUT_ROOT = packRoot()
+const ROOT = migratedPack(INPUT_ROOT)
 let pass = 0
 const fails = []
 function ok(cond, msg) {
@@ -213,7 +215,10 @@ const CODE_HINT = '代码在快照之后又变了：先跑 whale_state write:tru
       `旧快照（指纹新鲜、缺 probeVersion）→ 拦在「探针」那句（${vOld.hint}）`)
     ok(judgeSnapshot({ ...oldSnap, probeVersion: PROBE_VERSION }, tmpP, 'pt/0001').code === 'ok',
       '反证：把 probeVersion 补上就判 ok —— 拦人的唯一原因就是探针版本（指纹 / 判据都没问题）')
-    const g = challengeGate({ root: tmpP, pack: { lessons: [{ id: 'pt/0001', point: 'pt', number: 1 }] }, point: 'pt', probe: true })
+    fs.mkdirSync(path.join(tmpP, 'lessons', 'demo'), {recursive:true})
+    fs.writeFileSync(path.join(tmpP, 'lessons', 'demo', 'halo.json'), JSON.stringify({practice:{dirs:['code/demo'],adapters:['jvm']}}))
+    const demoPack = {...readPack(tmpP), lessons:[{id:'pt/0001',point:'pt',number:1}]}
+    const g = challengeGate({ root: tmpP, pack: demoPack, point: 'pt', probe: true })
     ok(g.rejudged === true, '端到端：probe:true **自动重判了一次**（v3 §4.1 自愈路真的接上了）')
     const after = readSnapshot(tmpP)
     ok(after && after.probeVersion === PROBE_VERSION, `写回的快照带上了当前 probeVersion（实得 ${after && after.probeVersion}）`)

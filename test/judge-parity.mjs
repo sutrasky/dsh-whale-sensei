@@ -37,9 +37,11 @@ import { createRequire } from 'node:module'
 import { challengeGate, judgeSnapshot, readSnapshot } from '../lib/gate.js'
 import { probeState, writeState } from '../lib/state-scan.js'
 import { digestTree, PROBE_VERSION } from '../lib/fingerprint.js'
+import { migratedPack } from './_t26-migrated-pack.mjs'
 import { packRoot } from './_pack.mjs'
 
-const ROOT = packRoot()
+const INPUT_ROOT = packRoot()
+const ROOT = migratedPack(INPUT_ROOT)
 const require_ = createRequire(import.meta.url)
 const packFp = require_(path.join(ROOT, 'tools', 'fingerprint.js'))
 
@@ -135,7 +137,7 @@ const exemptOf = (c, field) => EXEMPT.find((e) => e.field === field && e.cases.i
  * `demo/0001` = 全过 + 第 4 题 auto:false（走 needsReview）；`demo/0002` = 第 2 题没过；
  * `demo/0003` = 没声明 challenges（→ 快照里 challenges:null）。
  */
-const STUB_PACK = { circles: 0, points: 0, lessons: 3, learned: 0 }
+const STUB_PACK = { circles: [{practice:{dirs:['code/demo'],adapters:['jvm']}}], points: 0, lessons: 3, learned: 0 }
 const STATE = (tmp) => path.join(tmp, 'learning-records', 'state.json')
 const PROGRESS = (tmp) => path.join(tmp, 'progress.json')
 const ADJ = (tmp) => path.join(tmp, 'learning-records', 'adjustments.jsonl')

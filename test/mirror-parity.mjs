@@ -47,9 +47,11 @@ import { handleAsk } from '../lib/ask-io.js'
 import { writeScaffold } from '../lib/pack-scaffold.js'
 import { validatePlan, planFrontier } from '../lib/plan.js'
 import { labelAnchorId } from '../lib/pack-model.js'
+import { migratedPack } from './_t26-migrated-pack.mjs'
 import { packRoot, PLUGIN } from './_pack.mjs'
 
-const ROOT = packRoot()
+const INPUT_ROOT = packRoot()
+const ROOT = migratedPack(INPUT_ROOT)
 const require_ = createRequire(import.meta.url)
 
 let pass = 0

@@ -29,11 +29,13 @@ import { challengeGate, judgeSnapshot, readSnapshot } from '../lib/gate.js'
 import { probeState, writeState } from '../lib/state-scan.js'
 import { readPack } from '../lib/pack-model.js'
 import { buildPracticeData } from '../lib/practice.js'
+import { migratedPack } from './_t26-migrated-pack.mjs'
 import { packRoot } from './_pack.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const PLUGIN = path.resolve(HERE, '..')
-const ROOT = packRoot()
+const INPUT_ROOT = packRoot()
+const ROOT = migratedPack(INPUT_ROOT)
 const REAL_EXPECT = path.join(ROOT, 'code', '_hello-spring-boot', 'EXPECT.json')
 
 let pass = 0

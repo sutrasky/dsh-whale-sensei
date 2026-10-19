@@ -155,6 +155,25 @@ ok(sha2() === beforeEdit, '工具面：被拒后台账逐字节没变')
 ok(sha(fs.readFileSync(realLedger)) === packSha, '真包台账在工具面测试后仍未被改动')
 fs.rmSync(shadow2, { recursive: true, force: true })
 
+/* T26-A1: the first real transactional write to an explicitly empty ledger. */
+const emptyShadow = fs.mkdtempSync('E:/Temp/whale-T26-empty-')
+fs.mkdirSync(path.join(emptyShadow,'assets'))
+const emptyPath = path.join(emptyShadow,'assets/glossary-data.js')
+fs.writeFileSync(emptyPath, SRC.replace(/    body: \{[\s\S]*?\n    \}/, ''))
+const firstEmpty = writeTermSurgically({root:emptyShadow,key:'first',record:rec})
+ok(firstEmpty.ok === true, '空台账：首次真实事务新增成功')
+const emptyReq = createRequire(emptyPath)
+delete emptyReq.cache[emptyPath]
+ok(JSON.stringify(emptyReq(emptyPath).first) === JSON.stringify(rec), '空台账：加载后六字段逐字一致')
+const emptyBefore = fs.readFileSync(emptyPath)
+let duplicateEmpty = false
+try {writeTermSurgically({root:emptyShadow,key:'first',record:rec})} catch(e) {duplicateEmpty = /只追加不覆盖/.test(e.message)}
+ok(duplicateEmpty && fs.readFileSync(emptyPath).equals(emptyBefore), '空台账：第二次同键拒绝且字节不变')
+const corruptEmpty = writeTermSurgically({root:emptyShadow,key:'bad',record:rec,corrupt:true})
+ok(corruptEmpty.ok === false && corruptEmpty.rolledBack === true && fs.readFileSync(emptyPath).equals(emptyBefore), '空台账：corrupt 自检拒绝且原字节不变')
+if (!path.resolve(emptyShadow).startsWith('E:\\Temp\\whale-T26-empty-')) throw new Error('拒绝清理未知空台账夹具')
+fs.rmSync(emptyShadow,{recursive:true,force:true})
+
 // ⚠️ 这一行是 run-all.mjs 的解析契约（正则 `=== (\d+) 通过 / (\d+) 失败 ===`），
 // 前缀多一个字都会被记成「0 通过 / 1 失败」——不要改成「=== 结果：...」
 console.log('\n=== ' + pass + ' 通过 / ' + fails.length + ' 失败 ===')

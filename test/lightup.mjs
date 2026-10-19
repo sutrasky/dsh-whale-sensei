@@ -34,9 +34,11 @@ import net from 'node:net'
 import { spawn } from 'node:child_process'
 import { probeState, writeState } from '../lib/state-scan.js'
 import { digestTree, PROBE_VERSION } from '../lib/fingerprint.js'
+import { migratedPack } from './_t26-migrated-pack.mjs'
 import { packRoot } from './_pack.mjs'
 
-const ROOT = packRoot()
+const INPUT_ROOT = packRoot()
+const ROOT = migratedPack(INPUT_ROOT)
 
 let pass = 0
 const fails = []
@@ -56,7 +58,7 @@ const waitUp = async (port, ms = 8000) => {
   return false
 }
 
-const STUB_PACK = { circles: 0, points: 0, lessons: 3, learned: 0 }
+const STUB_PACK = { circles: [{practice:{dirs:['code/demo'],adapters:['jvm']}}], points: 0, lessons: 3, learned: 0 }
 const STATE = (tmp) => path.join(tmp, 'learning-records', 'state.json')
 const PROGRESS = (tmp) => path.join(tmp, 'progress.json')
 const ADJ = (tmp) => path.join(tmp, 'learning-records', 'adjustments.jsonl')

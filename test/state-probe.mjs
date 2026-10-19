@@ -24,9 +24,11 @@ import { probeState, writeState, scanWorkspace, scanProject } from '../lib/state
 import { validateExpect, computeGaps, assertLosslessJson, parseEndpoints, joinEndpointPath } from '../lib/state.js'
 import { summarizeState } from '../lib/state.js'
 import { PROBE_VERSION } from '../lib/fingerprint.js'
+import { migratedPack } from './_t26-migrated-pack.mjs'
 import { packRoot } from './_pack.mjs'
 
-const ROOT = packRoot()
+const INPUT_ROOT = packRoot()
+const ROOT = migratedPack(INPUT_ROOT)
 let pass = 0
 const fails = []
 function ok(cond, msg) {
@@ -49,7 +51,7 @@ function hashTree(root) {
   return out.join('|')
 }
 
-const STUB_PACK = { circles: 1, points: 2, lessons: 2, learned: 1 }
+const STUB_PACK = { circles: [{practice:{dirs:['code'],adapters:['jvm']}}], points: 2, lessons: 2, learned: 1 }
 const realBefore = hashTree(path.join(ROOT, 'code'))
 const stateRelAbs = path.join(ROOT, 'learning-records', 'state.json')
 const hadState = fs.existsSync(stateRelAbs)
@@ -119,7 +121,7 @@ ok(!JSON.stringify(summarizeState(state)).includes('[object Object]'), '摘要�
       'package com.x;\nimport org.springframework.web.bind.annotation.*;\n@RestController\npublic class HelloController {\n  @GetMapping("/hello/{name}")\n  public String hello(@PathVariable String name) { return name; }\n}\n', 'utf8')
     fs.writeFileSync(path.join(root, 'src', 'test', 'java', 'com', 'x', 'AppTest.java'), 'package com.x;\npublic class AppTest {}\n', 'utf8')
 
-    const { facts } = scanProject(root, 'proj')
+    const { facts } = scanProject(root, 'proj', { adapters: ['jvm'] })
     ok(facts.build === 'maven', `构建方式认得出（${facts.build}）`)
     ok(facts.endpoints.length === 1 && facts.endpoints[0].method === 'GET' && facts.endpoints[0].path === '/hello/{name}',
       `端点抽得准（${JSON.stringify(facts.endpoints)}）`)
@@ -133,7 +135,7 @@ ok(!JSON.stringify(summarizeState(state)).includes('[object Object]'), '摘要�
     fs.writeFileSync(path.join(root, 'src', 'main', 'java', 'com', 'x', '.LCKApp.java~'), 'x', 'utf8')
     fs.mkdirSync(path.join(root, 'target'), { recursive: true })
     fs.writeFileSync(path.join(root, 'target', 'App.class'), 'x', 'utf8')
-    const { facts: f2 } = scanProject(root, 'proj')
+    const { facts: f2 } = scanProject(root, 'proj', { adapters: ['jvm'] })
     ok(!f2.files.some((f) => /\.LCK|~$/.test(f)), '合成的锁文件被排除（不是空转）')
     ok(!f2.files.some((f) => /(^|\/)target(\/|$)/.test(f)), '合成的 target/ 被排除')
   } finally {

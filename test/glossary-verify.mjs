@@ -19,9 +19,11 @@ import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { expectedGlossaryMarkdown, glossaryDrift, writeGlossary, loadGlossaryLedger, glossarySummary } from '../lib/glossary-io.js'
 import { plugin as glPlugin } from '../lib/mods/glossary.js'
+import { migratedPack } from './_t26-migrated-pack.mjs'
 import { packRoot } from './_pack.mjs'
 
-const ROOT = packRoot()
+const INPUT_ROOT = packRoot()
+const ROOT = migratedPack(INPUT_ROOT)
 let pass = 0
 const fails = []
 function ok(cond, msg) {
