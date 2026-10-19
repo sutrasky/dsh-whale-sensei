@@ -1,7 +1,7 @@
 # dsh-whale-sensei（鲸师）
 
 把 **课程包**变成可教、可判、可留痕的东西 —— 一个装进 DeepSeek Harness 工具面的插件：
-**17 个能力模块 / 15 个工具（`whale_` 前缀）/ 5 条 HTTP 路由 / 3 个客户端坐位**，
+能力清单见 [docs/capabilities.md](./docs/capabilities.md)（由 tools/check-contracts.mjs --write 生成），
 覆盖教师端做课与学生端学·问两条线。
 
 > 由 `dsh-plugin-kit` 脚手架起手。本插件**零运行时依赖**（只用 Node 内建）。

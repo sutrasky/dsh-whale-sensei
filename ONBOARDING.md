@@ -5,6 +5,8 @@
 >
 > 全文的路径占位符：`<课程包目录>` = 你放课程内容的那个目录（本仓**不含**课程内容）。
 
+能力清单见 [docs/capabilities.md](./docs/capabilities.md)（由 tools/check-contracts.mjs --write 生成）。
+
 ---
 
 ## 0. 整体流程（先看这张图）

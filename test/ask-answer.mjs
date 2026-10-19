@@ -88,7 +88,7 @@ try {
   const pLines0 = pendingLines()
   const dLines0 = processedLines()
 
-  const BODY = { id: '0004', answer: '一句话：@Valid 负责触发校验，@RequestBody 只负责把 JSON 读成对象。', answerHtml: `<p><strong>${MARK}</strong>：<code>@Valid</code> 触发校验。</p>` }
+  const BODY = { id: '0004', date: '2026-01-02', answer: '一句话：@Valid 负责触发校验，@RequestBody 只负责把 JSON 读成对象。', answerHtml: `<p><strong>${MARK}</strong>：<code>@Valid</code> 触发校验。</p>` }
 
   // ── ① 合法写回（先关重建，单独验写台账）──
   const r1 = await answer(tmp, { raw: JSON.stringify(BODY), now: CLOCK, rebuild: false })
