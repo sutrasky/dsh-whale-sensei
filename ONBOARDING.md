@@ -349,6 +349,7 @@ node tools/app-server.js          # 默认 http://127.0.0.1:3091
 | 开会话时**没有「鲸师模式」** | 预设不在磁盘上（插件装上了，预设照样可能缺席 —— 2026-09-27 的事故） | `node lib/preset-install.js --check --dsh-home "$DSH_HOME"`；不在就**去掉 `--check`** 装一次（加 `--skills-dir "<课程包>/skills"`）。插件下次启动也会自己装 |
 | 有「鲸师模式」但**技能列表是空的** | ① 预设里的 `customSkillDirs` 是空的（没配 `packRoot` 时故意留空）；② 课程包自己**没有 `skills/`**（2026-09-27 之前建的包，或别人手改过的包） | ① 配好/选好课程包：**选完目录当场就刷新**，没走设置页的则重启宿主（启动时会自动把 `<课程包>/skills` 补进去）；② 新包现在自带 5 个技能 —— 老包要么重建，要么把课程包的 `skills/` 拷进去 |
 | 有「鲸师模式」但**设置页里带「加载失败」** | 预设被宿主判 `broken`（组合里某一行指向装不上的包）—— 开会话的选择器会**直接丢掉**它 | 跑 `node lib/preset-install.js --check --dsh-home "$DSH_HOME"`，再删掉 `$DSH_HOME/.agent-presets/whale-mode/` 让插件重装一遍 |
+| 重建 / 答疑 / 预览被拒，提示「这个包的引擎与插件受信版本不一致」（**零 spawn**，一个进程都不起） | 课程包的引擎件被改过，或是**旧骨架**建的包（插件只执行与模板逐字节一致的引擎） | 用插件**自带**的升级入口升它 —— 这个文件随包发，npm 安装的包里也有：`node "<插件安装目录>/tools/upgrade-pack.mjs" --root="<课程包根>" --plan` 拿 digest，再 `node "<插件安装目录>/tools/upgrade-pack.mjs" --root="<课程包根>" --apply --confirm --plan-digest=<digest>`；全局装了插件也可直接用 `dsh-whale-pack --root="<课程包根>" --plan`。**两步都别省**（`--plan` 只算不写，确认后才写） |
 
 ---
 

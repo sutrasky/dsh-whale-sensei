@@ -16,6 +16,7 @@
   },
   "files": [
     "lib",
+    "tools/upgrade-pack.mjs",
     "preset/whale-mode/agent.cordis.yml",
     "preset/whale-mode/preset.yml",
     "preset/whale-mode/persona.md",
@@ -27,6 +28,9 @@
     "docs",
     "LICENSE"
   ],
+  "bin": {
+    "dsh-whale-pack": "tools/upgrade-pack.mjs"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sutrasky/dsh-whale-sensei.git"

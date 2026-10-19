@@ -6,13 +6,20 @@
  * （`lib/engine.js` / `lib/pack-template/tools/engine-policy.cjs`）——
  * 旧包（引擎件与插件模板不一致）会被**先拒绝**。拒绝之后人得有条**明确**的路把它升上来：
  *
- *     node tools/upgrade-pack.mjs --root=<包根> --plan
- *     node tools/upgrade-pack.mjs --root=<包根> --apply --confirm --plan-digest=<digest>
+ *     node <本插件的安装位置>/tools/upgrade-pack.mjs --root=<包根> --plan
+ *     node <本插件的安装位置>/tools/upgrade-pack.mjs --root=<包根> --apply --confirm --plan-digest=<digest>
+ *
+ * ⚠️ 为什么占位写"本插件的安装位置"而不是 `tools/….mjs`（Bug4 / 2026-10-19）：
+ *   本文件**随插件发**（`package.json` 的 `files` + `bin: dsh-whale-pack`），npm 用户那边
+ *   它活在 `node_modules/dsh-whale-sensei/tools/` 下 —— 仓根相对的 `tools/upgrade-pack.mjs`
+ *   在他们的 shell 里是**不存在的路径**。所以 `--help` 与所有提示语一律打**绝对路径**
+ *   （由 `import.meta.url` 算出来），并在全局安装时给出 bin 名。
+ *   判据：`test/upgrade-entry.mjs` 在"只有 node_modules、没有源码仓库"的隔离环境里真跑它。
  *
  * 三条纪律（与 `lib/engine.js` 同一份口径，这里只做编排与打印）：
  *   ① **计划与提交是两步**：`--plan` 只读、把 digest 打出来；`--apply` 必须回同一个 digest。
  *      包在两步之间又变过 → 摘要对不上 → **拒绝**（不是"尽力而为地升一半"）。
- *   ② **升级源只取插件模板**：没有 `--from` 这种参数，也不接受任意来源路径。
+ *   ② **升级源只取插件模板**：没有"任意来源"这种参数，也不接受任意来源路径。
  *   ③ **备份失败不得替换**；目标是软链 / 目录联接 → 拒绝。
  *
  * 退出码：0 = 成功；1 = 拒绝 / 失败（理由打出来）；2 = 用法错 / 材料缺失。
@@ -25,10 +32,17 @@ import fs from 'node:fs'
 import crypto from 'node:crypto'
 import { validateAdapters } from '../lib/adapters/jvm.js'
 import path from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
-const HERE = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'))
+// ⚠️ 必须走 `fileURLToPath`（而不是 `new URL(...).pathname`）：装到**带空格**的路径下
+// （某些系统盘的默认目录就带空格）时 pathname 是**百分号编码**的，拼出来的目录不存在。
+const SELF = fileURLToPath(import.meta.url)
+const HERE = path.dirname(SELF)
 const REPO = path.resolve(HERE, '..')
+/** 提示语里给用户的**可解析入口**：本文件自己的绝对路径（装到哪都成立） */
+const SELF_HINT = `node "${path.join(REPO, 'tools', 'upgrade-pack.mjs')}"`
+/** 全局安装时 bin 名（`package.json` 的 `bin`）—— 与上面是同一个入口的两条走法 */
+const BIN = 'dsh-whale-pack'
 
 /** `--name=value` 取值；`--flag` 当布尔 */
 function parseArgs(argv) {
@@ -52,9 +66,10 @@ function die(code, msg) {
 
 if (args.help || args.h) {
   process.stdout.write([
-    '用法：',
-    '  node tools/upgrade-pack.mjs --root=<包根> --plan',
-    '  node tools/upgrade-pack.mjs --root=<包根> --apply --confirm --plan-digest=<digest>',
+    '用法（入口就是本文件；下面打的是它的**绝对路径** —— 装到 node_modules 下也照这个跑）：',
+    `  ${SELF_HINT} --root=<包根> --plan`,
+    `  ${SELF_HINT} --root=<包根> --apply --confirm --plan-digest=<digest>`,
+    `  ${BIN} --root=<包根> --plan        （全局安装 ${BIN} 时可以直接用 bin 名）`,
     '',
     '  --plan                  只算不写：列出要动的引擎件与计划摘要',
     '  --apply                 真的升级（必须同时给 --confirm 与 --plan-digest）',
@@ -204,7 +219,7 @@ if (wantPlan) {
       const mark = f.action === 'reject' ? '拒绝' : (f.action === 'add' ? '新增' : '替换')
       process.stdout.write(`  ${mark}  ${f.path}${f.action === 'reject' ? `（${f.why}）` : `  ${String(f.before ?? '（现在没有）').slice(0, 12)} → ${String(f.after.sha256).slice(0, 12)}`}\n`)
     }
-    process.stdout.write(`  提交：node tools/upgrade-pack.mjs --root=${plan.root} --apply --confirm --plan-digest=${plan.planDigest}\n`)
+    process.stdout.write(`  提交：${SELF_HINT} --root="${plan.root}" --apply --confirm --plan-digest=${plan.planDigest}\n`)
   }
   if (args.json) process.stdout.write(`${JSON.stringify({ op: 'plan', ok: true, root: plan.root, source: plan.source, upToDate: plan.upToDate, planDigest: plan.planDigest, files: plan.files })}\n`)
   process.exit(0)

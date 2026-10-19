@@ -239,8 +239,12 @@ try {
 
   // ── ④ profile 层配置：就地改一行，其它字段一个不丢 ──────────────────────
   console.log('\n④ profile 配置')
+  // 夹具必须是**合法**叠加层（根 = 一个数组）：这里原先第一行是 `top: 1`（列 0 的块映射根），
+  // 再往下接块序列就成了**两个 YAML 根** —— 真 YAML 解析器必然拒绝，落盘路径（writeProfilePackRoot）
+  // 也会因此拒写。原来的意图只是"whale-sensei 之前还有别的顶层条目"，用合法的另一个插件条目表达。
   const yml = [
-    'top: 1',
+    '- id: other-plugin',
+    '  config: { top: 1 }',
     '- id: whale-sensei',
     '  config:',
     "    packRoot: 'D:/old/pack'",

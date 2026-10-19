@@ -103,7 +103,11 @@ function cardState(id) {
   if (line && !new RegExp(`^(PASS|FAIL|BLOCKED|WAIVED)\\s+${id}(?=\\s|$)`).test(line)) {
     return { state: 'open', why: `${id} 的验收行与卡号不符（${JSON.stringify(line.slice(0, 80))}）` }
   }
-  if (verdict === 'PASS' && new RegExp(`^PASS ${id}(?=\\s|$)`).test(line)) return { state: 'closed', why: null }
+  if (verdict === 'PASS' && new RegExp(`^PASS ${id}(?=\\s|$)`).test(line)) {
+    // PASS 文本不能覆盖进程失败；null/缺失/字符串 "0" 也不是确认正常退出。
+    if (r.code !== 0) return { state: 'open', why: `${id} 自报 PASS 但退出码不是数字 0（code=${JSON.stringify(r.code) ?? '缺失'}），不能记 closed` }
+    return { state: 'closed', why: null }
+  }
   if (verdict === 'BLOCKED') return { state: 'blocked', why: `${id} 缺真实证据（${line || 'BLOCKED'}）` }
   if (verdict === 'WAIVED') return { state: 'waived', why: `${id} 记 WAIVED（${line}）` }
   return { state: 'open', why: `${id} 还没实现/没验收（verdict=${verdict || '空'}${line ? ` · ${line}` : ''}）` }

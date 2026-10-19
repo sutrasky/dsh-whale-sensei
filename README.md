@@ -483,6 +483,7 @@ npx @deepseek-ai/dsh --profile web --dump-config
 | 设置页「鲸师」卡片没出现 | 客户端没刷新 / 插件没加载 | 刷新页面；若仍无，检查 `dump-config` |
 | 侧栏「新课程」按钮没出现 | 同上 + 可能是 DOM 选择器变了 | 检查浏览器控制台有没有 `[dsh-whale-sensei]` 开头的报错 |
 | `whale_author commit` 被拒 | 该知识点没有 intake 记录 | 先 `whale_intake op=plan` → 问学生 → `op=record` 落盘 |
+| 提示「这个包的引擎与插件受信版本不一致」（**零 spawn** 拒绝） | 课程包的引擎件被改过，或是**旧骨架**建的包 | 用插件**自带**的升级入口把它升到受信版本（这个文件随包发，npm 安装的包里也有）：`node "<插件安装目录>/tools/upgrade-pack.mjs" --root="<课程包根>" --plan` 拿到 digest，再 `node "<插件安装目录>/tools/upgrade-pack.mjs" --root="<课程包根>" --apply --confirm --plan-digest=<digest>`。全局装了插件时也可直接用 bin 名：`dsh-whale-pack --root="<课程包根>" --plan`。**两步都别省**：`--plan` 只算不写，确认后才写（旧版这里给的是仓根相对的 `tools/upgrade-pack.mjs` —— npm 用户机器上并没有那个路径，现改为绝对路径） |
 
 ---
 
