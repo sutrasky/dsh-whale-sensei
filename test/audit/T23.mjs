@@ -11,7 +11,7 @@ const REVISION = '75152ca36d838cc0d7e8a926683d0df4ab24c383'
 const IDS = ['K01','C01','C02','G01','G02','G03','G04','G05','G06','B01','S01','S02','S03','P01','N01','N02','N03','N04']
 const R2_IDS = ['D01','D02','D03','D04','D05','D06','M01','M02','M03','M04','M05','W01','R01','R02','R03','R04']
 const AUTO = process.argv.includes('--auto')
-const h = createHarness({ card: AUTO ? 'T23-AUTO' : 'T23', evidenceDir: path.join(REPO,'audit-evidence/T23'), expectedIds: [...IDS,...R2_IDS] })
+const h = createHarness({ card: AUTO ? 'T23-AUTO' : 'T23', autoOnly: AUTO, evidenceDir: path.join(REPO,'audit-evidence/T23'), expectedIds: [...IDS,...R2_IDS] })
 const PACK = 'E:/workplace/study'
 const SUITES = ['render-parity','circle-create','brief','teaching-view','visual','practice']
 const sources = [...SUITES.map(s => `test/${s}.mjs`), 'test/audit/T23.mjs','test/run-all.mjs','test/_suite-manifest.mjs','test/wording.mjs','test/parity-registry.mjs','test/settings-layout.mjs','test/audit/T01.mjs']

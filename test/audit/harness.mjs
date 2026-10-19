@@ -6,6 +6,7 @@
  *       成功  `PASS T<n> checks=N failed=0 skipped=0`
  *       失败  `FAIL T<n> ...`                且 exit 1
  *       缺料  `BLOCKED T<n> ...`             且 exit 2
+ *       自动层 `AUTO-ONLY T<n>-AUTO ...`     且 exit 0 —— **不是**整卡通过（B10-R1：禁用 PASS 词）
  *   - N 必须 > 0，并**核对固定的用例 ID 集合**（缺一条、多一条、重一条都算失败）——
  *     禁止只靠数字绿灯。
  *   - 子进程完整原始输出、退出码、用例执行记录落到 `R/audit-evidence/T<n>/`；
@@ -101,7 +102,7 @@ export function cleanupTempDir(dir, tag) {
 
 /**
  * 建测试壳。
- * @param {{card:string, evidenceDir?:string, expectedIds?:string[]|null, argv?:string[], root?:string}} opts
+ * @param {{card:string, evidenceDir?:string, expectedIds?:string[]|null, argv?:string[], root?:string, autoOnly?:boolean}} opts
  */
 export function createHarness(opts = {}) {
   const card = String(opts.card ?? 'T00')
@@ -209,11 +210,15 @@ export function createHarness(opts = {}) {
       const skipped = cases.filter((c) => c.actual === 'skip').length
       const badNotes = cases.filter((c) => c.actual !== 'pass' && c.note).map((c) => `${c.id}: ${c.note}`)
       const status = blocked ? 'BLOCKED' : (failed > 0 ? 'FAIL' : 'PASS')
+      // ⚠️ B10-R1：`autoOnly` 的入口**不许**再打 `PASS <card>` —— 自动层不是整卡通过。
+      //    判词改成 `AUTO-ONLY <card>-AUTO …`，让任何按 `T\\d\\d` 解析卡号的工具都不可能
+      //    把它读成"这张卡 PASS 了"（acceptance/release 另有边界正则兜底）。
+      const passWord = opts.autoOnly ? 'AUTO-ONLY' : 'PASS'
       const head = blocked
         ? `BLOCKED ${card} ${blocked}`
         : failed > 0
           ? `FAIL ${card} checks=${cases.length} failed=${failed} skipped=${skipped} :: ${badNotes.slice(0, 3).join(' | ')}`
-          : `PASS ${card} checks=${cases.length} failed=0 skipped=${skipped}`
+          : `${passWord} ${card} checks=${cases.length} failed=0 skipped=${skipped}`
       return { code: blocked ? 2 : (failed > 0 ? 1 : 0), status, head, failed, passed, skipped, cases }
     },
 

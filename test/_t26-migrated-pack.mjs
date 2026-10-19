@@ -46,7 +46,27 @@ export function migratedPack(input) {
     const source=path.join(REPO,'lib/pack-template',rel), target=path.join(root,rel)
     if(fs.existsSync(target))fs.copyFileSync(source,target)
   }
-  function declarations(dir) {
+  declareAdapters(root)
+  const cli=path.join(root,'assets/build-glossary.js')
+  if(fs.existsSync(cli)) {
+    const result=spawnSync(process.execPath,[cli],{cwd:root,encoding:'utf8',timeout:120000,maxBuffer:16*1024*1024})
+    if(result.error||result.signal||result.status!==0)throw new Error('T26 glossary migration failed: '+JSON.stringify({exit:result.status,signal:result.signal,error:result.error?.message,stdout:result.stdout,stderr:result.stderr}))
+  }
+  process.stderr.write('[T26-migrated] '+JSON.stringify({original,root,inputHash:before,jvmRoots:JVM_ROOTS})+'\n')
+  return root
+}
+
+/**
+ * T26 的显式迁移：把「B10-R1 诊断」里 brief 夹具也纳入同一口径 ——
+ * 通用 `detectFacts` 只在 `practice.adapters` 声明了 `jvm` 时才产出 JVM 事实；
+ * 活包（只读）没有声明，所以**任何读活包的测试夹具**都必须在自己的副本里补声明，
+ * 否则会把「没声明」误读成「学生没做」（brief 第 2 课就因此从 ✓ 变 ✗）。
+ *
+ * 只改 `practice.dirs` 命中 JVM 根的那几个 halo/point；不造学科、不改学生代码。
+ * @param {string} root 课程包副本根
+ */
+export function declareAdapters(root){
+  const declarations=(dir)=>{
     if(!fs.existsSync(dir))return
     for(const entry of fs.readdirSync(dir,{withFileTypes:true})) {
       const file=path.join(dir,entry.name)
@@ -61,11 +81,4 @@ export function migratedPack(input) {
     }
   }
   declarations(path.join(root,'lessons'))
-  const cli=path.join(root,'assets/build-glossary.js')
-  if(fs.existsSync(cli)) {
-    const result=spawnSync(process.execPath,[cli],{cwd:root,encoding:'utf8',timeout:120000,maxBuffer:16*1024*1024})
-    if(result.error||result.signal||result.status!==0)throw new Error('T26 glossary migration failed: '+JSON.stringify({exit:result.status,signal:result.signal,error:result.error?.message,stdout:result.stdout,stderr:result.stderr}))
-  }
-  process.stderr.write('[T26-migrated] '+JSON.stringify({original,root,inputHash:before,jvmRoots:JVM_ROOTS})+'\n')
-  return root
 }

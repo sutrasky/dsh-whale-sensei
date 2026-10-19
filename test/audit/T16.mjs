@@ -1048,7 +1048,8 @@ if (JSON.stringify(idsGot) !== JSON.stringify(IDS)) fatal ??= `固定用例 ID �
 if (cleanupFailures.length) fatal = `${fatal ? fatal + '；' : ''}用例收尾失败：${cleanupFailures.join('；')}`
 const failed = records.filter((r) => r.status === 'fail').length + (fatal ? 1 : 0)
 const automated = process.argv.includes('--automated-only')
-const verdict = failed ? 'FAIL' : automated ? 'PASS' : 'BLOCKED'
+// B10-R1：自动层判词**不许**用 PASS 词（它不是整卡通过）——用 `AUTO-ONLY`。
+const verdict = failed ? 'FAIL' : automated ? 'AUTO-ONLY' : 'BLOCKED'
 const label = automated ? 'T16-AUTO' : 'T16'
 const exitCode = failed ? 1 : automated ? 0 : 2
 

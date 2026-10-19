@@ -1065,7 +1065,7 @@ function probeAxeTool() {
 }
 
 /* ─────────────────────────────── 采集 ─────────────────────────────── */
-const h = createHarness({ card: AUTO ? 'T25-AUTO' : 'T25', expectedIds: IDS })
+const h = createHarness({ card: AUTO ? 'T25-AUTO' : 'T25', autoOnly: AUTO, expectedIds: IDS })
 
 let fatal = null
 let src = ''

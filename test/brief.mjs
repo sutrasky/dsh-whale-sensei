@@ -34,6 +34,7 @@ import { plugin as briefPlugin } from '../lib/mods/brief.js'
 import { NEXT_ACTIONS } from '../lib/brief.js'
 import { readNotes } from '../lib/notes-io.js'
 import { packRoot } from './_pack.mjs'
+import { declareAdapters } from './_t26-migrated-pack.mjs'
 
 const ROOT = packRoot()
 const realBrief = path.join(ROOT, 'learning-records', 'brief.md')
@@ -127,6 +128,10 @@ ok(!/\d{4}-\d{2}-\d{2}T/.test(v1.markdown), 'brief 里没有时间戳（可对�
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-brief-'))
 try {
   fs.cpSync(ROOT, tmp, { recursive: true })
+  // T26 的显式学科声明同样适用于本夹具：通用层不再默认猜 JVM，活包（只读）没有声明，
+  // 所以副本里必须按 T26 同一口径补 `practice.adapters:['jvm']` —— 否则第 2 课的端点
+  // 判据会被误读成“没做”，本文件「第2课已变成达成 ✓」那条会凭空变红。
+  declareAdapters(tmp)
   // Establish the default-no-write precondition only in the owned copy; preserve any user's real brief.
   fs.rmSync(path.join(tmp, 'learning-records', 'brief.md'), { force: true })
   // ⚠️ 判据**不许依赖真包是不是空的**：真包现在有 teaching.jsonl（P2 给 programming 落了

@@ -67,7 +67,11 @@ function publicCheck() {
   })
   let parsed = null
   try { parsed = JSON.parse(String(r.stdout || '').trim()) } catch { /* 解析不了就如实记未核验 */ }
-  return { exit: typeof r.status === 'number' ? r.status : null, verified: !!(parsed && parsed.verified === true), detail: parsed }
+  const exit = typeof r.status === 'number' ? r.status : null
+  // B10-R1：**退出码是判据的一部分**。只信 JSON 里的 verified 就会把「exit 非零却自报 verified」
+  // 读成已核验 —— 材料核验必须以 check-distribution 的退出码 0 为门。
+  const verified = exit === 0 && !!(parsed && parsed.verified === true)
+  return { exit, verified, reason: verified ? null : (r.error ? String(r.error.message ?? r.error) : `check-distribution exit=${exit}`), detail: parsed }
 }
 
 const findingsDoc = readJson(path.join(EV_DIR, 'findings-map.json'))
@@ -90,11 +94,16 @@ function cardState(id) {
   if (!r) return { state: 'open', why: `查无验收行：${id} 不在 planner-acceptance-summary.json 的 results 里` }
   const verdict = String(r.verdict || '').toUpperCase()
   const line = String(r.line || '')
-  // 判词必须**自证是自己的**（`PASS T28 …`）—— "有 PASS 字样"不等于"这张卡过了"
-  if (line && !new RegExp(`^(PASS|FAIL|BLOCKED|WAIVED)\\s+${id}\\b`).test(line)) {
+  // 判词必须**自证是自己的**（`PASS T28 …`）—— "有 PASS 字样"不等于"这张卡过了"。
+  // B10-R1：卡号 token 必须**恰好**是 id（后接空白/结尾）；`PASS T13-AUTO` 这类自动层判词
+  // 不许被读成整卡 PASS（自动层不是整卡通过）。
+  if (line && /T\d\d-AUTO\b/.test(line)) {
+    return { state: 'open', why: `${id} 的验收行是自动层判词（${JSON.stringify(line.slice(0, 80))}），不是整卡通过` }
+  }
+  if (line && !new RegExp(`^(PASS|FAIL|BLOCKED|WAIVED)\\s+${id}(?=\\s|$)`).test(line)) {
     return { state: 'open', why: `${id} 的验收行与卡号不符（${JSON.stringify(line.slice(0, 80))}）` }
   }
-  if (verdict === 'PASS' && line.startsWith(`PASS ${id}`)) return { state: 'closed', why: null }
+  if (verdict === 'PASS' && new RegExp(`^PASS ${id}(?=\\s|$)`).test(line)) return { state: 'closed', why: null }
   if (verdict === 'BLOCKED') return { state: 'blocked', why: `${id} 缺真实证据（${line || 'BLOCKED'}）` }
   if (verdict === 'WAIVED') return { state: 'waived', why: `${id} 记 WAIVED（${line}）` }
   return { state: 'open', why: `${id} 还没实现/没验收（verdict=${verdict || '空'}${line ? ` · ${line}` : ''}）` }

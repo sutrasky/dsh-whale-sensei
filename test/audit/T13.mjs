@@ -222,7 +222,8 @@ finally {
 if(JSON.stringify(records.map(r=>r.id))!==JSON.stringify(IDS)) fatal ??='fixed case ID set mismatch'
 const failed=records.filter(r=>r.status==='fail').length+(fatal?1:0)
 const automated=process.argv.includes('--automated-only')
-const verdict=failed?'FAIL':automated?'PASS':'BLOCKED'
+// B10-R1：自动层判词**不许**用 PASS 词（它不是整卡通过）——用 `AUTO-ONLY`，并让卡号只出现在 label 里。
+const verdict=failed?'FAIL':automated?'AUTO-ONLY':'BLOCKED'
 const label=automated?'T13-AUTO':'T13'
 const exitCode=failed?1:automated?0:2
 const result={verdict,label,exitCode,hashes,ids:IDS,records,watchObservations,fatal,fixture,realHost:{status:'unverified',reason:'No authenticated two-round isolated DSH lifecycle evidence; installed Cordis source inspection is not host execution.'}}
