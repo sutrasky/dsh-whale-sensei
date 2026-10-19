@@ -24,6 +24,7 @@
     "dsh-plugin.json",
     "README.md",
     "ONBOARDING.md",
+    "docs",
     "LICENSE"
   ],
   "repository": {
@@ -50,6 +51,9 @@
       "external": [
         "react"
       ]
+    },
+    "distribution": {
+      "mode": "private"
     }
   },
   "engines": {

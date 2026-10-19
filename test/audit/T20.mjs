@@ -947,6 +947,10 @@ h.case('D04 source-pack-bytes-unchanged', 'pass', () => {
     decorate: (dir) => {
       for (const f of ['start.cmd', 'install.cmd', 'uninstall.cmd', 'install.ps1', 'uninstall.ps1']) fs.writeFileSync(path.join(dir, f), '@echo off\n', 'utf8')
       fs.writeFileSync(path.join(dir, 'admin-source.json'), '{}\n', 'utf8')
+      // T28 起 reader 档合法包装件多了这两件（`READER_GENERATED` 登记、payload 真实会写）；
+      // 本用例的 decorate 桩按真实包装件集合补齐，断言（源包字节不变）一字未动。
+      fs.writeFileSync(path.join(dir, 'distribution-receipt.json'), '{}\n', 'utf8')
+      fs.writeFileSync(path.join(dir, 'LICENSES.txt'), 'fixture\n', 'utf8')
     },
   })
   const after = snapshotTree(pack)
