@@ -60,7 +60,38 @@ const scan=fixture('scan');for(const d of ['code/foo/project','code/foobar/proje
 const pack={circles:[{practice:{dirs:['code/foo'],adapters:['jvm']}},{practice:{dirs:['code/math'],adapters:[]}}],points:[{practice:{dirs:['code/foobar'],adapters:[]}},{practice:{dirs:['code/foo/project'],adapters:['jvm']}}]}
 h.case('S01','pass',()=>{const result=scanWorkspace(scan,{pack});assert.equal(result.projects.length,3);const by=new Map(result.projects.map(p=>[p.facts.dir,p.facts]));assert.equal(by.get('code/foo/project').build,'maven');checkNeutral(by.get('code/foobar/project'));assert.equal(scanProject(path.join(scan,'code/foo/project'),'direct',{adapters:['jvm']}).facts.build,'maven');checkNeutral(scanProject(path.join(scan,'code/foo/project'),'direct').facts);assert.equal(scanWorkspace(scan,{pack,adapters:['jvm']}).projects.every(p=>p.facts.build==='maven'),true)})
 h.case('S02','pass',()=>{const result=scanWorkspace(scan,{pack});assert.equal(result.projects.filter(p=>p.facts.dir==='code/foo/project').length,1);checkNeutral(result.projects.find(p=>p.facts.dir==='code/math/project').facts)})
-h.case('F01','pass',()=>{assert.ok(PROBE_SOURCES.includes('lib/adapters/jvm.js'));const got=new Set();function closure(rel){if(got.has(rel)||rel==='lib/fingerprint.js')return;got.add(rel);const s=fs.readFileSync(path.join(REPO,rel),'utf8');for(const m of s.matchAll(/(?:from\s*|import\s*)['"](\.\/[^'"]+)['"]/g))closure(path.posix.normalize(path.posix.join(path.posix.dirname(rel),m[1])))}closure('lib/state.js');closure('lib/state-scan.js');assert.deepEqual([...got].sort(),[...PROBE_SOURCES].sort());assert.deepEqual(PROBE_SOURCES.slice(2),[...PROBE_SOURCES.slice(2)].sort());const hash=sha(Buffer.concat(PROBE_SOURCES.flatMap((p,i)=>[...(i?[Buffer.from('\0')]:[]),fs.readFileSync(path.join(REPO,p))]))).slice(0,16);assert.equal(PROBE_VERSION,'p:'+hash);const lits=p=>{const s=fs.readFileSync(path.join(REPO,p),'utf8').replace(/\/\*[\s\S]*?\*\//g,'').split('\n').filter(l=>!/^\s*\/\//.test(l)).join('\n');return(s.match(/PROBE_VERSION\s*=\s*'[^']*'/g)||[]).length};const kernelFp=createRequire(import.meta.url)(path.join(REPO,'lib/unify/fingerprint.cjs'));assert.equal(lits('lib/unify/fingerprint.cjs'),1);assert.equal(PROBE_VERSION,kernelFp.PROBE_VERSION);for(const wrapper of ['lib/fingerprint.js','lib/pack-template/tools/fingerprint.js'])assert.equal(lits(wrapper),0);assert.match(fs.readFileSync(path.join(REPO,'lib/pack-template/tools/fingerprint.js'),'utf8'),/module\.exports = require\('\.\/unify\/fingerprint\.cjs'\)/)})
+h.case('F01','pass',()=>{assert.ok(PROBE_SOURCES.includes('lib/adapters/jvm.js'));const got=new Set();function closure(rel){if(got.has(rel)||rel==='lib/fingerprint.js')return;got.add(rel);const s=fs.readFileSync(path.join(REPO,rel),'utf8');for(const m of s.matchAll(/(?:from\s*|import\s*)['"](\.\/[^'"]+)['"]/g))closure(path.posix.normalize(path.posix.join(path.posix.dirname(rel),m[1])))}closure('lib/state.js');closure('lib/state-scan.js');assert.deepEqual([...got].sort(),[...PROBE_SOURCES].sort());assert.deepEqual(PROBE_SOURCES.slice(2),[...PROBE_SOURCES.slice(2)].sort());const hash=sha(Buffer.concat(PROBE_SOURCES.flatMap((p,i)=>[...(i?[Buffer.from('\0')]:[]),fs.readFileSync(path.join(REPO,p))]))).slice(0,16);assert.equal(PROBE_VERSION,'p:'+hash);const lits=p=>{const s=fs.readFileSync(path.join(REPO,p),'utf8').replace(/\/\*[\s\S]*?\*\//g,'').split('\n').filter(l=>!/^\s*\/\//.test(l)).join('\n');return(s.match(/PROBE_VERSION\s*=\s*'[^']*'/g)||[]).length};const kernelFp=createRequire(import.meta.url)(path.join(REPO,'lib/unify/fingerprint.cjs'));assert.equal(lits('lib/unify/fingerprint.cjs'),1);assert.equal(PROBE_VERSION,kernelFp.PROBE_VERSION);for(const wrapper of ['lib/fingerprint.js','lib/pack-template/tools/fingerprint.js'])assert.equal(lits(wrapper),0);
+// ── 2026-10-20 修：包侧导出的判据从「源码文本 grep」改成「**真的 require 一遍**」──────
+// 上一轮实测的假绿：原来的最后一条是
+//   assert.match(<包侧 wrapper 源码>, /module\.exports = require\('\.\/unify\/fingerprint\.cjs'\)/)
+// 于是（a）把这句写进**注释**、实际导出别的值；（b）看着像委托、导出却是错的 —— 两种都照过。
+// 现在：在独立 CJS 夹具里（只拷 wrapper + 内核两件，保持 ./unify/ 相对路径）真加载包侧模块，
+// 断言它与插件侧 / 权威内核**同值**，再加两条负对照（注释伪委托、假实现）证明判据真的能红。
+const packSide = (mutate) => {
+  const dir = path.join(tmp, `f01-${++seq}`)
+  write(dir, 'tools/fingerprint.js', fs.readFileSync(path.join(REPO, 'lib/pack-template/tools/fingerprint.js')))
+  write(dir, 'tools/unify/fingerprint.cjs', fs.readFileSync(path.join(REPO, 'lib/unify/fingerprint.cjs')))
+  if (mutate) mutate(dir)
+  const target = path.join(dir, 'tools/fingerprint.js')
+  const req = createRequire(target)
+  delete req.cache[target]
+  return req(target)
+}
+const packReal = packSide()
+assert.equal(typeof packReal.PROBE_VERSION, 'string')
+assert.equal(packReal.PROBE_VERSION, PROBE_VERSION)                 // 与插件侧 wrapper 同值
+assert.equal(packReal.PROBE_VERSION, kernelFp.PROBE_VERSION)        // 与权威内核唯一字面量同值
+assert.equal(typeof packReal.digestTree, 'function')                // 算法也从内核来，不是空壳
+// 负对照 ①：注释里写着委托语句、实际导出错值 —— 旧判据会放行，现在必须**红**
+const pseudo = packSide((dir) => write(dir, 'tools/fingerprint.js',
+  "// module.exports = require('./unify/fingerprint.cjs')\nconst { digestTree } = require('./unify/fingerprint.cjs')\nmodule.exports = { digestTree, PROBE_VERSION: 'p:deadbeefdeadbeef' }\n"))
+assert.notEqual(pseudo.PROBE_VERSION, PROBE_VERSION)
+// 负对照 ②：完全不委托、自己塞一份假实现
+const bogus = packSide((dir) => write(dir, 'tools/fingerprint.js',
+  "module.exports = { digestTree: () => 'sha256:0', PROBE_VERSION: 'p:0000000000000000' }\n"))
+assert.notEqual(bogus.PROBE_VERSION, PROBE_VERSION)
+assert.notEqual(bogus.digestTree, packReal.digestTree)
+})
 h.case('M01','pass',()=>{const root=migrateFixture('plan');const before=tree(root);const p=plan(root);assert.equal(tree(root),before);assert.deepEqual(p.files.map(f=>f.path),['lessons/a/halo.json','lessons/a/p/point.json']);assert.match(p.planDigest,/^[a-f0-9]{64}$/)})
 h.case('M02','pass',()=>{const root=migrateFixture('apply');const p=plan(root);const before=tree(root);assert.equal(migration(root,'--adapters=jvm','--apply','--plan-digest='+p.planDigest).code,1);assert.equal(tree(root),before);const previous=p.files.map(f=>JSON.parse(Buffer.from(f.before,'base64')));assert.equal(migration(root,'--adapters=jvm','--apply','--confirm','--plan-digest='+p.planDigest).code,0);p.files.forEach((f,i)=>{const got=JSON.parse(fs.readFileSync(path.join(root,f.path),'utf8'));assert.deepEqual(got.practice.adapters,['jvm']);delete got.practice.adapters;assert.deepEqual(got,previous[i]);const beforeRaw=Buffer.from(f.before,'base64').toString('utf8'), afterRaw=fs.readFileSync(path.join(root,f.path),'utf8');assert.equal(afterRaw.replace(', \"adapters\": [\"jvm\"]',''),beforeRaw)});assert.equal(fs.readFileSync(path.join(root,'code/a/student.txt'),'utf8'),'student bytes');const clear=plan(root,'');assert.equal(migration(root,'--adapters=','--apply','--confirm','--plan-digest='+clear.planDigest).code,0);assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root,p.files[0].path))).practice.adapters,[])})
 h.case('M03','pass',()=>{const root=migrateFixture('changed');const p=plan(root);fs.appendFileSync(path.join(root,p.files[0].path),'\n');const before=tree(root);assert.equal(migration(root,'--adapters=jvm','--apply','--confirm','--plan-digest='+p.planDigest).code,1);assert.equal(tree(root),before);const escape=migrateFixture('escape');write(escape,'lessons/a/halo.json','{"practice":{"dirs":["../../outside"]}}');assert.equal(migration(escape,'--adapters=jvm','--plan').code,1);const linked=fixture('linked');const external=fixture('external');fs.symlinkSync(external,path.join(linked,'lessons/junction'),'junction');assert.equal(migration(linked,'--adapters=jvm','--plan').code,1);fs.unlinkSync(path.join(linked,'lessons/junction'))})

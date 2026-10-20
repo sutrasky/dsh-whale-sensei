@@ -77,21 +77,54 @@ try {
   ok(offenders.length === 0, `模板里 0 处机器专属路径${offenders.length ? '（' + offenders.join('；') + '）' : ''}`)
 
   const SKILL = path.join(PACK, 'skill-draft')
-  // —— 模板 = 原件经 pack-template-rules 的中性化替换；每条规则都必须真的命中 ——
+  // ── 2026-10-20（用户裁决"甲：拆分该断言"）────────────────────────────────────
+  // 旧判据一条管两件事：`模板 == 活包原件经中性化`。它把"模板是不是中性副本"和
+  // "活包是不是模板的副本"混成一个等式，于是**内容件**（学生自己的名词台账 / 样式 / 技能 /
+  // 星图）也被要求与模板逐字节相同 —— 活包只要落后一版、或学生改过自己的样式，这条就红，
+  // 而红的原因是"活包该升级/该自定义"，不是"模板被改坏了"。上一轮实测：模板 99 件 vs 活包
+  // same=63 / diff=31 / missing=5，其中引擎 4 件、内容 12 件。
+  //
+  // 拆成两件事，各自**不降强度**：
+  //   ① **模板自洽（中性）**：对每一件做 `sanitizeText(rel, 模板原件)`，结果必须**等于**模板原件本身
+  //      —— 模板里不许残留任何包专属 token（路径 / 学生名词 / 旧标题）。这条与活包无关，
+  //      所以活包落后不影响它；有人手改模板留下脏 token 立刻红。（反空转：`SANITIZE` 的
+  //      规则断言仍在下面单独钉住"每条规则至少命中一次"，两条合起来才完整。）
+  //   ② **活包一致性只验引擎件**（`tools/**`）：那些**必须**与模板逐字节相同 —— 包里跑的就是引擎，
+  //      引擎落后 = 学生用的判定口径与插件不一致，这是真故障。内容件只验**存在**，
+  //      允许多样（它们是学生的东西），见下面的 `contentMissing`。
   const missedRules = []
-  const tplDrift = []
+  const tplNotNeutral = []
+  const engineDrift = []
+  const contentMissing = []
   for (const rel of FROM_PACK) {
     if (DERIVED.includes(rel)) continue
+    const tplAbs = path.join(TEMPLATE_DIR, rel)
+    const tplText = fs.existsSync(tplAbs) ? fs.readFileSync(tplAbs, 'utf8') : null
+    if (tplText === null) { tplNotNeutral.push(`${rel}（模板里没有这一件）`); continue }
+    // ① 模板自身必须已经中性（sanitize 对它是幂等的）
+    const self = sanitizeText(rel, tplText)
+    if (self.text !== tplText) tplNotNeutral.push(`${rel}（模板里残留包专属 token）`)
+    // ② 引擎件才与活包逐字节比；内容件只验存在
     const src = path.join(PACK, rel)
-    if (!fs.existsSync(src)) { tplDrift.push(`${rel}（课程包里没有原件）`); continue }
-    const s = sanitizeText(rel, fs.readFileSync(src, 'utf8'))
-    missedRules.push(...s.missed)
-    const tpl = path.join(TEMPLATE_DIR, rel)
-    const got = fs.existsSync(tpl) ? fs.readFileSync(tpl, 'utf8') : null
-    if (got !== s.text) tplDrift.push(`${rel}（模板 ${got == null ? '缺' : Buffer.byteLength(got)} vs 期望 ${Buffer.byteLength(s.text)}）`)
+    const isEngine = rel.startsWith('tools/')
+    if (!fs.existsSync(src)) {
+      if (isEngine) engineDrift.push(`${rel}（课程包里没有原件）`)
+      else contentMissing.push(rel)
+      continue
+    }
+    if (!isEngine) continue
+    const packRaw = fs.readFileSync(src, 'utf8')
+    const s = sanitizeText(rel, packRaw)
+    // ⚠️ 只有"活包原件里**确实还有**包专属 token"时才要求每条规则命中。
+    //    活包一旦被升级成与模板同一份（中性文本），所有规则都会"打空" —— 那不是缺陷，
+    //    恰恰是升级成功的证据。旧口径无条件要求命中，等于**活包越同步越红**。
+    if (s.text !== packRaw) missedRules.push(...s.missed)
+    if (tplText !== s.text) engineDrift.push(`${rel}（模板 ${Buffer.byteLength(tplText)} vs 活包经中性化 ${Buffer.byteLength(s.text)}）`)
   }
-  ok(missedRules.length === 0, `中性化规则全部命中（${SANITIZE.length} 条）${missedRules.length ? '：' + missedRules.join('；') : ''}`)
-  ok(tplDrift.length === 0, `模板 == 课程包原件经中性化（${FROM_PACK.length - DERIVED.length} 个）${tplDrift.length ? '：' + tplDrift.join('、') : ''}`)
+  ok(missedRules.length === 0, `引擎件的中性化规则全部命中（${SANITIZE.length} 条）${missedRules.length ? '：' + missedRules.join('；') : ''}`)
+  ok(tplNotNeutral.length === 0, `模板自洽：每一件都已中性（sanitize 幂等，${FROM_PACK.length - DERIVED.length} 个）${tplNotNeutral.length ? '：' + tplNotNeutral.join('、') : ''}`)
+  ok(engineDrift.length === 0, `引擎件（tools/**）与课程包原件经中性化**逐字节相同**${engineDrift.length ? '：' + engineDrift.join('、') : ''}`)
+  ok(contentMissing.length === 0, `内容件在课程包里都在（只验存在，不要求与模板逐字节相同 —— 那是学生自己的东西）${contentMissing.length ? '：缺 ' + contentMissing.join('、') : ''}`)
 
   // —— 二进制件（字体 / favicon）：不走 utf8 文本管线，判据 = Buffer **逐字节**相等 ——
   const binDrift = []
@@ -148,8 +181,10 @@ try {
   // ⇒ 新包首课那个脚本 404、实践区不渲染（要跑过一次 whale_practice write=true 才有）。
   // 照「空星图」先例：建包就生成 0 项空骨架，契约与 whale_practice 的产出**同形**（复用真生成器序列化）。
   const pdata = require_(path.join(target, 'assets', 'practice-data.js'))
+  // 2026-10-20：主键契约升级成**规范课次身份** `circle/point/NNNN`（version 3 / `lesson-key`）——
+  // 骨架必须与真产出**同形**，否则 `assets/practice.js` 会把新包当旧格式拒绝渲染。
   ok(
-    pdata.version === 2 && pdata.keyScheme === 'lesson-id' && Object.keys(pdata.lessons || {}).length === 0 && Object.keys(pdata.byFile || {}).length === 0,
+    pdata.version === 3 && pdata.keyScheme === 'lesson-key' && Object.keys(pdata.lessons || {}).length === 0 && Object.keys(pdata.byFile || {}).length === 0,
     `骨架文件落地（practice-data.js：0 项空骨架，version=${pdata.version} keyScheme=${pdata.keyScheme}）`
   )
   ok(fs.existsSync(path.join(target, 'lessons', 'src')) && fs.existsSync(path.join(target, 'code')) && fs.existsSync(path.join(target, 'questions')), '目录树落地（lessons/src、code、questions）')

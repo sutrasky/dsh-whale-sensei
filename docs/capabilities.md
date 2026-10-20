@@ -1,6 +1,6 @@
 # 能力清单
 
-- 版本：0.3.2（来源：package.json）
+- 版本：0.4.0（来源：package.json）
 - 模块：25 个 · 工具：18 个
 
 > 模块顺序与每个模块的工具都来自 `lib/mods/index.js`（`manifest.mods.enabled` + 各模块的 `tools`）—— 本文件是生成物。

@@ -263,8 +263,12 @@ try {
 	/* ── ⑧ 页面数据：practice-data 带上档位与那一态 ───────────────────── */
 	{
 		const data = buildPracticeData({ state: readSnapshot(tmp), pack: readPack(tmp) })
-		const l = data.lessons['spring-boot/0001']
-		ok(Boolean(l), 'practice-data 里有 spring-boot/0001')
+		// ⚠️ 2026-10-20 身份夹具同步（本轮扩写集）：实践区主键是**规范课次身份**
+		//   `circle/point/NNNN`（U21 修补后 buildPracticeData 只产这种键），旧夹具写两段
+		//   `spring-boot/0001`。判据强度不变：仍然是"这一课**在**页面数据里"的精确查表。
+		const L1 = 'programming/spring-boot/0001'
+		const l = data.lessons[L1]
+		ok(Boolean(l), `practice-data 里有 ${L1}`)
 		const c4 = l.challenges.find((c) => c.no === 4)
 		ok(c4.evidence && c4.evidence.min === 'run' && c4.evidence.ok === true, '每道题的 evidence 进了页面数据（min/have/ok）')
 		ok(c4.state === 'review', '够档之后页面那一态是"需人工确认"（够档 ≠ 机器判过）')
@@ -274,7 +278,7 @@ try {
 		const c = probeState(tmp, readPack(tmp)).state
 		writeState(tmp, c)
 		const data2 = buildPracticeData({ state: readSnapshot(tmp), pack: readPack(tmp) })
-		const c4b = data2.lessons['spring-boot/0001'].challenges.find((x) => x.no === 4)
+		const c4b = data2.lessons[L1].challenges.find((x) => x.no === 4)
 		ok(c4b.state === 'evidence', `证据不够是**单独一态**（state=${c4b.state}）—— 不许并进 todo（那会让学生去改代码）`)
 		ok(Array.isArray(c4b.missing) && /还差一档证据/.test(c4b.missing[0] || ''), '那一态带着"还差哪一档"（页面直接显示）')
 
@@ -283,7 +287,7 @@ try {
 		const c2 = probeState(tmp, readPack(tmp)).state
 		writeState(tmp, c2)
 		const data3 = buildPracticeData({ state: readSnapshot(tmp), pack: readPack(tmp) })
-		ok(data3.lessons['spring-boot/0001'].evidenceFallback === true, '台账不存在 → 页面数据带 `evidenceFallback:true`（要显示出来）')
+		ok(data3.lessons[L1].evidenceFallback === true, '台账不存在 → 页面数据带 `evidenceFallback:true`（要显示出来）')
 		const page = fs.readFileSync(path.join(PLUGIN, 'lib', 'pack-template', 'assets', 'practice.js'), 'utf8')
 		ok(/evidenceFallback/.test(page) && /贴证据/.test(page), '课页脚本真的渲染那一块（贴证据表单 + 回退说明）')
 		ok(/data-ev-send/.test(page) && /\/evidence/.test(page), '表单真的 POST 到 /evidence（不是只画个框）')

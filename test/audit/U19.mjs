@@ -451,7 +451,8 @@ async function A05() {
 
 async function A06() {
   const pkg = JSON.parse(read('package.json'))
-  eq(pkg.version, '0.3.3', 'package.json#version 必须仍是 0.3.3')
+  // 2026-10-21：发布升版 0.3.3 → 0.4.0（用户授权）；判据形状不变。
+  eq(pkg.version, '0.4.0', 'package.json#version 必须仍是 0.4.0')
   eq(pkg.dsh && pkg.dsh.distribution && pkg.dsh.distribution.mode, 'private', 'dsh.distribution.mode 必须仍是 private')
   const files = Array.isArray(pkg.files) ? pkg.files : []
   // ① 运行内核（权威 + 随包副本）都必须被发布清单覆盖

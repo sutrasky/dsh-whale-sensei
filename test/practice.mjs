@@ -19,6 +19,7 @@ import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { readPack } from '../lib/pack.js'
 import { probeState } from '../lib/state-scan.js'
+import { lessonEvidenceKeys } from '../lib/state.js'
 import { PROBE_VERSION } from '../lib/fingerprint.js'
 import { buildPracticeData, renderPracticeDataModule, describeConflict } from '../lib/practice.js'
 import { probeBase, dumpDom, findBrowser } from '../lib/visual-io.js'
@@ -57,25 +58,33 @@ const { state } = probeState(ROOT, pack)
 const data = buildPracticeData({ state, pack })
 const text = renderPracticeDataModule(data)
 
-// 4 课 = spring-boot 第1/2课 + vue 第1课 + **alge 第1课**（高数，2026-09-24 补的判据）。
+// 5 课 = spring-boot 第1/2/**3**课 + vue 第1课 + **alge 第1课**（高数，2026-09-24 补的判据）。
+// ⚠️ 2026-10-20（用户裁决「甲」）：活包在 spring-boot 下已经长到第 3 课（0003 JPA+H2，带自己的
+//    EXPECT.json），所以这里从 4 改成 5 —— 这不是"放宽"，是课数口径对齐活包现状；判据仍要求
+//    **恰好等于**，多一课少一课都会红。
 // 2026-09-24 D1：vue 的实践区（只有 EXPECT.json）以前立不成项目 ⇒ 它那份判据永远读不到、
 // 这里只有 2 条；修完变成 3 条 —— 这条断言就是那个缺陷的回归判据。
-// 2026-09-24 D2-a：键从「课号」改成**课 id**（`spring-boot/0001`）—— 课号跨圈会撞车（见下）
+// 2026-10-20：主键从「两段课 id」升成**规范课次身份** `circle/point/NNNN`
+//   （旧正则只认两段 ⇒ 包侧已经输出的三段键被全部滤掉、`byFile` 恒空；审查实测的真缺口）。
+//   EXPECT.json 仍按 C6 声明两段，解析走 `lib/state.js#lessonEvidenceKeys` 那座带上下文的桥。
 ok(
-  data.version === 2 && data.keyScheme === 'lesson-id' && Object.keys(data.lessons).length === 4,
-  `四课都有实践数据（${Object.keys(data.lessons).join('、')}）`
+  data.version === 3 && data.keyScheme === 'lesson-key' && Object.keys(data.lessons).length === 5,
+  `五课都有实践数据（${Object.keys(data.lessons).join('、')}）`
 )
-ok(!!data.lessons['vue/1001'], 'vue 第1课的实践数据出现了（D1 修掉的那条链）')
+ok(!!data.lessons['programming/vue/1001'], 'vue 第1课的实践数据出现了（D1 修掉的那条链）')
 // 真包上的活体碰撞回归：`spring-boot/0001` 与 `alge/0001` **课号都是 1**，两条必须都在
 ok(
-  !!data.lessons['spring-boot/0001'] && !!data.lessons['alge/0001'],
+  !!data.lessons['programming/spring-boot/0001'] && !!data.lessons['math/alge/0001'],
   '真包上两个「第1课」（spring-boot 与 alge）并存、没有互相覆盖'
 )
-const l1 = data.lessons['spring-boot/0001']
-const l2 = data.lessons['spring-boot/0002']
+const l1 = data.lessons['programming/spring-boot/0001']
+const l2 = data.lessons['programming/spring-boot/0002']
 // ⚠️ 这几条**不许写死数字**：真包是学生**正在用**的包（2026-09-24 实测：他当天就把第2课做到 2/3，
 //    写死"第2课 0/3"当场就红）。判据改成"页面拿到的数 = 探针算的数"—— 这才是这套真正要验的。
-const byId = new Map((state.projects || []).flatMap((p) => (p.lessons || []).map((l) => [l.id, l])))
+// 2026-10-20：快照里的课次 id 是 **EXPECT 的声明形状**（两段），而实践区的主键是规范三段 ——
+//    对位必须走同一座带上下文的桥（`lessonEvidenceKeys`），不能拿两段去直接比。
+const resolveKey = lessonEvidenceKeys(pack)
+const byId = new Map((state.projects || []).flatMap((p) => (p.lessons || []).map((l) => [resolveKey(l.id, p.dir).canonical || l.id, l])))
 let mismatched = 0
 for (const [key, d] of Object.entries(data.lessons)) {
   const l = byId.get(key)
@@ -99,9 +108,9 @@ ok(/产出/.test(text), '生成的 JS 里带着产出字段（页面拿它显示
 ok(!/%/.test(text), '数据文件里**没有百分比**（口径：只报 k/n）')
 ok(!/[\u{1F300}-\u{1FAFF}]/u.test(text) && !/[✗✓⚠]/.test(text), '数据文件里没有 emoji/装饰符号（UI 层规则）')
 
-// ── 跨圈撞车回归（2026-09-24 D2-a）──
+// ── 跨圈撞车回归（2026-09-24 D2-a；2026-10-20 升到规范身份）──
 // 键以前是「课号」：`spring-boot/0001` 与 `alge/0001` **都是 `1`** —— 后写的**静默覆盖**前一条，
-// 页面按课号查就会串课。造一份最小 state（两个圈各有一门 0001）看两条是否都在。
+// 页面按课号查就会串课。现在主键是 `circle/point/NNNN`：两个圈同名同号也各有各的键。
 const mkLesson = (id, achieved, total) => ({
   id,
   title: id,
@@ -113,18 +122,18 @@ const colliding = buildPracticeData({
     // 手搓快照照抄真快照的顶层形状（probeVersion 用 import 的常量，不写字面量）
     probeVersion: PROBE_VERSION,
     projects: [
-      { dir: 'code/a', expect: { path: 'code/a/EXPECT.json' }, lessons: [mkLesson('spring-boot/0001', 3, 3)] },
-      { dir: 'code/b', expect: { path: 'math/alge/EXPECT.json' }, lessons: [mkLesson('alge/0001', 0, 2)] },
+      { dir: 'code/a', expect: { path: 'code/a/EXPECT.json' }, lessons: [mkLesson('programming/spring-boot/0001', 3, 3)] },
+      { dir: 'code/b', expect: { path: 'math/alge/EXPECT.json' }, lessons: [mkLesson('math/alge/0001', 0, 2)] },
     ],
   },
   pack: { lessons: [] },
 })
 ok(
-  Object.keys(colliding.lessons).length === 2 && !!colliding.lessons['spring-boot/0001'] && !!colliding.lessons['alge/0001'],
+  Object.keys(colliding.lessons).length === 2 && !!colliding.lessons['programming/spring-boot/0001'] && !!colliding.lessons['math/alge/0001'],
   `跨圈同名课号**不互相覆盖**（${Object.keys(colliding.lessons).join('、')}）`
 )
-ok(colliding.lessons['alge/0001'].summary.total === 2, '两条数据的数值各归各（没有串课）')
-ok(colliding.lessons['spring-boot/0001'].expect === 'code/a/EXPECT.json', '每条带着**自己项目**的 EXPECT 路径（页面脚注不再写死）')
+ok(colliding.lessons['math/alge/0001'].summary.total === 2, '两条数据的数值各归各（没有串课）')
+ok(colliding.lessons['programming/spring-boot/0001'].expect === 'code/a/EXPECT.json', '每条带着**自己项目**的 EXPECT 路径（页面脚注不再写死）')
 
 // ── 文件名兜底键的歧义（2026-09-25，P1-11）──
 // 两个**不同的课**共用同一个文件名时，页面按文件名兜底会拿到**别的课**的实践区（静默错位）。
@@ -135,39 +144,48 @@ ok(colliding.lessons['spring-boot/0001'].expect === 'code/a/EXPECT.json', '每�
     state: {
       probeVersion: PROBE_VERSION,
       projects: [
-        { dir: 'code/a', expect: { path: 'code/a/EXPECT.json' }, lessons: [mkLesson('spring-boot/0001', 1, 1)] },
-        { dir: 'code/b', expect: { path: 'math/alge/EXPECT.json' }, lessons: [mkLesson('alge/0001', 1, 1)] },
+        { dir: 'code/a', expect: { path: 'code/a/EXPECT.json' }, lessons: [mkLesson('programming/spring-boot/0001', 1, 1)] },
+        { dir: 'code/b', expect: { path: 'math/alge/EXPECT.json' }, lessons: [mkLesson('math/alge/0001', 1, 1)] },
       ],
     },
     pack: {
       lessons: [
-        { id: 'spring-boot/0001', file: 'programming/spring-boot/0001-hello.html' },
-        { id: 'alge/0001', file: 'math/alge/0001-hello.html' },
+        { id: 'programming/spring-boot/0001', file: 'programming/spring-boot/0001-hello.html' },
+        { id: 'math/alge/0001', file: 'math/alge/0001-hello.html' },
       ],
     },
     conflicts,
   })
   ok(data2.byFile['0001-hello.html'] === undefined, '同名文件**不写兜底键**（宁可兜底查不到，也不给错课的实践区）')
   ok(
-    data2.byFile['programming/spring-boot/0001-hello.html'] === 'spring-boot/0001' &&
-      data2.byFile['math/alge/0001-hello.html'] === 'alge/0001',
+    data2.byFile['programming/spring-boot/0001-hello.html'] === 'programming/spring-boot/0001' &&
+      data2.byFile['math/alge/0001-hello.html'] === 'math/alge/0001',
     '整路径键照旧都在（页面主查法不受影响）'
   )
   ok(
     conflicts.length === 1 &&
       conflicts[0].base === '0001-hello.html' &&
-      describeConflict(conflicts[0]).includes('spring-boot/0001') &&
-      describeConflict(conflicts[0]).includes('alge/0001'),
+      describeConflict(conflicts[0]).includes('programming/spring-boot/0001') &&
+      describeConflict(conflicts[0]).includes('math/alge/0001'),
     `歧义被**报出来**（${conflicts.length} 条）`
   )
   // 反空转：只有一个课用这个文件名时，兜底键必须照常写（别把正常情况也堵死）
   const aliasOk = buildPracticeData({
-    state: { probeVersion: PROBE_VERSION, projects: [{ dir: 'code/a', expect: { path: 'code/a/EXPECT.json' }, lessons: [mkLesson('spring-boot/0001', 1, 1)] }] },
-    pack: { lessons: [{ id: 'spring-boot/0001', file: 'programming/spring-boot/0001-hello.html' }] },
+    state: { probeVersion: PROBE_VERSION, projects: [{ dir: 'code/a', expect: { path: 'code/a/EXPECT.json' }, lessons: [mkLesson('programming/spring-boot/0001', 1, 1)] }] },
+    pack: { lessons: [{ id: 'programming/spring-boot/0001', file: 'programming/spring-boot/0001-hello.html' }] },
     conflicts: [],
   })
-  ok(aliasOk.byFile['0001-hello.html'] === 'spring-boot/0001', '反空转：文件名不冲突时兜底键照旧写（正常路径没被堵死）')
+  ok(aliasOk.byFile['0001-hello.html'] === 'programming/spring-boot/0001', '反空转：文件名不冲突时兜底键照旧写（正常路径没被堵死）')
 }
+
+// ── 新增 1 条（2026-10-20）：byFile 的每个值都必须指向 lessons 里**现存**的键 ──
+// 这是当初那个真实生产缺口的直接判据：旧正则只认两段 ⇒ 包侧三段键全被滤掉 ⇒ byFile 恒空。
+// 只断言"非空"还不够 —— 值指到不存在的键时页面按文件名兜底会拿到空记录（看起来像没数据）。
+ok(
+  Object.keys(data.byFile).length > 0 &&
+    Object.values(data.byFile).every((k) => Object.prototype.hasOwnProperty.call(data.lessons, k)),
+  `byFile 的每个值都指向 lessons 里现存的规范键（${Object.keys(data.byFile).length} 条兜底键）`
+)
 
 ok(text === fs.readFileSync(path.join(ROOT, DATA_REL), 'utf8'), '真包磁盘上的 practice-data.js 与现算结果**逐字节相同**（漂移检查绿）')
 
@@ -194,7 +212,7 @@ try {
   const req = createRequire(import.meta.url)
   delete req.cache[target]
   const required = req(target)
-  ok(required.version === 2 && required.lessons['spring-boot/0001'].summary.total === 3, '产物是合法 JS，require 回来形状对')
+  ok(required.version === 3 && required.lessons['programming/spring-boot/0001'].summary.total === 3, '产物是合法 JS，require 回来形状对')
   ok(Object.keys(required.byFile).length >= 1, `byFile 兜底键在（${Object.keys(required.byFile).join('、')}）`)
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true })

@@ -278,13 +278,18 @@ try {
   ok(noteSec0.lines.includes('还没有笔记'), '空台账写「还没有笔记」')
 
   // 写入 3 条笔记，覆盖截断和显示名
+  //
+  // ⚠️ 2026-10-20 身份夹具同步：台账 `anchor` 是**身份**，运行态只认 `circle/point/NNNN`。
+  //    旧夹具写的是两段课键 `spring-boot/0001` —— U09 收敛后 `labelOfAnchor` 对它返回 null，
+  //    brief 于是回退显示原锚点（`[spring-boot/0001]`），"显示的是课次显示名"那条就红了。
+  //    这里换成规范身份（**不是**把内核改回去兼容旧值）：显示名照旧由 `labelOfAnchor` 反推。
   const noteDir = path.join(tmp, 'notes')
   fs.mkdirSync(noteDir, { recursive: true })
   const longText = '这是一段超长的笔记正文，用来测试截断功能。'.repeat(10) // >120 字符
   const notesLines = [
-    JSON.stringify({ id: '0001', seq: 1, kind: '笔记', anchor: 'spring-boot/0001', text: '第一条笔记正文' }),
-    JSON.stringify({ id: '0002', seq: 2, kind: '笔记', anchor: 'spring-boot/0002', text: longText }),
-    JSON.stringify({ id: '0003', seq: 3, kind: '笔记', anchor: 'spring-boot/0001', text: '第三条' }),
+    JSON.stringify({ id: '0001', seq: 1, kind: '笔记', anchor: 'programming/spring-boot/0001', text: '第一条笔记正文' }),
+    JSON.stringify({ id: '0002', seq: 2, kind: '笔记', anchor: 'programming/spring-boot/0002', text: longText }),
+    JSON.stringify({ id: '0003', seq: 3, kind: '笔记', anchor: 'programming/spring-boot/0001', text: '第三条' }),
   ].join('\n') + '\n'
   fs.writeFileSync(path.join(noteDir, 'notes.jsonl'), notesLines, 'utf8')
 
@@ -296,6 +301,18 @@ try {
   ok(noteSec.lines[0] === '共 3 条', '写了 3 条就是 3 条')
   ok(withNotes.markdown.includes('第一条笔记正文'), '第一条笔记正文出现在 brief 里')
   ok(noteSec.lines.some((l) => l.includes('第1课')), '显示的是课次显示名（第1课），不是生锚点')
+  // 新增 1 条（2026-10-20）：**历史两段锚点不许被静默归一**成显示名 ——
+  // 台账里真有一段历史写法时，brief 只能如实显示原锚点（读点不猜），迁移是迁移工具的事。
+  {
+    const legacyDir = path.join(noteDir, 'notes.jsonl')
+    const keep = fs.readFileSync(legacyDir, 'utf8')
+    fs.writeFileSync(legacyDir, JSON.stringify({ id: '0004', seq: 4, kind: '笔记', anchor: 'spring-boot/0001', text: '历史写法' }) + '\n', 'utf8')
+    const legacy = await tool2.execute({ root: tmp })
+    const legacySec = legacy.brief.sections.find((s) => s.title === '学生笔记')
+    ok(legacySec.lines.some((l) => l.includes('[spring-boot/0001]')) && !legacySec.lines.some((l) => l.includes('[第1课]')),
+      `历史两段锚点**不猜显示名**、如实显示原锚点（${legacySec.lines.slice(1).join(' / ')}）`)
+    fs.writeFileSync(legacyDir, keep, 'utf8')
+  }
   ok(noteSec.lines.some((l) => l.includes('…')), '超长正文被截断且有可见标记（…）')
   ok(!withNotes.markdown.includes(longText), '完整超长文本不出现在 brief 里（被截断了）')
   // 确定性：两次渲染逐字节相同
@@ -305,7 +322,7 @@ try {
   // 超过展示上限（20 条）：必须写出未列条数，**不许静默丢**
   const many = []
   for (let i = 4; i <= 24; i++) {
-    many.push(JSON.stringify({ id: String(i).padStart(4, '0'), seq: i, kind: '笔记', anchor: 'spring-boot/0001', text: `第${i}条` }))
+    many.push(JSON.stringify({ id: String(i).padStart(4, '0'), seq: i, kind: '笔记', anchor: 'programming/spring-boot/0001', text: `第${i}条` }))
   }
   fs.writeFileSync(path.join(noteDir, 'notes.jsonl'), notesLines + many.join('\n') + '\n', 'utf8')
   const capped = await tool2.execute({ root: tmp })

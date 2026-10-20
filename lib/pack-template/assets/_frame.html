@@ -57,15 +57,22 @@
         <!-- 名词解释与疑问**分开**：名词不再进笔记页，改住名词地图（glossary/index.html）。
              这条是课程页去地图的唯一入口，别删。 -->
         <a class="notes-card__link" href="{{PAGE_UP}}glossary/">名词地图</a>
-        <a class="notes-card__link" href="{{STARMAP_HREF}}#{{LESSON_ID}}" target="starmap">在星图中查看这一课</a>
+        <!-- 星图深链的锚点必须与 `starmap/content.js` 里 lessons[].id 同形 ——
+             U21 起星图数据只吐**规范课次身份** circle/point/NNNN（`lib/unify/content.cjs`
+             的 `courseIdOf` 走 identity.lessonKey 唯一实现），所以这里也用运行态课键；
+             用两段键会得到一条打不开的锚点（`tools/build-public.js#assertStarLinksRewritten`
+             就是钉这件事的）。 -->
+        <a class="notes-card__link" href="{{STARMAP_HREF}}#{{LESSON_RUNTIME_KEY}}" target="starmap">在星图中查看这一课</a>
         <!-- 疑问入口（§1：旧的右下角漂浮胶囊已撤销，改成卡片里的按钮 + 居中弹层；由 ask.js 绑定）
              角标 .ask-badge（2026-09-24 主人定）：答疑有新增时在这里露一个数字，不必另开一页才看得见。
              数字由 ask.js 从上面那个 data-qa-count 推出来（构建期烘进去的已答条数）；
              没有新答复时带 [hidden] —— 不占位、不改卡片高度。 -->
         <button type="button" class="notes-card__ask" data-ask-open aria-haspopup="dialog">我有疑问<span class="ask-badge" data-ask-badge hidden></span></button>
         <!-- @WHALE:ASK -->
-        <!-- 课后调整 → 进度回写：记录调整 + 点亮本课（星图那边轮询到就同步点亮） -->
-        <details class="adjust" data-lesson="{{LESSON_ID}}">
+        <!-- 课后调整 → 进度回写：记录调整 + 点亮本课（星图那边轮询到就同步点亮）
+             data-lesson 必须是**运行态课次身份** circle/point/NNNN（写口只认它）；
+             上面那条星图链接同理（星图数据的 id 也是规范三段），CSS/页面可视文案不受影响。 -->
+        <details class="adjust" data-lesson="{{LESSON_RUNTIME_KEY}}">
           <summary class="notes-card__link">课后调整 / 学完了</summary>
           <div class="adjust__body">
             <label class="adjust__label" for="adjust-text">这一课哪里要改？（可以空着）</label>

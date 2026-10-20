@@ -76,7 +76,7 @@ const EXEMPT = [
   },
   {
     id: 'E3', cases: ['unknown-lesson（快照里没这课）'], field: 'warning',
-    plugIs: (v) => typeof v === 'string' && v.includes('《demo/0009》') && v.includes('刷新'),
+    plugIs: (v) => typeof v === 'string' && v.includes('《demo/demo/0009》') && v.includes('刷新'),
     packIs: (v) => v === null,
     插件: '显式告警（指名课次 id + 修法"核对 id / 刷新快照"）',
     包侧: '无 warning 概念（拒绝时用 ok:false + code + hint 表意）',
@@ -94,7 +94,7 @@ const EXEMPT = [
   },
   {
     id: 'E5', cases: ['no-criteria（没声明挑战判据）'], field: 'warning',
-    plugIs: (v) => typeof v === 'string' && v.includes('《demo/0003》') && v.includes('challenges'),
+    plugIs: (v) => typeof v === 'string' && v.includes('《demo/demo/0003》') && v.includes('challenges'),
     packIs: (v) => v === null,
     插件: '显式告警（指名课次 + 修法"补判据"）',
     包侧: '无 warning（拒绝）',
@@ -134,8 +134,8 @@ const EXEMPT = [
 const exemptOf = (c, field) => EXEMPT.find((e) => e.field === field && e.cases.includes(c))
 
 /* ── 影副本 fixture：一个 maven 小项目 + 三课判据（照 test/lightup.mjs 的现成形态）──
- * `demo/0001` = 全过 + 第 4 题 auto:false（走 needsReview）；`demo/0002` = 第 2 题没过；
- * `demo/0003` = 没声明 challenges（→ 快照里 challenges:null）。
+ * `demo/demo/0001` = 全过 + 第 4 题 auto:false（走 needsReview）；`demo/0002` = 第 2 题没过；
+ * `demo/demo/0003` = 没声明 challenges（→ 快照里 challenges:null）。
  */
 const STUB_PACK = { circles: [{practice:{dirs:['code/demo'],adapters:['jvm']}}], points: 0, lessons: 3, learned: 0 }
 const STATE = (tmp) => path.join(tmp, 'learning-records', 'state.json')
@@ -188,25 +188,29 @@ const setEvidence = (doc, lesson, no, ev) => {
 }
 
 const CASES = [
-  { name: 'no-snapshot（快照读不到）', lesson: 'demo/0001', number: 1, want: 'no-snapshot', noSnapshot: true },
-  { name: 'unknown-lesson（快照里没这课）', lesson: 'demo/0009', number: 9, want: 'unknown-lesson' },
-  { name: 'no-criteria（没声明挑战判据）', lesson: 'demo/0003', number: 3, want: 'no-criteria' },
-  { name: 'stale-snapshot（探针版本旧）', lesson: 'demo/0001', number: 1, want: 'stale-snapshot', mutate: (d) => { d.probeVersion = 'p:OLD-PROBE-VERSION' } },
-  { name: 'stale-snapshot（代码树又变了）', lesson: 'demo/0001', number: 1, want: 'stale-snapshot', mutate: (d) => { d.projects[0].sourceDigest = 'sha256:deadbeef-not-current' } },
-  { name: 'criteria-not-met（有题没过）', lesson: 'demo/0002', number: 2, want: 'criteria-not-met' },
-  { name: 'ok（全过；auto:false 走 needsReview）', lesson: 'demo/0001', number: 1, want: 'ok' },
+  { name: 'no-snapshot（快照读不到）', lesson: 'demo/demo/0001', number: 1, want: 'no-snapshot', noSnapshot: true },
   {
-    name: 'ok（required 还缺：不阻塞、照实回执）', lesson: 'demo/0001', number: 1, want: 'ok',
-    mutate: (d) => { findLesson(d, 'demo/0001').missing = [{ id: 'any', hint: '要有 @Demo' }] },
+    name: 'unknown-lesson（快照里没这课）', lesson: 'demo/demo/0009', number: 9, want: 'unknown-lesson',
+    // 0009 在包里（声明 + 页都在 ⇒ 身份闸放行），只是**快照里没有它** —— 这样才落到 unknown-lesson 那一层
+    mutate: (d) => { for (const pr of d.projects || []) pr.lessons = (pr.lessons || []).filter((x) => x.id !== 'demo/demo/0009') },
+  },
+  { name: 'no-criteria（没声明挑战判据）', lesson: 'demo/demo/0003', number: 3, want: 'no-criteria' },
+  { name: 'stale-snapshot（探针版本旧）', lesson: 'demo/demo/0001', number: 1, want: 'stale-snapshot', mutate: (d) => { d.probeVersion = 'p:OLD-PROBE-VERSION' } },
+  { name: 'stale-snapshot（代码树又变了）', lesson: 'demo/demo/0001', number: 1, want: 'stale-snapshot', mutate: (d) => { d.projects[0].sourceDigest = 'sha256:deadbeef-not-current' } },
+  { name: 'criteria-not-met（有题没过）', lesson: 'demo/demo/0002', number: 2, want: 'criteria-not-met' },
+  { name: 'ok（全过；auto:false 走 needsReview）', lesson: 'demo/demo/0001', number: 1, want: 'ok' },
+  {
+    name: 'ok（required 还缺：不阻塞、照实回执）', lesson: 'demo/demo/0001', number: 1, want: 'ok',
+    mutate: (d) => { findLesson(d, 'demo/demo/0001').missing = [{ id: 'any', hint: '要有 @Demo' }] },
   },
   // ── 证据档（P0-4 戊1b，2026-09-25）：两侧同批加的**同一个分支**，所以必须在这里对拍 ──
   {
-    name: 'evidence-insufficient（只贴了口头确认）', lesson: 'demo/0001', number: 1, want: 'evidence-insufficient',
-    mutate: (d) => { setEvidence(d, 'demo/0001', 4, { min: 'test', have: 'verbal', haveRank: 1, needRank: 3, ok: false, hint: '第4题还差一档证据（现在只有「口头确认」）：补上 学生自己写的测试 或 运行结果 任意一档' }) },
+    name: 'evidence-insufficient（只贴了口头确认）', lesson: 'demo/demo/0001', number: 1, want: 'evidence-insufficient',
+    mutate: (d) => { setEvidence(d, 'demo/demo/0001', 4, { min: 'test', have: 'verbal', haveRank: 1, needRank: 3, ok: false, hint: '第4题还差一档证据（现在只有「口头确认」）：补上 学生自己写的测试 或 运行结果 任意一档' }) },
   },
   {
-    name: 'ok（证据补到档了）', lesson: 'demo/0001', number: 1, want: 'ok',
-    mutate: (d) => { setEvidence(d, 'demo/0001', 4, { min: 'test', have: 'test', haveRank: 3, needRank: 3, ok: true, hint: '' }) },
+    name: 'ok（证据补到档了）', lesson: 'demo/demo/0001', number: 1, want: 'ok',
+    mutate: (d) => { setEvidence(d, 'demo/demo/0001', 4, { min: 'test', have: 'test', haveRank: 3, needRank: 3, ok: true, hint: '' }) },
   },
 ]
 
@@ -233,7 +237,7 @@ try {
   fs.writeFileSync(path.join(proj, 'EXPECT.json'), JSON.stringify({
     lessons: [
       {
-        id: 'demo/0001', title: '你好，点亮',
+        id: 'demo/demo/0001', title: '你好，点亮',
         required: [{ id: 'any', kind: 'annotation', value: 'Demo', hint: '要有 @Demo' }],
         challenges: [
           { no: 1, deliverable: '有一个 @Demo 标的类', checks: [{ id: 'c1', kind: 'annotation', value: 'Demo' }] },
@@ -243,16 +247,27 @@ try {
         ],
       },
       {
-        id: 'demo/0002', title: '差一题',
+        id: 'demo/demo/0002', title: '差一题',
         required: [{ id: 'any', kind: 'annotation', value: 'Demo', hint: '要有 @Demo' }],
         challenges: [
           { no: 1, deliverable: '有一个 @Demo 标的类', checks: [{ id: 'c1', kind: 'annotation', value: 'Demo' }] },
           { no: 2, deliverable: '有 @Nope 注解', checks: [{ id: 'c2', kind: 'annotation', value: 'Nope', hint: '要加 @Nope' }] },
         ],
       },
-      { id: 'demo/0003', title: '没声明判据', required: [{ id: 'any', kind: 'annotation', value: 'Demo', hint: '要有 @Demo' }] },
+      { id: 'demo/demo/0003', title: '没声明判据', required: [{ id: 'any', kind: 'annotation', value: 'Demo', hint: '要有 @Demo' }] },
+      // 0009 只用来造"快照里没这课"：它在包里（声明 + 页都在 ⇒ 身份闸放行），
+      // 那个用例靠 mutate 把它从快照里删掉，才落到 unknown-lesson 那一层。
+      { id: 'demo/demo/0009', title: '快照里没有这一课', required: [{ id: 'any', kind: 'annotation', value: 'Demo', hint: '要有 @Demo' }] },
     ],
   }, null, 2) + '\n', 'utf8')
+  // ⚠️ 2026-10-20 身份夹具同步（本轮扩写集）：/progress 的写前身份闸按**本包课次映射表**解析，
+  //   映射表 = EXPECT.json 的声明 + `lessons/<circle>/<point>/NNNN-*.html` 的页；旧夹具两样都没有，
+  //   那时没有这道闸所以照样过 —— 现在必须真给页，否则任何 id 都先被闸拒成 ID_NOT_ALLOWED。
+  const lessonDir = path.join(tmp, 'lessons', 'demo', 'demo')
+  fs.mkdirSync(lessonDir, { recursive: true })
+  for (const [no, slug] of [['0001', 'hello'], ['0002', 'half'], ['0003', 'nocrit'], ['0009', 'nosnap']]) {
+    fs.writeFileSync(path.join(lessonDir, `${no}-${slug}.html`), `<!doctype html><html><body><h1>${no}</h1></body></html>\n`, 'utf8')
+  }
   fs.writeFileSync(PROGRESS(tmp), JSON.stringify({ _: '人和星图共读', learned: [], note: '别删我' }, null, 2) + '\n', 'utf8')
 
   // 判据快照：真走探针管线（probeState → writeState），不是手搓 JSON

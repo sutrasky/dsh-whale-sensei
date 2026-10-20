@@ -389,9 +389,22 @@
       },
       {
         "path": "lib/pack-template/tools/unify/render.cjs",
-        "bytes": 36506,
-        "sha256": "eba1a1844fe36033759df7743dec9d0eb1576e3fa9af5101e76da6f57827424c",
-        "note": "生成副本（逐字节等于 lib/unify/render.cjs）"
+        "bytes": 38220,
+        "sha256": "736104b53fa2e4b83d7378fa1e3f5715af5b8aa59b5ba9aeb2f5c9890fa59353",
+        "note": "生成副本（逐字节等于 lib/unify/render.cjs）",
+        "drift": {
+          "note": "U19 交付时记的是 before 的值；render.cjs / content.cjs 在交付之后又被改过（U07/U15 的后续接线与 2026-10-20 的身份修补），原记录未同步 ⇒ 属\"未标注的历史结论\"。本次按盘上真值更正，并保留原值。",
+          "before": {
+            "bytes": 36506,
+            "sha256": "eba1a1844fe36033759df7743dec9d0eb1576e3fa9af5101e76da6f57827424c"
+          },
+          "after": {
+            "bytes": 38220,
+            "sha256": "736104b53fa2e4b83d7378fa1e3f5715af5b8aa59b5ba9aeb2f5c9890fa59353"
+          },
+          "verifiedAt": "2026-10-20",
+          "verifiedBy": "repair-session-20261020（逐文件重算 bytes + sha256，口径与 tools/sync-unify-core.mjs 相同）"
+        }
       },
       {
         "path": "lib/pack-template/tools/unify/pack.cjs",
@@ -419,9 +432,22 @@
       },
       {
         "path": "lib/pack-template/tools/unify/content.cjs",
-        "bytes": 59522,
-        "sha256": "64a4c6493fb522292bc76cd3ac898bc51e6082a33f885c1ee5db21f5955c2d48",
-        "note": "生成副本（逐字节等于 lib/unify/content.cjs）"
+        "bytes": 63592,
+        "sha256": "b93636193f6f9e7b76fa06e53c1829c7bf922253d17cc0234bedcb70ce14036a",
+        "note": "生成副本（逐字节等于 lib/unify/content.cjs）",
+        "drift": {
+          "note": "U19 交付时记的是 before 的值；render.cjs / content.cjs 在交付之后又被改过（U07/U15 的后续接线与 2026-10-20 的身份修补），原记录未同步 ⇒ 属\"未标注的历史结论\"。本次按盘上真值更正，并保留原值。",
+          "before": {
+            "bytes": 59522,
+            "sha256": "64a4c6493fb522292bc76cd3ac898bc51e6082a33f885c1ee5db21f5955c2d48"
+          },
+          "after": {
+            "bytes": 63592,
+            "sha256": "b93636193f6f9e7b76fa06e53c1829c7bf922253d17cc0234bedcb70ce14036a"
+          },
+          "verifiedAt": "2026-10-20",
+          "verifiedBy": "repair-session-20261020（逐文件重算 bytes + sha256，口径与 tools/sync-unify-core.mjs 相同）"
+        }
       },
       {
         "path": "lib/pack-template/tools/unify/evidence.cjs",
@@ -564,7 +590,7 @@
     }
   },
   "assertions": {
-    "A01": "十四个运行内核的生成副本逐字节等于权威源码（长度 + sha256 + Buffer.equals）；migration.cjs 不得出现在镜像目录。",
+    "A01": "十四个运行内核的生成副本逐字节等于权威源码（长度 + sha256 + Buffer.equals）；migration.cjs 不得出现在镜像目录。 ｜ 2026-10-20 更正：回执里 render.cjs / content.cjs 的 bytes/sha256 四条（权威 2 + 镜像 2）已按盘上真值更新，原值保留在各自 drift.before。",
     "A02": "缺件、改字节、多件（含 migration.cjs）、空镜像、镜像目录不在、权威缺件 —— 六类 ＋ --write 清场，全部真跑 exit code 与 ok=false 判词。",
     "A03": "两份登记清单成对且分类唯一：TEMPLATE_FILES ↔ 引擎闭包 requiredButNotRegistered=[] ↔ templatePaths()；14 份镜像的唯一合法来源桶是 FROM_PLUGIN；FROM_PLUGIN 只做只读覆盖核对并登记结论。",
     "A04": "writeScaffold 建空包 → 14 份副本逐字节等于权威 → 包侧 require 14/14 → 委托层与内核同一函数对象（lessonMap === lessonIndex、stripBom === stripBom）→ 真跑 build-lessons（跳过≠通过）与 assets/build-glossary（产出 GLOSSARY.md）。",
@@ -727,8 +753,21 @@
       {
         "module": "render",
         "path": "lib/unify/render.cjs",
-        "bytes": 36506,
-        "sha256": "eba1a1844fe36033759df7743dec9d0eb1576e3fa9af5101e76da6f57827424c"
+        "bytes": 38220,
+        "sha256": "736104b53fa2e4b83d7378fa1e3f5715af5b8aa59b5ba9aeb2f5c9890fa59353",
+        "drift": {
+          "note": "U19 交付时记的是 before 的值；render.cjs / content.cjs 在交付之后又被改过（U07/U15 的后续接线与 2026-10-20 的身份修补），原记录未同步 ⇒ 属\"未标注的历史结论\"。本次按盘上真值更正，并保留原值。",
+          "before": {
+            "bytes": 36506,
+            "sha256": "eba1a1844fe36033759df7743dec9d0eb1576e3fa9af5101e76da6f57827424c"
+          },
+          "after": {
+            "bytes": 38220,
+            "sha256": "736104b53fa2e4b83d7378fa1e3f5715af5b8aa59b5ba9aeb2f5c9890fa59353"
+          },
+          "verifiedAt": "2026-10-20",
+          "verifiedBy": "repair-session-20261020（逐文件重算 bytes + sha256，口径与 tools/sync-unify-core.mjs 相同）"
+        }
       },
       {
         "module": "pack",
@@ -757,8 +796,21 @@
       {
         "module": "content",
         "path": "lib/unify/content.cjs",
-        "bytes": 59522,
-        "sha256": "64a4c6493fb522292bc76cd3ac898bc51e6082a33f885c1ee5db21f5955c2d48"
+        "bytes": 63592,
+        "sha256": "b93636193f6f9e7b76fa06e53c1829c7bf922253d17cc0234bedcb70ce14036a",
+        "drift": {
+          "note": "U19 交付时记的是 before 的值；render.cjs / content.cjs 在交付之后又被改过（U07/U15 的后续接线与 2026-10-20 的身份修补），原记录未同步 ⇒ 属\"未标注的历史结论\"。本次按盘上真值更正，并保留原值。",
+          "before": {
+            "bytes": 59522,
+            "sha256": "64a4c6493fb522292bc76cd3ac898bc51e6082a33f885c1ee5db21f5955c2d48"
+          },
+          "after": {
+            "bytes": 63592,
+            "sha256": "b93636193f6f9e7b76fa06e53c1829c7bf922253d17cc0234bedcb70ce14036a"
+          },
+          "verifiedAt": "2026-10-20",
+          "verifiedBy": "repair-session-20261020（逐文件重算 bytes + sha256，口径与 tools/sync-unify-core.mjs 相同）"
+        }
       },
       {
         "module": "evidence",

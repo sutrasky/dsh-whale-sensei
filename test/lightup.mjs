@@ -70,9 +70,9 @@ const readAdjust = (tmp) => (fs.existsSync(ADJ(tmp))
 const noLearned = (tmp, label) => ok(readJson(PROGRESS(tmp)).learned.length === 0, `${label}：没写 learned（失败关闭）`)
 
 /* ── 影副本 fixture：一个 maven 小项目 + 三课判据 ──────────────────────────
- * `demo/0001` = 真包 `spring-boot/0001` 形态：3 题机械判 + 第 4 题 `auto:false`（L3 口径）
- * `demo/0002` = 判据未全过样本（第 2 题的注解永远不出现）
- * `demo/0003` = 没声明 challenges（→ 快照里 challenges:null）
+ * `demo/demo/0001` = 真包 `spring-boot/0001` 形态：3 题机械判 + 第 4 题 `auto:false`（L3 口径）
+ * `demo/demo/0002` = 判据未全过样本（第 2 题的注解永远不出现）
+ * `demo/demo/0003` = 没声明 challenges（→ 快照里 challenges:null）
  */
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-lightup-'))
 let child = null
@@ -103,7 +103,7 @@ try {
   fs.writeFileSync(path.join(proj, 'EXPECT.json'), JSON.stringify({
     lessons: [
       {
-        id: 'demo/0001', title: '你好，点亮',
+        id: 'demo/demo/0001', title: '你好，点亮',
         required: [{ id: 'any', kind: 'annotation', value: 'Demo', hint: '要有 @Demo' }],
         challenges: [
           { no: 1, deliverable: '有一个 @Demo 标的类', checks: [{ id: 'c1', kind: 'annotation', value: 'Demo' }] },
@@ -113,7 +113,7 @@ try {
         ],
       },
       {
-        id: 'demo/0002', title: '差一题',
+        id: 'demo/demo/0002', title: '差一题',
         required: [{ id: 'any', kind: 'annotation', value: 'Demo', hint: '要有 @Demo' }],
         challenges: [
           { no: 1, deliverable: '有一个 @Demo 标的类', checks: [{ id: 'c1', kind: 'annotation', value: 'Demo' }] },
@@ -121,11 +121,25 @@ try {
         ],
       },
       {
-        id: 'demo/0003', title: '没声明判据',
+        id: 'demo/demo/0003', title: '没声明判据',
+        required: [{ id: 'any', kind: 'annotation', value: 'Demo', hint: '要有 @Demo' }],
+      },
+      // ⚠️ 0004 只**声明**、先不给页：建快照时它既不在页集合里、也就不进快照；
+      //    C1 那一步再把页补上 —— 于是"包里有这门课、但快照里没有它"这个样本成立。
+      {
+        id: 'demo/demo/0004', title: '快照里没有这一课',
         required: [{ id: 'any', kind: 'annotation', value: 'Demo', hint: '要有 @Demo' }],
       },
     ],
   }, null, 2) + '\n', 'utf8')
+  // ⚠️ 2026-10-20 身份夹具同步（本轮扩写集）：/progress 的写前身份闸按**本包课次映射表**解析，
+  //   而映射表从 `lessons/<circle>/<point>/NNNN-*.html` 收页 —— 影副本必须真有这三张页，
+  //   否则任何 id 都会被判 ID_NOT_ALLOWED（旧夹具没有 lessons/ 也照样过，是因为那时没有这道闸）。
+  const lessonDir = path.join(tmp, 'lessons', 'demo', 'demo')
+  fs.mkdirSync(lessonDir, { recursive: true })
+  for (const [no, slug, title] of [['0001', 'hello', '你好，点亮'], ['0002', 'half', '差一题'], ['0003', 'nocrit', '没声明判据']]) {
+    fs.writeFileSync(path.join(lessonDir, `${no}-${slug}.html`), `<!doctype html><html><body><h1>${title}</h1></body></html>\n`, 'utf8')
+  }
   fs.writeFileSync(PROGRESS(tmp), JSON.stringify({ _: '人和星图共读', learned: [], note: '别删我' }, null, 2) + '\n', 'utf8')
 
   // 判据快照：真走探针管线（probeState → writeState），不是手搓 JSON
@@ -158,7 +172,7 @@ try {
 
   // ── G 显式 done:false → 不尝试点亮（先于 B 测：证明它连快照都不用）──────
   {
-    const { status, body } = await post({ lesson: 'demo/0001', done: false, adjust: 'G：先不点亮', title: 'T' })
+    const { status, body } = await post({ lesson: 'demo/demo/0001', done: false, adjust: 'G：先不点亮', title: 'T' })
     ok(status === 200 && body.ok === true && body.code === 'not-requested', `G done:false → ok:true + code:'not-requested'（实得 ${body && body.code}）`)
     noLearned(tmp, 'G')
     const recs = readAdjust(tmp)
@@ -169,16 +183,16 @@ try {
   // ── B 快照缺失 / 读不懂 / 无 projects → no-snapshot ────────────────────
   {
     fs.rmSync(STATE(tmp), { force: true })
-    const r1 = await post({ lesson: 'demo/0001', done: true, adjust: 'B1：快照没了' })
+    const r1 = await post({ lesson: 'demo/demo/0001', done: true, adjust: 'B1：快照没了' })
     ok(r1.body.code === 'no-snapshot' && r1.body.ok === false, `B1 快照缺失 → no-snapshot（实得 ${r1.body.code}）`)
     ok(/whale_state/.test(r1.body.hint || ''), `B1 hint 点名怎么修（${r1.body.hint}）`)
     fs.writeFileSync(STATE(tmp), '{ 这不是 JSON', 'utf8')
-    const r2 = await post({ lesson: 'demo/0001', done: true })
+    const r2 = await post({ lesson: 'demo/demo/0001', done: true })
     ok(r2.body.code === 'no-snapshot', `B2 快照读不懂 → no-snapshot（实得 ${r2.body.code}）`)
     // B3 的本意是「快照没有 projects」（畸形样本），**不是**"老快照"夹具 —— 所以 probeVersion
     // 照抄真快照的顶层形状（用常量，不写字面量）；故意造老快照的是 D1，那处保留缺字段形态。
     fs.writeFileSync(STATE(tmp), JSON.stringify({ version: 1, probeVersion: PROBE_VERSION }), 'utf8')
-    const r3 = await post({ lesson: 'demo/0001', done: true })
+    const r3 = await post({ lesson: 'demo/demo/0001', done: true })
     ok(r3.body.code === 'no-snapshot', `B3 快照没有 projects → no-snapshot（实得 ${r3.body.code}）`)
     noLearned(tmp, 'B')
     const recs = readAdjust(tmp)
@@ -187,18 +201,28 @@ try {
 
   // ── C 对位键（P1-11）：「快照里没这课」≠「没声明判据」→ 两个 code、两句 hint ──
   {
+    // ⚠️ 2026-10-20（本轮扩写集）：U21 起 `/progress` 有**写前身份闸** —— 不在本包课次映射表里的 id
+    //   会先被闸拒成 `ID_NOT_ALLOWED`，根本走不到"快照里没这课"那一层。所以 C1 的样本要换成
+    //   「**包里真有一课**、但快照里没有它」：先建快照（只有 0001–0003），再补一张 0004 的页。
+    //   判据本体一字未改：仍然要求 unknown-lesson（而不是 no-criteria）。
     fs.writeFileSync(STATE(tmp), snapText, 'utf8')
-    const r1 = await post({ lesson: 'demo/9999', done: true, adjust: 'C1：没这课' })
+    fs.writeFileSync(path.join(tmp, 'lessons', 'demo', 'demo', '0004-ghost.html'),
+      '<!doctype html><html><body><h1>快照里没有这一课</h1></body></html>\n', 'utf8')
+    // 快照里**删掉** 0004（页与声明都在包里 ⇒ 身份闸放行；只有快照缺它 ⇒ 走到 unknown-lesson 那层）
+    const noGhost = JSON.parse(snapText)
+    for (const p of noGhost.projects || []) p.lessons = (p.lessons || []).filter((l) => l.id !== 'demo/demo/0004')
+    fs.writeFileSync(STATE(tmp), JSON.stringify(noGhost, null, 2) + '\n', 'utf8')
+    const r1 = await post({ lesson: 'demo/demo/0004', done: true, adjust: 'C1：快照里没这课' })
     ok(r1.body.code === 'unknown-lesson' && r1.body.ok === false, `C1 快照里没这课 → unknown-lesson（实得 ${r1.body.code}）`)
     ok(r1.body.code !== 'no-criteria', 'C1 判词不是 no-criteria（id 找不到 ≠ 没写判据 —— 两个分支别混）')
-    ok(/demo\/9999/.test(r1.body.hint || ''), `C1 回执文案点名那个 id（${r1.body.hint}）`)
-    const r2 = await post({ lesson: 'demo/0003', done: true })
+    ok(/demo\/demo\/0004/.test(r1.body.hint || ''), `C1 回执文案点名那个 id（${r1.body.hint}）`)
+    const r2 = await post({ lesson: 'demo/demo/0003', done: true })
     ok(r2.body.code === 'no-criteria', `C2 反空转：课真在快照里、只是没声明 challenges → 仍必须 no-criteria（实得 ${r2.body.code}）`)
     // C3 判据结构不合法（快照被写坏）→ 也算「没有可用判据」
     const bad = JSON.parse(snapText)
-    bad.projects[0].lessons.find((l) => l.id === 'demo/0001').challenges = [{ no: 1 }]
+    bad.projects[0].lessons.find((l) => l.id === 'demo/demo/0001').challenges = [{ no: 1 }]
     fs.writeFileSync(STATE(tmp), JSON.stringify(bad, null, 2) + '\n', 'utf8')
-    const r3 = await post({ lesson: 'demo/0001', done: true })
+    const r3 = await post({ lesson: 'demo/demo/0001', done: true })
     ok(r3.body.code === 'no-criteria', `C3 challenges 结构不合法 → no-criteria（实得 ${r3.body.code}）`)
     fs.writeFileSync(STATE(tmp), snapText, 'utf8')
     noLearned(tmp, 'C')
@@ -211,7 +235,7 @@ try {
     delete old.codeDir
     for (const p of old.projects) delete p.sourceDigest
     fs.writeFileSync(STATE(tmp), JSON.stringify(old, null, 2) + '\n', 'utf8')
-    const r1 = await post({ lesson: 'demo/0001', done: true })
+    const r1 = await post({ lesson: 'demo/demo/0001', done: true })
     ok(r1.body.code === 'stale-snapshot' && /刷新/.test(r1.body.hint || ''), `D1 老快照（无指纹字段）→ stale-snapshot + 刷新提示（实得 ${r1.body.code}：${r1.body.hint}）`)
     fs.writeFileSync(STATE(tmp), snapText, 'utf8')
 
@@ -221,7 +245,7 @@ try {
     const oldProbe = JSON.parse(snapText)
     delete oldProbe.probeVersion
     fs.writeFileSync(STATE(tmp), JSON.stringify(oldProbe, null, 2) + '\n', 'utf8')
-    const r3 = await post({ lesson: 'demo/0001', done: true })
+    const r3 = await post({ lesson: 'demo/demo/0001', done: true })
     ok(r3.body.code === 'stale-snapshot' && /探针/.test(r3.body.hint || ''),
       `D3 缺 probeVersion（指纹新鲜）→ stale-snapshot + 探针那句（实得 ${r3.body.code}：${r3.body.hint}）`)
     ok(r3.body.hint !== r1.body.hint, `D3 的 hint 与 D1「代码又改过」那句不同（${r3.body.hint}）`)
@@ -230,7 +254,7 @@ try {
     // D2 快照之后改一个字节 → 指纹必变（反空转的现场版）
     const before = fs.readFileSync(JAVA_FILE, 'utf8')
     fs.writeFileSync(JAVA_FILE, before + '// 改一个字节\n', 'utf8')
-    const r2 = await post({ lesson: 'demo/0001', done: true, adjust: 'D2：改完没刷新快照' })
+    const r2 = await post({ lesson: 'demo/demo/0001', done: true, adjust: 'D2：改完没刷新快照' })
     ok(r2.body.code === 'stale-snapshot', `D2 快照后改字节 → stale-snapshot（实得 ${r2.body.code}）`)
     noLearned(tmp, 'D')
     // 恢复字节 → 指纹复原（内容指纹不看 mtime，改回去就不是"过期"）
@@ -241,7 +265,7 @@ try {
 
   // ── E 判据未全过 → criteria-not-met + gaps ────────────────────────────
   {
-    const { status, body } = await post({ lesson: 'demo/0002', done: true, adjust: 'E：差一题', title: '差一题' })
+    const { status, body } = await post({ lesson: 'demo/demo/0002', done: true, adjust: 'E：差一题', title: '差一题' })
     ok(status === 200 && body.ok === false && body.code === 'criteria-not-met', `E 判据未全过 → criteria-not-met（实得 ${body.code}）`)
     ok(Array.isArray(body.gaps) && body.gaps.length === 1 && body.gaps[0].no === 2,
       `E gaps 点名到题号（${JSON.stringify(body.gaps && body.gaps.map((g) => g.no))}）`)
@@ -255,19 +279,19 @@ try {
 
   // ── F 通过 → 唯一写盘点；auto:false 不阻塞（L3）────────────────────────
   {
-    const { status, body } = await post({ lesson: 'demo/0001', done: true, adjust: 'F：过了', title: '你好，点亮' })
+    const { status, body } = await post({ lesson: 'demo/demo/0001', done: true, adjust: 'F：过了', title: '你好，点亮' })
     ok(status === 200 && body.ok === true, `F 判据全过 → ok:true（实得 ${status}/${body.ok}）`)
     ok(Array.isArray(body.needsReview) && body.needsReview.join(',') === '4',
       `F auto:false 题不阻塞但显式列出题号 needsReview（实得 ${JSON.stringify(body.needsReview)}）`)
     const prog = readJson(PROGRESS(tmp))
-    ok(prog.learned.length === 1 && prog.learned[0] === 'demo/0001', `F learned 写进 progress.json（${JSON.stringify(prog.learned)}）`)
+    ok(prog.learned.length === 1 && prog.learned[0] === 'demo/demo/0001', `F learned 写进 progress.json（${JSON.stringify(prog.learned)}）`)
     ok(prog._ !== undefined && prog.note !== undefined, 'F progress.json 的 _ / note 原样保留（形状零变化）')
     ok(body.lit === 1, `F 回执 lit 计数 = ${body.lit}`)
     const rec = readAdjust(tmp).pop()
     ok(rec.lit === true && rec.gaps.length === 0, 'F：adjust 记录带 lit:true + 空 gaps')
 
     // 幂等：重复提交只有一条 learned
-    const again = await post({ lesson: 'demo/0001', done: true })
+    const again = await post({ lesson: 'demo/demo/0001', done: true })
     ok(again.body.ok === true && readJson(PROGRESS(tmp)).learned.length === 1,
       'F 幂等：重复提交 learned 仍只有一条')
 
@@ -277,10 +301,10 @@ try {
     {
       const before = fs.readFileSync(STATE(tmp), 'utf8')
       const doc = readJson(STATE(tmp))
-      const les = doc.projects[0].lessons.find((l) => l.id === 'demo/0001')
+      const les = doc.projects[0].lessons.find((l) => l.id === 'demo/demo/0001')
       les.missing = [{ id: 'x', kind: 'dir', value: 'controller', hint: 'controller 包（接口层）', evidence: '目录不存在：controller' }]
       fs.writeFileSync(STATE(tmp), JSON.stringify(doc, null, 2) + '\n', 'utf8')
-      const r = await post({ lesson: 'demo/0001', done: true, adjust: 'F2：required 还缺' })
+      const r = await post({ lesson: 'demo/demo/0001', done: true, adjust: 'F2：required 还缺' })
       ok(r.body.ok === true, `F2 required 有缺口**不阻塞**点亮（ok=${r.body.ok}）`)
       ok(Array.isArray(r.body.requiredGaps) && r.body.requiredGaps.join('|') === 'controller 包（接口层）',
         `F2 缺口如实回执 requiredGaps（实得 ${JSON.stringify(r.body.requiredGaps)}）`)
@@ -304,7 +328,7 @@ try {
     const raw = fs.readFileSync(ADJ(tmp), 'utf8')
     const before = raw.split('\n').filter((l) => l.trim()).length
     fs.writeFileSync(ADJ(tmp), raw.replace(/\n+$/, ''), 'utf8')   // 故意造「末尾无 \n」的旧台账
-    const r = await post({ lesson: 'demo/0003', done: false, adjust: 'H：末尾没换行的旧台账' })
+    const r = await post({ lesson: 'demo/demo/0003', done: false, adjust: 'H：末尾没换行的旧台账' })
     ok(r.status === 200 && r.body && r.body.ok === true, `H 写入成功（实得 ${r.status}/${r.body && r.body.ok}）`)
     const lines = fs.readFileSync(ADJ(tmp), 'utf8').split('\n').filter((l) => l.trim())
     const good = []

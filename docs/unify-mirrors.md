@@ -72,6 +72,12 @@ UNIFY-CORE ok=false mode=check files=14 same=13 missing=0 changed=1 extra=0 byte
 UNIFY-CORE ok=true  mode=check files=14 same=14 missing=0 changed=0 extra=0 bytes=367560 mirror=lib/pack-template/tools/unify
 ```
 
+> ⚠️ **上面是 U19 交付当时（2026-10-20 交点）的实跑输出，属历史样例，不是当前值。**
+> `bytes=331054` / `bytes=367560` 这两个总数只在那一刻成立：之后 `render.cjs` 与 `content.cjs`
+> 都被改过（U07/U15 的后续接线 + 2026-10-20 的身份修补），总数随之变化。
+> **当前值一律以当场 `node tools/sync-unify-core.mjs --check` 打印的那一行为准**
+> （2026-10-20 修补后实测 `files=14 same=14 bytes=374883`）——本文件不维护第二份会漂的副本。
+
 `--check` 必须拒绝的五种状态（`test/audit/U19.mjs` 的 A02 逐条真跑）：
 **缺件 / 改字节 / 多件 / 空镜像 / 权威缺件**；`migration.cjs` 落在镜像里同样算 `extra`。
 

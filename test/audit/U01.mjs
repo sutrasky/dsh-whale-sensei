@@ -920,7 +920,7 @@ async function A04() {
       // 无 ESM 导出的三件（懒 CJS 客户端 / package.json / CLI）用结构标记核对
       const markers = {
         'lib/client.js': ['__ModuleLoader__', "exports.inject", "exports.apply"],
-        'package.json': ['dsh.distribution.mode', '"version"', '"0.3.3"'],
+        'package.json': ['dsh.distribution.mode', '"version"', '"0.4.0"'],
         'tools/upgrade-pack.mjs': ['--plan', '--apply', '--plan-digest', 'PLAN ok=true digest='],
       }[f] ?? []
       assert(markers.length > 0, `${f} 没有导出却是重点文件 —— 需要登记结构标记`)

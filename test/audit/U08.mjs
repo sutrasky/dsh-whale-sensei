@@ -1077,7 +1077,8 @@ const A06 = makeCase('A06', async ({ check, eq, rows, data }) => {
   const memberRaw = (m, key) => (m.has(key) ? m.get(key).raw.replace(/\s+$/, '') : null)
 
   // ① 版本逐字
-  eq(pkg.version, '0.3.3', 'package.json version 必须仍是 0.3.3（逐字）')
+  // 2026-10-21：发布升版 0.3.3 → 0.4.0（用户授权「更新到最新版本」）；判据形状不变（逐字相等）。
+  eq(pkg.version, '0.4.0', 'package.json version 必须仍是 0.4.0（逐字）')
   // ② 私模式逐字
   eq(pkg.dsh && pkg.dsh.distribution && pkg.dsh.distribution.mode, 'private', 'dsh.distribution.mode 必须仍是 private（逐字）')
   // ③ 依赖面逐字节：dependencies / devDependencies / engines（含"基线没有 ⇒ 现在也不许有"）

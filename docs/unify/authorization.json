@@ -51,6 +51,83 @@
     "P1/P2 属于本轮授权的集成修正，不改写卡面判据强度；U09/U10/U14 的 A 面迁移必须逐条记真实 Δ。"
   ],
   "howToCite": "U09/U10/U14 的 tracked 回执必须在新字段 authorization 里逐字引用 quoteVerbatim 与 quoteSource，并写明「本卡只按上述授权面执行」；不得把本授权扩写为用户未说过的内容。",
+  "repairRound20261020": {
+    "title": "2026-10-20 独立审查后的最小修补：写集扩容 U21 + 答疑显示名桥 + 活包窗口",
+    "kind": "selection",
+    "note": "本轮授权是用户在**选择题**上逐项点选的（不是自由文本）。下面四行 quoteVerbatim 是**被选项签的逐字文本**，不是把用户的话改写成一句话。题目与选项说明一并收在 scope 里，供复核「点选的那个标签到底承诺了什么」。",
+    "quoteVerbatim": [
+      "全给（含 lib/pack-scaffold.js 一句）（推荐）",
+      "修：内核增 label→key 桥 + 按 P1 重算 PROBE_VERSION（推荐）",
+      "开窗口刷 assets + 重采全量，新开一条交付链（推荐）",
+      "保持豁免（按你原话，推荐）"
+    ],
+    "quoteSource": "用户在 dsh 会话（U 系列修补会话）中对四个选择题的作答，逐项单选；原文逐字如上，不含转述。",
+    "decidedBy": "用户",
+    "date": "2026-10-20",
+    "scope": {
+      "R1_writeSetExpansion": {
+        "prompt": "① A05 要过，必须给 8 个落点的项目内授权。给哪种？",
+        "authorized": [
+          "授权把本轮修补的落点登记成 docs/unify/interfaces.md §6 的 **U21 修补行**（不改任何既有判据强度）。",
+          "单独一句授权 U19 独占面 lib/pack-scaffold.js 的空骨架 2 行改动。",
+          "登记落点以 interfaces.md §6 的 U21 行为准（逐项列名）。"
+        ],
+        "notAuthorized": [
+          "把 U21 解释成「任何卡都能改 §6 里列的东西」；U21 只登记本轮写集，不是新判据。",
+          "放宽 A05 的 §6 并集判据或 cards 白名单。"
+        ]
+      },
+      "R2_displayNameBridge": {
+        "prompt": "② 已确认 /api/whale/answer 对页面来的显示名返回 400（已答台账写不进）。修不修？",
+        "authorized": [
+          "在权威内核 lib/unify/pack.cjs 增 resolveLessonLabel（显示名 → 规范课次键的**唯一**桥），并让 lib/unify/content.cjs 改用同一函数。",
+          "按 P1 已给的口径重算 PROBE_VERSION（算法不变、PROBE_SOURCES 条目与顺序不变），唯一字面量仍只写 lib/unify/fingerprint.cjs。",
+          "已答台账的 lesson 字段**仍是显示名**（U14 A04 契约不动）；本桥只决定「写回时解析得到解析不到」。",
+          "补对应拒绝测试：显示名零命中 / 多命中（跨圈同名）必须在写前拒绝且台账零写。"
+        ],
+        "notAuthorized": [
+          "改变 PROBE_SOURCES 的条目、顺序或算法去凑值。",
+          "把显示名桥当成历史形状兼容层，或让运行态读台账走它。",
+          "改已答条目的显示名合同。"
+        ]
+      },
+      "R3_livePackWindow": {
+        "prompt": "③④ 活包写窗口 + 这次补丁怎么落成提交？",
+        "authorized": [
+          "开一次活包 E:\\workplace\\study 写窗口：刷新 assets/ 三件（_frame.html / notes.js / practice.js）与随包引擎，重建产物。",
+          "在该窗口内重采**一次**全量门槛，并在采集记录里写下 children 批次名（不再按 mtime 猜）。",
+          "把补丁落成**新的一条交付链**（首个提交的父提交 = 固定基线 2f57b1f），不 push、不升版、不发布。"
+        ],
+        "notAuthorized": [
+          "push / 升版 / 发布。",
+          "在窗口期内让第三方写入活包。",
+          "用「副本里打了补丁但没提交」冒充提交后干净态。"
+        ]
+      },
+      "R4_cardsExemption": {
+        "prompt": "23 份 cards/U*.md 计划文件目前仍在豁免内（改它们不算越界）。要不要收紧？",
+        "authorized": [],
+        "decision": "保持豁免：A05 的 cards 豁免仍是**那 23 份确切计划文件**（U-SPEC 的 3 份 + U01–U20 卡面），不扩到 cards/**；cards 下其它文件的改动照旧必红。",
+        "notAuthorized": [
+          "把 cards 豁免扩成前缀匹配。"
+        ]
+      },
+      "R5_commitChainShape": {
+        "prompt": "固定基线之后已有 3 次提交（bb6e9af 交付 + 3f6029e/4a260f3 收口），而 U20 A08 硬要求「首个提交的父提交 = 2f57b1f 且链长 ≤ 3」。这两条在同一分支不可能同时成立。选哪种？",
+        "quoteVerbatim": "沿用现链，追加第 4 次提交（需你多一句授权）",
+        "decision": "本轮修补作为**第 4 次提交**落在 `refactor/unify-20261018` 现链上；据此把 U20 A08 的链上限 3→4，并为这一次提交登记**逐文件白名单**（= 本次修补的 28 个落点，逐字见 interfaces.md §6 的 U21 行）。",
+        "notAuthorized": [
+          "新增第 5 次及以后的提交（A08 上限就是 4）。",
+          "把第 4 次提交的白名单当成「以后谁都能改这些文件」。",
+          "push / 升版 / 发布（沿用既有禁令）。"
+        ]
+      }
+    },
+    "consequences": [
+      "PROBE_VERSION: p:051afdd22ab1b6cb → p:1035fda92c4139d2（按 P1 锁定的算法重算：11 件 PROBE_SOURCES、文件间 '\\0'、原始字节、sha256 前 16 位、前缀 p:）。所有旧 learning-records/state.json 会判 stale-snapshot 并自愈重判一次（设计本就如此）。",
+      "上一条是「探针版本变了」的既定后果，不属于放宽判据；challenge-gate ⑧① 与 T26 F01 当场按同一算法重算，因此自动跟随。"
+    ]
+  },
   "derivedConsequences": {
     "note": "以下是上述授权在实施上**必然带来**的连带动作，由主持人依授权范围推定，不是用户逐字说过的内容；逐条可核。",
     "items": [
@@ -99,27 +176,127 @@
     "quoteSource": "用户在 dsh 会话（U 系列统筹会话）中的直接消息，原文逐字如上。",
     "date": "2026-10-20",
     "approvedChanged": [
-      { "id": "决-1", "what": "lib/mods/author.js 调用点改传规范身份（不再把裸点交给 challengeGate）；同步 test/audit/T03.mjs 那一行源码字面量" },
-      { "id": "决-2", "what": "lib/gate.js 修「候选唯一但错圈」泄漏（按 circle+point 过滤）；同步 T03" },
-      { "id": "决-3", "what": "lib/pack-export.js 收编进 §6（归 U16），U16 写集加一项并重跑" },
-      { "id": "决-4", "what": "PROBE_SOURCES 补 lib/unify/identity.cjs 与 lib/unify/pack.cjs（9→11），**再次重算** PROBE_VERSION，同步 U04 的 lib/fingerprint.js 与内容锁" },
-      { "id": "决-5", "what": "test/audit/T12.mjs 夹具复制清单补 lib/adapters/jvm.js" },
-      { "id": "决-6", "what": "test/audit/T10.mjs:1038-1055 最小同步（只改被委托影响的字面量，判据强度不变）" },
-      { "id": "决-7", "what": "lib/point-ref.js::splitQualified 收敛到严格内核（parseLessonKey→parsePointKey→否则显式拒绝），9/90 例不一致逐条记 Δ" },
-      { "id": "决-8", "what": "assets/questions-data.js 的 lesson 与 notes.js 的 anchor 显示名迁移归 U17" },
-      { "id": "决-9", "what": "预授权 test/pack-template-rules.mjs **只加登记项**（不改判据强度），供 U19 使用" },
-      { "id": "决-10", "what": "U20 按原授权执行唯一一次显式 add + commit（不 push、不升版、不发布）" }
+      {
+        "id": "决-1",
+        "what": "lib/mods/author.js 调用点改传规范身份（不再把裸点交给 challengeGate）；同步 test/audit/T03.mjs 那一行源码字面量"
+      },
+      {
+        "id": "决-2",
+        "what": "lib/gate.js 修「候选唯一但错圈」泄漏（按 circle+point 过滤）；同步 T03"
+      },
+      {
+        "id": "决-3",
+        "what": "lib/pack-export.js 收编进 §6（归 U16），U16 写集加一项并重跑"
+      },
+      {
+        "id": "决-4",
+        "what": "PROBE_SOURCES 补 lib/unify/identity.cjs 与 lib/unify/pack.cjs（9→11），**再次重算** PROBE_VERSION，同步 U04 的 lib/fingerprint.js 与内容锁"
+      },
+      {
+        "id": "决-5",
+        "what": "test/audit/T12.mjs 夹具复制清单补 lib/adapters/jvm.js"
+      },
+      {
+        "id": "决-6",
+        "what": "test/audit/T10.mjs:1038-1055 最小同步（只改被委托影响的字面量，判据强度不变）"
+      },
+      {
+        "id": "决-7",
+        "what": "lib/point-ref.js::splitQualified 收敛到严格内核（parseLessonKey→parsePointKey→否则显式拒绝），9/90 例不一致逐条记 Δ"
+      },
+      {
+        "id": "决-8",
+        "what": "assets/questions-data.js 的 lesson 与 notes.js 的 anchor 显示名迁移归 U17"
+      },
+      {
+        "id": "决-9",
+        "what": "预授权 test/pack-template-rules.mjs **只加登记项**（不改判据强度），供 U19 使用"
+      },
+      {
+        "id": "决-10",
+        "what": "U20 按原授权执行唯一一次显式 add + commit（不 push、不升版、不发布）"
+      }
     ],
     "approvedUnchanged": [
-      { "id": "决-11", "what": "页面域课次键保持两段 point/NNNN（build-lessons.js / render.cjs 输出）不动" },
-      { "id": "决-12", "what": "EXPECT.json 的 lessons[].id 保持两段声明形状不动" },
-      { "id": "决-13", "what": "真实浏览器/宿主验证（T13/T16/T25 终态 blocked）不补" },
-      { "id": "决-14", "what": "不 push、不升版、不发布" }
+      {
+        "id": "决-11",
+        "what": "页面域课次键保持两段 point/NNNN（build-lessons.js / render.cjs 输出）不动"
+      },
+      {
+        "id": "决-12",
+        "what": "EXPECT.json 的 lessons[].id 保持两段声明形状不动"
+      },
+      {
+        "id": "决-13",
+        "what": "真实浏览器/宿主验证（T13/T16/T25 终态 blocked）不补"
+      },
+      {
+        "id": "决-14",
+        "what": "不 push、不升版、不发布"
+      }
     ],
     "notAuthorized": [
       "把 approvedChanged 扩大成「可自由改任何既有测试断言」；",
       "把 approvedUnchanged 的 4 条解释成「也可以改」；",
       "改动 U 系列之外的审计/发布材料。"
     ]
+  },
+  "repairRound20261020b": {
+    "title": "2026-10-20 第二轮闭环：A03 阻断裁决（甲） + 交付链闭环授权（A） + 全权委托",
+    "kind": "selection+delegation",
+    "note": "第一轮把补丁落进工作树后，按 TEST-RECORD.md §17 实跑活包窗口，唯一一次全量暴露出 6 处结构性缺口（5 套新增红套 + 课程包闸门 35→31）。这里逐字记下用户在两个选择题上的作答与随后的一句全权委托；**不是转述、不是把\"我推荐\"写成\"用户要求\"**。",
+    "quoteVerbatim": [
+      "甲：修两处过期夹具（推荐）",
+      "A：闭环做完（推荐）",
+      "我要去睡觉了，有事你自己决定，不要问我，不要卡住"
+    ],
+    "quoteSource": "用户在 dsh 会话（U 系列修补会话）中对两个选择题的单选作答，以及随后一条自由文本指示；原文逐字如上。",
+    "decidedBy": "用户",
+    "date": "2026-10-20",
+    "scope": {
+      "R6_staleFixtures": {
+        "prompt": "预检用 U01 基线的**原始** execution.json 逐条比，A03 会因两条\"同一断言、同一根因、仅渲染出来的 id 变了\"新增失败而阻断。选哪种？",
+        "quoteVerbatim": "甲：修两处过期夹具（推荐）",
+        "decision": "把两处**过期预期**对齐活包现状，判据强度不降：test/challenge-gate.mjs 的\"spring-boot 上一课\"由 programming/spring-boot/0002 更正为 0003（活包 spring-boot 已有第 3 课，而判据自己的定义就是\"该知识点现有的最后一课\"）；test/practice.mjs 的实践区课数由 4 更正为 5（活包第 3 课有自己的 EXPECT.json），仍是\"恰好等于\"。",
+        "notAuthorized": [
+          "给 A03 加 registered-delta / 豁免口（那是上一轮被否掉的\"乙\"）。",
+          "删断言、加 skip、放宽成子串/区间匹配。"
+        ]
+      },
+      "R7_closure": {
+        "prompt": "A03 同时卡在 5 套新增红 + 课程包闸门 34<35：闭环做完 / 接受现状加豁免口 / 停？",
+        "quoteVerbatim": "A：闭环做完（推荐）",
+        "authorized": [
+          "修 lib/mods/ask.js 里修补轮留下的机器专属路径（alien-env 的唯一红）。",
+          "活包补 2 件部署闭包：assets/session.js、tools/publish-policy.cjs。",
+          "写集 +4：test/evidence.mjs、test/lightup.mjs、test/judge-parity.mjs（仅身份夹具）、lib/pack-template/tools/publish-policy.cjs（两处 PLAN_STALE 真缺陷）。",
+          "活包侧 tools/exec-hint.test.mjs 的第三个落点改指 tools/publish-policy.cjs（三处人话逐字一致 + r.error 分支在前的判据本体不变）。",
+          "重采活包窗口（pre/post）并跑**第二次**全量（第一次因上述结构性缺口已消费）。"
+        ],
+        "notAuthorized": [
+          "push / 升版 / 发布。",
+          "把课程包闸门的\"总数 38\"改小来凑通过数（A03 仍硬判总数相等）。",
+          "在活包里删测试来换绿（exec-hint 是**改落点**不是删断言）。"
+        ]
+      },
+      "R8_delegation": {
+        "quoteVerbatim": "我要去睡觉了，有事你自己决定，不要问我，不要卡住",
+        "decision": "用户全权委托：上表未列举、但闭环所必需的最小改动由执行者自行判定并逐条登记在测试记录与 interfaces.md §6 的 U21 行；硬约束（不 push / 不升版 / 不发布 / 不放宽判据 / 不伪造原红 / 活包窗口内无第三方写入）一条不减。"
+      }
+    },
+    "consequences": {
+      "writeSetAdded": [
+        "test/evidence.mjs",
+        "test/lightup.mjs",
+        "test/judge-parity.mjs",
+        "lib/pack-template/tools/publish-policy.cjs"
+      ],
+      "livePackAdded": [
+        "assets/session.js",
+        "tools/publish-policy.cjs",
+        "tools/exec-hint.test.mjs（第三落点改指 publish-policy.cjs）"
+      ],
+      "commitChain": "仍按 R5：第 4 次提交落在 refactor/unify-20261018，父提交 4a260f3；白名单随之为 32 个精确文件名。"
+    }
   }
 }

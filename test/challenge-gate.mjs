@@ -57,9 +57,15 @@ const pack = readPack(ROOT)
 const realBefore = hashTree(path.join(ROOT, 'lessons')) + '|' + hashTree(path.join(ROOT, 'code')) + '|' + hashTree(path.join(ROOT, 'math')) + '|' + hashTree(path.join(ROOT, 'learning-records'))
 
 // ── ① 「上一课」的确定 ──
-ok(previousLesson(pack, 'spring-boot')?.id === 'spring-boot/0002', 'spring-boot 的上一课 = 0002（该知识点现有的最后一课）')
-ok(previousLesson(pack, 'vue')?.id === 'vue/1001', 'vue 的上一课 = 1001')
-ok(previousLesson(pack, 'alge')?.id === 'alge/0001', 'alge 的上一课 = 0001（数学圈也有判据了）')
+// ⚠️ 2026-10-20 身份夹具同步：`previousLesson()` 返回的是 `readPack()` 的课对象，它的 `id`
+//    是**规范课次键** `circle/point/NNNN`（U09 收敛后的运行态口径）。旧夹具写两段
+//    （`vue/1001` / `alge/0001` / `spring-boot/0002`）—— 选择逻辑本来就对，错的只是 id 预期。
+// ⚠️ 2026-10-20 第二处过期预期（用户裁决「甲」）：活包 spring-boot 现在有 0001/0002/**0003**
+//    三课，按本判据自己的定义「该知识点现有的**最后一课**」，上一课就是 `0003`。旧值 `0002`
+//    是只有两课那会儿写的 —— 它不是"放宽"，是把期望对齐到活包现状（仍是精确等值，不是子串匹配）。
+ok(previousLesson(pack, 'spring-boot')?.id === 'programming/spring-boot/0003', 'spring-boot 的上一课 = programming/spring-boot/0003（该知识点现有的最后一课）')
+ok(previousLesson(pack, 'vue')?.id === 'programming/vue/1001', 'vue 的上一课 = programming/vue/1001')
+ok(previousLesson(pack, 'alge')?.id === 'math/alge/0001', 'alge 的上一课 = math/alge/0001（数学圈也有判据了）')
 ok(previousLesson(pack, '不存在的点') === null, '不认识的知识点 → null（首课，直接放行）')
 
 // ── ② 判词矩阵（纯函数，与 judgeLightup 同源）──
