@@ -1,0 +1,644 @@
+{
+  "card": "U07",
+  "title": "共享渲染内核：宿主与包侧只维护一份课程页渲染计算",
+  "status": "PASS",
+  "scope": "C lane · 批次 S2 · 卡面固定八项 A01–A08",
+  "base": {
+    "worktree": "E:\\workplace\\dsh-whale-sensei-unify",
+    "branch": "refactor/unify-20261018",
+    "baseSha": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "note": "HEAD 已是执行基线；本卡未切分支、未 add/commit、未动 index。"
+  },
+  "completion": {
+    "summary": "把课程页渲染收成**唯一计算**：① 新建 lib/unify/render.cjs（CommonJS、只用内置 + 同目录 plan.cjs，纯函数：不读盘 / 不看时钟 / 不用随机 / 不看环境），承接 figureMap / substituteFigures / pageSequence / html helpers / buildGlossaryIndex / parseSource / escapeHtml / nextPlaceholderSpan / renderPage / extractPage / collectNavTitles / serializeSource / 样式合并（mergeBlockRules + formatBlocks + mergeBlocks）；② lib/render.js 改成 ESM 适配层：createRequire 取 CJS 内核，把宿主侧本来就有的两个能力（lib/pack-model.js 的 labelAnchorId、h2/h3 静态流彩类）**注入**内核，导出面 18 个名字 / 参数 / 默认值 / 返回形状逐字保留（renderPage 与 extractPage 是真正的函数声明包装，不是再导出）；③ lib/pack-template/tools/build-lessons.js 保留**全部包侧 CLI / IO**（路径推导、数据文件按 resolved 键失效的缓存、源文件扫描、point/halo 读取、coach 读取、笔记/答疑计数、原子写盘、--extract 的落盘与『合并为 0 条不许覆盖』安全闸、主题合成、单调度体检、风格断言、星图重建、退出码与文案），渲染计算改成 require('./unify/render.cjs')；④ lib/render-inputs.js 读后判定**本来就是纯 IO 适配层**（零渲染计算），本次 0 字节改动 —— 委托链 = render-inputs（IO）→ render.js（ESM 适配 + 注入）→ render.cjs（唯一计算）。 【2026-10-19 判据修正】A01 从\"逐字节对拍旧快照\"升级成\"可归因的逐字节对拍\"：旧基准（pre-U09-identity）原样保留，另采当前基准（canonical-identity）；三条判据（现状稳定 / 差异可归因 / 非身份零变化）缺一不可，各自带进程内负对照；身份迁移表由 identity.cjs 真实函数现算（不是常量）。渲染内核本次**零字节改动**。",
+    "beforeChangeBaseline": "动手前先落改前快照：三个既有文件的 bytes+sha256、依赖内核（U02/U04）sha256、宿主 planBuild 冷/热两轮页面字节、宿主 planExtract 结果、包侧 CLI 两轮 build + --check + --extract 的 stdout/exit 与 lessons/** 全树字节、13 组 helper 级固定输入输出 —— 见 audit-evidence/U07/pre-change.json（204676 B，sha256 b3e7f650…0d1a）与 fixtures.mjs / capture-baseline.mjs。另用 git show HEAD 落改前三份源码快照与改前导出面（pre-sources.json + pre-sources/*）—— 所以判据比的不是『我记得一样』。",
+    "verdict": "PASS U07 checks=8 failed=0 skipped=0（exit 0）",
+    "notClaimed": [
+      "不声称全工程已绿：本卡只证明渲染单一计算这件事（A01–A08）；随包联调（U19 生成 tools/unify/ 副本）+ 真包升级（U17）+ 全量对账（U20）都不在本卡范围。",
+      "不声称模板已可分发：仓内 lib/pack-template/tools/unify/ 由 U19 独占生成，本卡**未创建**该目录，也不写它；A08 第④条自本轮起是三条（存在 ⇒ 必须自洽于 `tools/sync-unify-core.mjs --check`；不存在 ⇒ 合法但证据登记 `mirrorAbsent:true`；两种情形本卡都零写它 —— 见 DELTA-8）。",
+      "不跑活包、不跑全量门槛：本卡只在 E:\\Temp 自建夹具上验证，未访问/未写 E:\\workplace\\study。"
+    ]
+  },
+  "dependencies": {
+    "upstream": [
+      {
+        "card": "U02",
+        "what": "lib/unify/identity.cjs（身份内核）",
+        "verdict": "PASS U02 checks=8 failed=0 skipped=0（主持人亲跑）",
+        "consumed": "只作为**依赖锚点**（sha256 未变即视为未被改动）；渲染不消费身份内核 —— 课次键仍走 lib/pack-model.js / tools/lesson-map.js 的既有实现（受控镜像对，由 pack-model --selftest 对拍钉住）。"
+      },
+      {
+        "card": "U04",
+        "what": "lib/unify/{text,plan,fingerprint}.cjs + 宿主 ESM 适配 + 包侧委托",
+        "verdict": "PASS U04 checks=8 failed=0 skipped=0（主持人亲跑；其中一条判据自身脆弱由主持人另行修复，不影响本卡消费它的内核）",
+        "consumed": "render.cjs 只 require('./plan.cjs') 取 planFrontier（地图前沿 = 『下一课』占位的唯一判据）；包侧夹具按 U-SPEC §5 逐字复制 text/plan/fingerprint/render 四个权威模块进 E:\\Temp 包的 tools/unify/。"
+      },
+      {
+        "card": "U01",
+        "what": "docs/unify/interfaces.md + baseline.json + test/audit/unify-runner.mjs（异步判据壳）",
+        "verdict": "已交付（只消费不改）",
+        "consumed": "接口锁（渲染/适配层的导出面与调用形状）+ runCard/printVerdict/writeRunEvidence/resolveEvidenceRoot/guardTempPath/safeRemoveTree。"
+      }
+    ],
+    "siblingLanes": "本次窗口同工作树还有 U06 等并发卡（lib/unify/commit.cjs 等）。本卡的越界守卫**不统计他卡文件**：只用进程内 fs 写守卫记『本次运行真的写了哪些绝对路径』+ 依赖锚点 sha256，避开并发 lane 的假红。",
+    "blockedCards": [
+      "U09",
+      "U10",
+      "U14"
+    ],
+    "blockedWhy": "§12 仍未裁决；本卡不因执行独立范围而越过它们。"
+  },
+  "interfaceConsumption": {
+    "lock": "docs/unify/interfaces.md",
+    "lockBytes": 46889,
+    "lockSha256": "35acebe7bc1fd4560f59e244ea5a89730c1b11435d27da75ff5fdfa19ab92658",
+    "lockNote": "上面这两个数 = **本卡交付那一刻**消费的那一版（U01 交付物）。此后 interfaces.md 被 U01 侧续改（本次 A08 第⑤条修正期间观测到 48044 B → 48177 B / 707b8b48…），属 U01 的记账，本卡不改写它；⑤-2 的归属表改成**运行时解析** §6 并把当次解析到的 sha256 记进 detail.json（见 DELTA-7.alsoChanged）。",
+    "baseline": "docs/unify/baseline.json",
+    "baselineBytes": 60232,
+    "baselineSha256": "cf53c0c41d5b55b090ed6503fda59ffc2f52372f7629f8924f8e97efd35f36e1",
+    "runner": "test/audit/unify-runner.mjs",
+    "runnerBytes": 14600,
+    "runnerSha256": "d094dec4dae021c1889fd5817d95f45a1d90c4a3dcccc6b51c7a40f626e716c4",
+    "consumedLocks": [
+      "§5 权威源码：lib/unify/*.cjs 是唯一手工源码；包 tools 用 ./unify/<模块>.cjs；宿主导入仓内 .cjs —— render.cjs 只 require('./plan.cjs')（同目录纯模块），不读兄弟仓、不读环境。",
+      "§5 包装器缺件：『各卡只在自己的 E:\\Temp 包逐字复制已交付权威模块验证（记录复制清单与摘要），不修改仓内生成目录』—— 本卡 A05 记录复制清单 {text,plan,fingerprint,render}.cjs 并断言 render.cjs 与权威字节相同。",
+      "§6 证据与判词：PASS Uxx checks=8 failed=0 skipped=0 / FAIL exit 1 / BLOCKED exit 2；--evidence-root 只改写入根、读取根恒定；tracked 回执本卡独占。",
+      "lib/render.js 改前导出面（18 个）：figureMap substituteFigures pageSequence balancedEl indexOfMarkup elByClass afterH2 h2Start trimBlankLines buildGlossaryIndex parseSource escapeHtml nextPlaceholderSpan renderPage extractPage collectNavTitles serializeSource mergeBlocks —— 改后逐个保留（A01 用 git HEAD 快照逐名核）。",
+      "lib/render-inputs.js 导出面（5 个）：readRenderInputs planBuild planExtract diffPlan writePlan —— 本卡 0 字节改动，签名与返回形状不动（A01 断言 sha256 未变）。",
+      "包侧 CLI 契约（A05 逐项断言仍保留）：--check / --extract / --no-blocks / --force-blocks / 退出码 / [build] 与 [check] 文案 / 『跳过 ≠ 通过』两句 / delete require.cache[ 键 / require(path.join(__dirname, 'shape-render.js'))。"
+    ]
+  },
+  "writeSet": [
+    {
+      "path": "lib/unify/render.cjs",
+      "changed": true,
+      "new": true,
+      "bytes": 36723,
+      "sha256": "b6b43b88b05000d499df7db27cb520592725220b427f59fd51239f6e3d63193e",
+      "what": "新建：课程页渲染的唯一计算（纯 CJS）"
+    },
+    {
+      "path": "lib/render.js",
+      "changed": true,
+      "bytes": 6102,
+      "sha256": "ade50cf9b42b7ee82b05fe4c15af3381b66e6b873fb8d4ad282650f627bfa58a",
+      "was": {
+        "bytes": 27674,
+        "sha256": "7ea18c675e60ba17a155205897db8105431036babbc52aaeb8b80bb1ab3c96df"
+      },
+      "what": "改成 ESM 适配层：注入 labelAnchorId 与 h2/h3 类变换后委托 render.cjs；导出面逐字保留"
+    },
+    {
+      "path": "lib/render-inputs.js",
+      "changed": false,
+      "bytes": 21203,
+      "sha256": "e5887fa138b65186deb23223b3eb8b7cc9dd2662b6ba90af7d40a120cfaefdc7",
+      "what": "**0 字节改动**：读后判定它本来就只是 IO 适配层（零渲染计算），委托链经 lib/render.js 已经成立；改它只会动 T17 断言盯着的数据缓存逻辑，无收益。见 DELTA-2。"
+    },
+    {
+      "path": "lib/pack-template/tools/build-lessons.js",
+      "changed": true,
+      "bytes": 26484,
+      "sha256": "50d1d781692435f2696390be3522780b8375b1f04f10eaf3e5135f2251337c1a",
+      "was": {
+        "bytes": 48646,
+        "sha256": "489210b09f82d1a757e36f47fa48d32f811c867f10488a7936d6d8a0f9d12102"
+      },
+      "what": "只留包侧 CLI / IO，渲染计算改成 require('./unify/render.cjs')（48646 → 26484 字节；渲染实现整体搬进内核）"
+    },
+    {
+      "path": "test/audit/U07.mjs",
+      "changed": true,
+      "new": true,
+      "what": "本卡异步判据入口（A01–A08，固定八项）；A01 自 2026-10-19 起是\"两代基准 + 三条判据（现状稳定 / 差异可归因 / 非身份零变化）+ 四条进程内负对照\"；A08 第⑤条自 2026-10-21 起是\"依赖内核口径四条（运行期自锚 / 外漂移按 §6 归属 / P1·P2 授权面 / 交付物内容锁）+ 四条进程内负对照\"（见 DELTA-7）；A08 第④条自本轮起是「模板生成副本三条：存在则必须自洽 / 不存在则合法但登记 / 本卡零写它」（见 DELTA-8）",
+      "bytes": 130627,
+      "sha256": "86786f0785f91648a2ff9c5a5f915ea355a798872944474c320363c4cad94b1b"
+    },
+    {
+      "path": "docs/unify/receipts/U07.json",
+      "changed": true,
+      "new": true,
+      "what": "本 tracked 回执"
+    }
+  ],
+  "writeOutOfSet": "无。进程内 fs 写守卫记录了本次运行的全部写入（write/append/mkdir/rm/rename/copy/cp/open(w)），逐条落入 {本卡写集 ∪ 本卡本次证据根 ∪ E:\\Temp\\u07-<pid>-<rand>}；A08 断言越界条数 = 0、写集外仓内路径 = 0、lib/pack-template/tools/unify/** 零写（本轮该目录不存在，证据登记 `mirrorAbsent:true`；存在时则必须自洽于 `tools/sync-unify-core.mjs --check`）。另：既有 audit-evidence/U07 采集材料（pre-change.json / pre-sources.json / fixtures.mjs / capture-baseline.mjs / pre-sources/*）本次只读（A08 断言覆盖它们的写入必须被拒）。",
+  "deltas": [
+    {
+      "id": "DELTA-1",
+      "kind": "extract-semantics",
+      "title": "反向抽取（extractPage）两侧改前有分歧，收成一份时取**产品侧语义**；宿主 planExtract 因此在四处变了",
+      "cases": [
+        "h1-attributes：旧宿主 /<h1>/ 写死标签，抽不动 `<h1 class=\"rainbow-title\">` 的现行产物；内核用 /<h1[^>]*>/",
+        "number-source：旧宿主课号取自 h1『第N课』（vue 轨 fileBase 包会抽成 1，写回源文件即改错课号）；内核取自文件名 NNNN-",
+        "term-list-optional：旧宿主找不到 .term-list 就抛（现行产物零 .term-list ⇒ 永远抛）；内核有就解析、没有就留空",
+        "tail-bounds：旧宿主末段收尾兜底是 text.length（没有 ask-guide 时一路吞到 EOF，把 nav/页脚/</body> 吃进最后一段）；内核取 pos 之后的 nav/页脚/</body> 边界",
+        "halo-point：旧宿主不产出 meta.halo/point；内核按路径 lessons/<圈>/<点>/NNNN-*.html 回填"
+      ],
+      "before": {
+        "host": "旧 lib/render.js#extractPage：上方五处与包侧不同（改前实测：旧平铺夹具上两侧恰好一致，分歧只在生成态页面上显形）",
+        "pack": "tools/build-lessons.js#extractPage：产品侧语义（2026-09-24/25 的四个修复都在这一侧）"
+      },
+      "after": "两侧统一到产品侧语义（node tools/build-lessons.js --extract 是真正在用的那条路；宿主那份搬运版连现行产物都抽不动）。",
+      "evidence": "audit-evidence/U07/pre-change.json 的 expected.{hostExtract,packExtract}（改前两侧字节）+ A01 断言『改后宿主 planExtract == 改前包侧字节』且『改前两侧在旧平铺页上本来就一致』。",
+      "whyAllowed": "卡面要求渲染计算只有一份、且『现有导出、参数、默认值、返回形状』保留（返回形状保留）；两份实现收成一份必须选定一种语义。A01 的逐字节等价因此写成：**渲染路径**与改前逐字节相同；**抽取路径**与改前**包侧**逐字节相同，并把分歧点逐处登记在这里，不拿分歧掩盖过去。"
+    },
+    {
+      "id": "DELTA-2",
+      "kind": "no-change",
+      "title": "lib/render-inputs.js 声明在写集内但**本次 0 字节改动**",
+      "why": "读完全文后判定它已经是纯 IO 适配层：createRequire 数据加载 + 按 resolved 键失效（T17 病根修复）、路径推导、walkSrc、point/halo/notes 读取、planBuild/planExtract/diffPlan/writePlan 编排 —— 零渲染计算。渲染委托链经 lib/render.js 已经成立，改它没有收益，还会动 T17 的源码级断言盯着的那段缓存逻辑。",
+      "evidence": "A01 第⑧条断言 lib/render-inputs.js 的 sha256 与改前完全相同；A08 第⑥条把它与『两个适配层必须真的变了』分开核。"
+    },
+    {
+      "id": "DELTA-3",
+      "kind": "known-duplication",
+      "title": "h2/h3 静态流彩类仍是『内核外注入』的一小段规则（包侧 title-classes.js 与宿主 lib/render.js 各一份正则）",
+      "why": "包侧 tools/title-classes.js 被**两个**渲染器共用（build-lessons 出课程页、build-notes 出笔记页），它的存在理由就是『别把同一条规则写两处』。把它搬进 render.cjs 会立刻在包里长出第二份（title-classes.js 还得留着给 build-notes 用），反而制造漂移。所以内核把它作为**注入能力**（deps.withStaticTitles / deps.stripStaticTitles）消费 —— 与 ctx.shape（tools/shape-render.js）同类边界。收敛（让 title-classes.js 也委托内核）归 U15（build-notes.js 的写权）或 U19，本卡不改（不在写集）。",
+      "pin": "A02 逐例断言两份实现产出的类注入/剥离结果一致（裸 h2/h3 补类、已有 class 不动、h1 不动、h2 class=\"notes-card__title\" 不动、strip 反向），漂移会被当场抓住。",
+      "evidence": "A02 ⑤⑥ 与 A01 的 helper 级对拍（改前字节 = 两份实现共同的产物）。"
+    },
+    {
+      "id": "DELTA-4",
+      "kind": "registered-intermediate-regression",
+      "title": "**关键中间态**：模板版 build-lessons.js 现在 require('./unify/render.cjs')，而 lib/pack-template/tools/unify/** 由 U19 独占生成 —— 在 U19 生成之前，任何由 writeScaffold/模板铺出来的临时包都缺这个文件",
+      "state": "已登记、**不消除**（U-SPEC §5『任何已发现新增回归均登记并阻断相应接线』）；本卡未改测试、未改夹具、未改 lib/pack-scaffold.js、未撤销委托。",
+      "minimalUnblock": "U19 用 tools/sync-unify-core.mjs --write 生成 lib/pack-template/tools/unify/render.cjs（与仓内字节相同），并把 'tools/unify/render.cjs' 登记进 lib/pack-scaffold.js#TEMPLATE_FILES（与 test/pack-template-rules.mjs 的 FROM_PLUGIN 成对）。此后由模板铺出来的包才重新跑得动包侧构建器。",
+      "affectedSuitesStatic": [
+        "test/pack-scaffold.mjs：逐文件核 sanitize(原件) === 模板 ⇒ tools/build-lessons.js 这一行会红，直到活包 tools/build-lessons.js 被 U17 升级成同一份（模板与活包原件的关系归 U17，本卡不改活包）",
+        "test/audit/T17.mjs：包侧夹具 = 模板逐字节副本（layPackPack 里 fs.cpSync(TEMPLATE, PACK_PACK)），require 到缺 render.cjs ⇒ MODULE_NOT_FOUND；H/I 段与双轮构建会红",
+        "test/render-parity.mjs / test/mirror-parity.mjs / test/lesson-blocks-parity.mjs / test/glossary-first-term.mjs / test/export-pack.mjs / test/audit/T18.mjs / T20.mjs / T09.mjs / T03.mjs / T04.mjs：凡『从仓内模板铺包再跑包侧构建器/预览』的路径都缺这一件",
+        "本卡**静态判定**该清单，未跑这些套件（多数读活包或属 T 线冻结证据，卡面禁止本卡运行）；U20 对账时按实测允许增删。"
+      ],
+      "evidence": "A03 第⑧条把『缺 tools/unify/render.cjs』当**缺依赖**判：必须非零退出 + 错误信息点名 ./unify/render.cjs + 一个产物页都不落。"
+    },
+    {
+      "id": "DELTA-5",
+      "kind": "pre-existing-intermediate-state",
+      "title": "U04 已经让包侧 tools/{plan-map,pack-text,fingerprint}.js 委托 ./unify/*.cjs，但仓内模板同样没有 tools/unify/ —— 这不是本卡造成的",
+      "state": "U07 开始前就存在：只由模板铺出来的包跑任何包侧构建器都会 MODULE_NOT_FOUND（tools/plan-map.js → ./unify/plan.cjs）。本卡的 E:\\Temp 夹具按 §5 逐字复制已交付权威模块后再对拍，并记录复制清单。",
+      "minimalUnblock": "同 DELTA-4：U19 生成并登记 tools/unify/ 全量副本。"
+    },
+    {
+      "id": "DELTA-6",
+      "kind": "identity-era-baseline-realignment",
+      "title": "A01 从\"逐字节对拍旧快照\"改成\"**可归因**的逐字节对拍\"：旧基准原样保留，另采当前基准，两代之间的每一处差异都必须被显式身份迁移表解释",
+      "when": {
+        "oldBaseline": {
+          "file": "audit-evidence/U07/pre-change.json",
+          "baselineEra": "pre-U09-identity",
+          "capturedAtUtc": "2026-10-19T19:00:40.829Z",
+          "head": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+          "note": "采集时刻 = U09 身份收敛之前；旧输出**逐字节原样保留**（本次只补了 baselineEra/eraNote 两个说明字段，expected/** 一个字节没动）。"
+        },
+        "newBaseline": {
+          "file": "audit-evidence/U07/pre-change.canonical.json",
+          "baselineEra": "canonical-identity",
+          "capturedAtUtc": "2026-10-20T04:47:15.081Z",
+          "head": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+          "schema": "whale-unify-u07-canonical-baseline/1",
+          "bytes": 291147,
+          "what": "同一份夹具、把**承载身份的输入**按 identity.cjs 的真实函数迁成规范形状后重采的当前渲染输出（宿主冷/热、包侧双轮 build + --check + --extract、13 组 helper），外加\"今天这份代码在旧形状账本上的输出\"（legacyEra）用来给差异归因。"
+        }
+      },
+      "cause": {
+        "which": "U09 的身份收敛（回执 D1「课次键从两段 point/NNNN 改成规范三段 circle/point/NNNN」+ D3「读点不再把两段课键归一：labelOfAnchor 返回 null」）",
+        "mechanism": "U07 夹具账本（notes/notes.jsonl 的 anchor、EXPECT.json 的 lessons[].id、glossary 的 lesson）用的是 U09 之前那代两段写法；运行态收敛后如实拒绝历史形状 ⇒ 笔记 anchor 解析不到 ⇒ 封面卡笔记计数 2/1 变成 0/0。**页面里的身份串形状没有变**（`#spring-boot/0001`、`data-lesson` 仍由渲染内核的页面域槽位产出，两代逐字节相同），图型/导航/答疑/coach/样式槽位/页脚等非身份区块一个字节没动 —— 所以这是 A 授权的预期结果，不是渲染内核漂移。",
+        "observedDiffs": {
+          "pages": [
+            "lessons/programming/spring-boot/0001-hello.html",
+            "lessons/programming/spring-boot/0002-config.html"
+          ],
+          "lines": 2,
+          "detail": [
+            "lessons/programming/spring-boot/0001-hello.html 第 35 行 `<span>笔记 2</span>` → `<span>笔记 0</span>`",
+            "lessons/programming/spring-boot/0002-config.html 第 35 行 `<span>笔记 1</span>` → `<span>笔记 0</span>`"
+          ],
+          "rest": "规范身份输入下，当前渲染与旧基准**逐字节相同**（采集自检 canonicalEqualsLegacyBaseline=true）；包侧 lessons/** 同样逐字节相同；13 组 helper 两代相同。"
+        },
+        "notCause": [
+          "不是渲染漂移：`lib/unify/render.cjs` / `lib/render.js` / `lib/pack-template/tools/build-lessons.js` 本次**一个字节没改**（写集里另三个文件的 sha256 与本次开始前相同）。",
+          "不是夹具被改了：`fixtures.mjs` 本次未改；旧形状夹具的输入清单仍与 `pre-change.json` 的 `fixtures.*` 逐字节相符（A01 逐条核）。"
+        ]
+      },
+      "mapping": {
+        "file": "audit-evidence/U07/identity-era.mjs",
+        "computedBy": "lib/unify/identity.cjs 的 parseLessonKey / lessonKey（真实函数）+ `lessons/<circle>/<point>/point.json` 的磁盘事实",
+        "notConstants": "旧值 → 规范值没有一条是手写常量：旧值必须被 parseLessonKey 判为非规范形状，规范值由 lessonKey(circle, point, number) 构造，圆圈从磁盘事实取（0 个或多个候选 ⇒ 登记为不可映射，绝不猜）。A01 在运行期**现算一遍**这张表并与采集材料逐条比较（`现算表 == 采集时那张`），所以\"表是常量\"这件事会被当场抓住。",
+        "entries": 10,
+        "distinctPairs": 4,
+        "records": 11,
+        "unmappable": [
+          {
+            "what": "notes/notes.jsonl#line[3]",
+            "value": "nope/9999",
+            "why": "lessons/ 下没有「nope/<圆圈>/point.json」这一类圆圈事实（旧平铺布局 / 孤儿锚点），不猜圆圈"
+          }
+        ],
+        "unmappablePolicy": "不可映射的记录**一个字节都不改**：孤儿锚点 `nope/9999` 必须还是孤儿（第3课笔记 0 这条判据不许被自己的迁移改没了）；旧平铺布局没有圆圈层，其 EXPECT 声明 id 也保持原样（抽取语义与身份代无关，已逐字节核）。"
+      },
+      "newCriteria": [
+        "① 现状稳定：同进程同输入渲染两次逐字节相同 + 与当前基准逐字节相同；覆盖**宿主两代**（旧形状账本 / 规范身份）的冷启动与热启动，以及**包侧两轮 build + --check**（退出码 / `[build]`|`[check]` 文案 / lessons/** 全树，且两轮之间全树逐字节相同 = 幂等）。helper 13 组与反向抽取是与身份代无关的独立断言（两代都要等于旧基准字节）。",
+        "② 差异可归因：现算身份迁移表；旧基准 → 当前基准的**每一处**差异都必须被它解释（差异行必须就是笔记计数行，数值等于 pack.cjs 的 labelOfAnchor 在迁移后/原始账本上算出的条数）；把身份输入按表迁移后，当前渲染必须与旧基准逐字节相同。解释不了的差异 ⇒ 红。",
+        "③ 非身份零变化：身份串抹掉后全页逐字节相同；图型/导航/笔记答疑卡/答疑按钮/样式槽位/页脚六个非身份区块逐块逐字节相同（区块长度下限 + 抹掉的串数下限，防止在空串上比）。"
+      ],
+      "strength": {
+        "verdict": "**不变弱**（三条各自成立；判据只增不减）",
+        "table": [
+          {
+            "before": "A01 一条：固定输入 → 与改前快照逐字节相同",
+            "after": "① 更新更强：同输入\"两次同字节\"+\"与当前基准同字节\"（宿主两代冷/热 + 包侧两轮/--check）；原来的\"与旧快照同字节\"由 ② 的\"迁移后必须等于旧基准\" + ③ 的非身份零变化共同覆盖，且比原来多证了确定性、包侧幂等与非身份区块零变化"
+          },
+          {
+            "before": "差异出现即红（不问原因）",
+            "after": "② 更强：差异不但要红，还必须**被显式表解释**；解释不了的差异照样红（并且多了一整类\"渲染漂移但恰好被重采的基准吸收\"的防线）"
+          },
+          {
+            "before": "没有\"哪些字节属于身份\"的概念",
+            "after": "③ 新增：把身份从输出里抹掉后逐字节比非身份区块 —— 身份收敛不许顺手改掉图型/导航/笔记/答疑/coach/样式/页脚"
+          },
+          {
+            "before": "反向抽取与改前包侧字节比（保留）",
+            "after": "不变：仍与改前**包侧**字节比，并新增\"规范身份夹具上抽取结果相同\"一条"
+          },
+          {
+            "before": "helper 13 组与改前比（保留）",
+            "after": "不变：现在同时与两代基准比（等价于同一把尺子）"
+          },
+          {
+            "before": "判据是否空转只靠外部 A07 变异",
+            "after": "新增**进程内负对照**四条（每条都要红在指定理由上）：两次渲染不同字节 / 迁移没把字节还原 / 恒等映射表 / 非身份字符少一个；另有 E:\\Temp 副本上的外部反空转（改 render.cjs 少一个非身份字符 → ①②③ 全红；把迁移表改成恒等 → 只有 ② 红）"
+          }
+        ],
+        "notWeakened": [
+          "A02–A08 的断言强度**未改**：A02/A04/A06 仍拿 `pre-change.json` 的旧字节当对照物（规范身份渲染与它们逐字节相同，是 A01 ② 证明的），A07 仍用同一把尺子量变异体（基准从旧换到当前，因为\"旧形状账本\"本身已经不是当前真实产物）。",
+          "没有降低任何阈值/删任何断言；A01 的旧断言（抽取、helper、render-inputs sha、导出面）逐条保留。"
+        ]
+      },
+      "alsoChanged": {
+        "copyList": "`§5` 复制清单不再手写四个名字（U15 让 build-starmap 委托 unify/content.cjs、U09 让 lesson-map 委托 unify/pack.cjs+identity.cjs 之后，手写清单过期会让夹具包一跑就 MODULE_NOT_FOUND，测的是缺件而不是判据）：改成从**真实 require 图**算传递闭包（audit-evidence/U07/mirror-copy.mjs），并逐字核\"复制清单 == 闭包\"且每份与仓内权威字节相同。",
+        "helperSnapshot": "13 组 helper 的快照构造抽到 audit-evidence/U07/helper-snapshot.mjs，采集与判据共用一份（避免三处各抄一遍字面量）。",
+        "a06Anchor": "A06 第③条\"加一条第3课笔记\"的锚点从两段 `spring-boot/0003` 改成 `identity.lessonKey(circle, point, 3)` 现算的规范键 —— 两段锚点在 U09 之后读不回来，\"0→1\"这条判据本来就会假红。断言本身（0→1）没动。"
+      },
+      "outOfScope": [
+        "渲染输出里的课次身份串**仍是两段** `point/NNNN`（`#spring-boot/0001`、`data-lesson=\"spring-boot/0001\"`，来自 `lib/unify/render.cjs#lessonKeyOf` 这个页面域槽位）。它两代逐字节相同（A01 ②(d) 钉住），但与 U09 的规范身份口径不一致 —— **跨卡遗留**，U07 不渲染侧擅自改（本卡只登记，归属 lead / U09 复核）。",
+        "没有改 `lib/**`（U18 正在改 evidence/state/gate），没有改任何既有 `test/*.mjs`，没有改活包，没有 git 写。"
+      ],
+      "evidence": "audit-evidence/U07/pre-change.json（旧，baselineEra=pre-U09-identity）+ audit-evidence/U07/pre-change.canonical.json（新，baselineEra=canonical-identity，含 migration 表与 legacyEra 输出）+ test/audit/U07.mjs 的 A01 三条判据与其四条进程内负对照（落 detail.json 的 comparisons.A01.judged/controls）。",
+      "whyAllowed": "卡面要求\"与改前逐字节等价\"，而 U09 的身份收敛**合法地**改变了同一份夹具上的计数；把判据改成\"可归因等价\"是让这条判据继续成立而**不降低强度**的唯一诚实写法（旧基准保留，差异必须被表解释，非身份部分零变化）。这不是换尺子迁就实现：任何渲染漂移都会在 ①②③ 里至少一条上红。",
+      "externalBlocker": "本轮终验时 A08⑤ 曾被并发 P1 打红（见 externalBlockers.EXT-1，现已按授权面解除：见 DELTA-7）。A01–A07（含本次修正的三条判据）当时即全绿；A08 的其余八条也已全绿。"
+    },
+    {
+      "id": "DELTA-7",
+      "kind": "criteria-correction",
+      "title": "A08 第⑤条从「依赖内核 sha256 必须等于采集时值」改成**可归因**的四条口径（运行期自锚 / §6 归属 / P1·P2 授权面 / 交付物内容锁）",
+      "when": {
+        "date": "2026-10-21（工作树时区 2026-10-20，与 docs/unify/authorization.json 同日）",
+        "base": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+        "scope": "仍属 U07 写集：只改 test/audit/U07.mjs 的 A08 第⑤条 + 本回执；不改 lib/**、不改其它卡文件、不改 test/audit/T26.mjs"
+      },
+      "cause": {
+        "what": "外部漂移撞上「依赖内核 sha 不变」的硬锚",
+        "detail": "P1（授权原文逐字「选A和授权p1和p2」，落点见 docs/unify/authorization.json 的 scope.P1）按 PROBE_SOURCES 重算了 PROBE_VERSION：p:e3472ea71c33181c → p:45a70ecdc10f03d4，写进 lib/unify/fingerprint.cjs（§6 里该文件归 **U04**）的**唯一**字面量。于是本卡采集时的 sha256（9ee09133…）与现值（c760f62c…）必然不等 ⇒ 旧口径的 A08⑤ 必红。这是**授权的正常动作**，不是渲染/依赖漂移（A01–A07 全绿，渲染内核 0 字节改动）。",
+        "observedBeforeFix": "FAIL U07 checks=8 failed=1 skipped=0 :: A08: 抛异常：A08：依赖内核 lib/unify/fingerprint.cjs 在本卡窗口里被改了（锚点 sha256 变了）（实得 \"c760f62c072509b05cf13a388ace99eb253e7884cde28a19f11e9c238f128e97\" / 期望 \"9ee09133ba8b11a5a08f18e97a481f38d7b5be3844798b9a3340245e7d86bad4\"）",
+        "from": "9ee09133ba8b11a5a08f18e97a481f38d7b5be3844798b9a3340245e7d86bad4",
+        "to": "c760f62c072509b05cf13a388ace99eb253e7884cde28a19f11e9c238f128e97",
+        "authorizedBy": {
+          "file": "docs/unify/authorization.json",
+          "scope": "P1",
+          "quoteVerbatim": "选A和授权p1和p2",
+          "quoteSourceField": "authorization.json#quoteSource",
+          "howResolved": "**运行时**从 authorization.json 现场解析：scope.P1.authorized 的文本里抽出的落点集合含 lib/unify/fingerprint.cjs；判据里没有一处硬编码 P1/P2 的路径或引文。引文（quoteVerbatim）也是读出来的，逐字进 detail.json。",
+          "algorithmProof": "载体漂移还要过一道形状闸：内核里 p:<16hex> 字面量**唯一**、其现值等于按 lib/fingerprint.js 的 PROBE_SOURCES（9 个源、160695 字节、文件间 '\\0'、原始字节、sha256 前 16 位、前缀 p:）**当场重算**的值、宿主 lib/fingerprint.js 与包侧 tools/fingerprint.js 各自**不再持有**字面量且宿主导出同值 —— 即「认的只是 P1 授权的那个动作（重算）」，不是「谁改了这个常量都放行」。"
+        }
+      },
+      "newCriteria": [
+        "① **运行期自锚**：模块初始化（任何用例之前）记下 10 份依赖内核（render/text/plan/errors/ledger-read/identity/pack/content/glossary + lib/unify/fingerprint.cjs）的 sha256；A08 收口前再算一次，逐条必须相同 —— 证明\"我这一跑没写它们\"。",
+        "② **外漂移按归属**：与采集时值不同 ⇒ 按 docs/unify/interfaces.md §6 **运行时解析**（表格第一格是卡号、反引号段是落点；不手抄）主人；**无主 ⇒ 红**，有主 ⇒ 只登记 + 记主人卡号（进 detail.json 的 drift 行）。",
+        "③ **P1/P2 授权面认同**：漂移若落在 authorization.json 的 scope.P1 / scope.P2 落点集合里 ⇒ 判 authorized-by-P1P2（只登记，附 quoteVerbatim 逐字）；授权面**运行时现场解析**，不硬编码。载体（PROBE_VERSION 字面量）的漂移还必须有 scope.P1 且过\"唯一字面量 + 现值==重算值 + 宿主/包侧无第二份\"闸，否则红。",
+        "④ **交付物内容锁**：本卡四份生产文件（lib/unify/render.cjs、lib/render.js、lib/render-inputs.js、lib/pack-template/tools/build-lessons.js）必须仍等于本回执登记的 sha256 与字节数（原样保留，现为绿）。",
+        "另：四条各带**进程内负对照**（改一份内核的收口 sha / 抹掉主人 / 拿掉 scope.P1 / 改掉回执登记字节 —— 必须红在指定理由上）；A08 的 ①②③④⑥⑦⑧⑨ 八条**原样保留**。"
+      ],
+      "strength": {
+        "verdict": "**无变弱**（对同一批依赖内核，判据只增不减；覆盖面从 6 份扩到 10 份，且多了一层\"本跑自证\"）",
+        "table": [
+          {
+            "before": "6 份依赖内核的 sha256 必须逐字等于采集时值（跨卡静止假设）",
+            "after": "① 换成**本跑自证**（10 份、含写集内的 render.cjs）：跨卡静止假设在共享工作区里本来就不成立（P1 就是合法反例），而\"本跑有没有写\"是能真正判定的；覆盖面 6→10，且 ④ 让 render.cjs 另有一道对回执字节的锁。"
+          },
+          {
+            "before": "只要不一致就红（不问原因、不许登记）",
+            "after": "② 不一致时**必须可归属**：无主照样红（不可归属的漂移一律红）；有主则登记主人卡号，写进 detail.json 与回执。漂移不再能\"悄悄过去\"，也不会把别人的合法交付误判成本卡的红。"
+          },
+          {
+            "before": "对 fingerprint.cjs 只判\"等于采集值\"，等于把 U04 的合法重算钉死",
+            "after": "③ 对**载体**多了一道比\"逐字相等\"更硬的闸：唯一字面量 + 现值==PROBE_SOURCES 重算值 + 宿主/包侧不再持有字面量 + 授权面逐字认领（缺 scope.P1 ⇒ 红）。\"随便改个常量\"过不去；只有授权描述的那个动作能过。"
+          },
+          {
+            "before": "本卡自己的四份生产文件：A08⑥ 只判\"改没改\"（相对改前快照）",
+            "after": "④ 保留 A08⑥，另加\"等于回执登记字节\"（sha256 + 字节数）：收口后有人再动它们也会当场抓住。"
+          },
+          {
+            "before": "判据是否空转靠外部证据",
+            "after": "四条各有进程内负对照（4 条，全部实测红在指定理由上，见 evidenceIndex 的 p1-verify 目录）；另有 4 例外部反空转（沙箱副本：运行期写内核 / 抹掉 §6 归属 / 拿掉 scope.P1 / 干净对照）。"
+          }
+        ],
+        "notWeakened": [
+          "旧口径对**非载体**漂移是\"一律红\"；新口径 ② 对\"有主但未被 P1/P2 认领\"的非载体漂移改为\"登记 + 记主人\"。这不是本卡自选的放宽，而是 docs/unify/authorization.json#derivedConsequences.C3 明确要求的口径对齐（\"依赖锚点判据必须从『等于 U01 接口锁里的 sha256』改为『本卡运行期间未被写入』＋『该文件已由某张卡合法改动时归属到那张卡』\"），补偿项是 ① 自锚（新增覆盖 4 份、并覆盖写集内内核）、③ 载体重算闸、④ 内容锁，以及每次漂移都落 detail.json/回执可审。",
+          "没有删除/放宽任何其它断言；A01–A07 与 A08 的其余八条一个字节没动（本轮复跑全绿）。",
+          "判据的\"无主⇒红\"方向是**单向收紧**：§6 里解析不到主人时，连\"登记\"这条路都没有。"
+        ]
+      },
+      "evidence": {
+        "dir": "audit-evidence/U07/p1-verify/",
+        "logs": [
+          "logs/1-runtime-write.{stdout,stderr}.txt —— 沙箱副本里由**子进程**在运行期给 lib/unify/fingerprint.cjs 追加一个 LF（fs 写守卫看不到）⇒ exit 1，红在 ⑤-1「本次运行写了自己的依赖内核」",
+          "logs/2-no-owner.{stdout,stderr}.txt —— 把 §6 U04 行里 lib/unify/fingerprint.cjs 的落点删掉 ⇒ exit 1，红在 ⑤-2「§6 里**无主**」",
+          "logs/3-no-scope-p1.{stdout,stderr}.txt —— 把 authorization.json 的 scope.P1 整块删掉 ⇒ exit 1，红在 ⑤-3「没有 scope.P1 认领它」",
+          "logs/4-clean-copy.{stdout,stderr}.txt —— 同一份副本、不动任何东西 ⇒ exit 0，PASS U07 checks=8 failed=0 skipped=0（对照组证明前三例的红不是\"副本跑不了\"）"
+        ],
+        "mutations": "mutations/ 下逐例归档了变异后的**原始字节**与逐行改法（1-runtime-write-fingerprint.cjs.txt + 1-runtime-write-u07-runtime-write.mjs + 1-runtime-write-mutation.txt / 2-no-owner-interfaces.md + 2-no-owner-mutation.txt / 3-no-scope-p1-authorization.json + 3-no-scope-p1-mutation.txt），antispin-summary.json 是四例的 exit code / 判词 / 事后 sha256。",
+        "whyCopiesUnderAuditEvidence": "副本树一度放在 E:\\Temp，但 A08⑦ 断言 `--evidence-root=<repo>/lib/U07-x` 必须被拒，而 resolveEvidenceRoot（test/audit/unify-runner.mjs，U01 的文件）把整个 E:\\Temp 当作允许根 ⇒ 副本在 E:\\Temp 下时 ⑦ 必红（与本卡改动无关）。故副本放在本卡写集内的 audit-evidence/U07/p1-verify/trees/ 下跑，跑完按绝对路径清掉（只留 logs 与 mutations）。"
+      },
+      "alsoChanged": {
+        "runtimeParsing": "§6 归属表与 authorization.json 的授权面都在**运行时**解析，并把解析到的 sha256 与主人数记进 detail.json（comparisons.A08.depKernels.ownership/authorization）—— 这两份文档在共享工作区里由别的卡续改时，判据看到的是当次运行的那一版。",
+        "interfacesMdDrift": "docs/unify/interfaces.md 在本卡交卷（46889 B / 35acebe7…，见 interfaceConsumption）之后被 U01 侧续改：本次修正期间观测到 48044 B → 48177 B / 707b8b48…。⑤-2 只依赖运行时解析结果，不依赖那份锁字节；interfaceConsumption 里的历史锁字节保持原样（那是 U07 交付时消费的那一版，改它属于 U01 的记账）。"
+      },
+      "outOfScope": [
+        "不改 lib/**（fingerprint.cjs 的现值是 U04 的交付物 + P1 授权的重算结果）；不改 docs/unify/authorization.json 与 interfaces.md（U01/U-SPEC 的落点）；不改 test/audit/T26.mjs；不跑全量、不访问活包、不 git 写、不升版。"
+      ],
+      "whyAllowed": "卡面把 A08 第⑤条写成\"依赖锚点 sha256 不变\"，前提是共享工作区里没有别人合法的交付撞上这些锚点；P1 撞上之后，两条路都越权（改 lib/** 或在回执里把红说成绿）。第三条路是把口径改成本卡能真正判定的东西：本跑没写它（自锚）、漂移可归属（§6）、授权面认领（P1/P2 现场解析 + 重算闸）、自己的字节仍等于回执登记（内容锁）。四条合起来对\"依赖内核被悄悄换掉\"这件事只比原来更严，任何无主/未授权/被改过的状态都会红。"
+    },
+    {
+      "id": "DELTA-8",
+      "kind": "decision-9-mirror-existence",
+      "title": "A08 第④条：`lib/pack-template/tools/unify/**` 由「必须不存在」改成「存在则必须自洽于 sync-unify-core --check／不存在也合法但必须登记 mirrorAbsent／本卡零写它」",
+      "cases": [
+        "① 存在 ⇒ 自洽：14 件齐全、逐件与 `lib/unify/` 权威源码 **Buffer** 逐字节相同、目录清单正好是那十四件（无清单外件、无子目录/非常规件）；`judgeSyncPlan` 把 `plan()` 的结论**逐条重述**（清单 14 / missing / changed / extra / extraDirs / same 计数 / ok），不只信 `ok` 一个布尔",
+        "①-等价性：再跑一次真 CLI `node tools/sync-unify-core.mjs --check`，必须 exit 0 且 stdout 自报 `UNIFY-CORE ok=true`；生成器缺失而副本存在 ⇒ 红（一份没有生成器的生成物不可证明）",
+        "② 不存在 ⇒ 合法（U19 收口之前的状态），但证据里必须登记 `mirrorAbsent:true` —— 不许静默跳过",
+        "③ 无论存不存在：本卡本次运行对它**零写**（fs 写守卫按绝对路径判，目录本身也算「碰过」）",
+        "④ 五条进程内负对照（改字节 / 多件 / 缺件 / 无生成器 / 本卡写过）各自必须红在指定理由上；另有两条正对照（合成绿计划判绿并走「存在」分支；副本不存在判绿且 absent）"
+      ],
+      "before": {
+        "verbatim": "eq(fs.existsSync(mirrorDir), false, 'A08：不许创建 lib/pack-template/tools/unify/**（唯一生成写者是 U19）')  ＋  eq(GUARD.records.some((r) => path.resolve(r.abs).startsWith(mirrorDir + path.sep)), false, 'A08：本次运行碰过模板生成目录')",
+        "why必然红": "U19 的收口动作之一就是用 `tools/sync-unify-core.mjs --write` 生成那十四份随包副本（`docs/unify/interfaces.md` §6 的 U19 行已把 `lib/pack-template/tools/unify/*.cjs` 十四件逐件列进它的写集）。生成出来的那一刻，第一条断言必然红 —— 它把「本卡不许手造/手改副本」这句**行为约束**，误写成了「副本目录永远不存在」这个**状态断言**。",
+        "realRisk": "原断言真正要防的是**手写/手改生成物**（卡片自己造一份副本，两周后没人知道它漂没漂）。这个风险不是靠「目录不存在」证明的，而是靠「存在就必须逐字节等于权威源码 + 本卡零写」证明 —— 后者还更强：它同时覆盖「有人手改过」与「有人手造过」。"
+      },
+      "after": {
+        "criteria": [
+          "存在 ⇒ 必须自洽（等价于 `node tools/sync-unify-core.mjs --check` 的四条：清单 14 / 镜像 14 / 逐字节相同 / 无清单外多余件），并由 U07 独立按 Buffer 复算 + 真 CLI 复证",
+          "不存在 ⇒ 合法，但证据必须登记 `mirrorAbsent:true`",
+          "无论存不存在：本卡本次运行零写 `lib/pack-template/tools/unify/**`",
+          "生成器 `tools/sync-unify-core.mjs` 缺失而副本存在 ⇒ 红"
+        ],
+        "code": "test/audit/U07.mjs 的 A08 第④条：`judgeMirrorState()`（纯函数）+ `judgeSyncPlan()`（`--check` 四条的逐条重述）+ 现跑一次 CLI；判据与负对照都在同一份函数上，所以负对照不是另写一套。"
+      },
+      "strength": {
+        "stronger": [
+          "覆盖面：原判据在副本「存在」时只输出一条红、对内容零证明；新判据在同一情形下必须给出 14 件逐字节 + 清单 + 无多余件的证据（14 份内容级证据 vs 0 份）。",
+          "单调性：原本绿的状态（不存在）仍绿（第②条），原本红的状态（存在）现在只有「真自洽」才绿 —— 没有任何原本会红的输入被放过。",
+          "零写判据从「startsWith 前缀」改成「绝对路径相等或前缀」（`mirrorDir` 本身也算碰过），且这条自己也带负对照。",
+          "新增「不许静默跳过」：不存在时证据里必须有 `mirrorAbsent:true`（原判据对证据没有任何留痕要求）。",
+          "新增等价性复证：U07 自己按 Buffer 复算一遍（不信任生成器自评），并跑一次真 CLI 对拍 —— 生成器与检验器不是同一份代码在自说自话。"
+        ],
+        "noWeakening": "原两条断言的对象（目录不存在、本卡没碰过）分别在 ② 与 ③ 里原样保留；五种原本会红的输入（改字节 / 多件 / 缺件 / 无生成器 / 本卡写过）逐条有负对照，全部仍然红。",
+        "reverseControl": "忠实副本（`sync --write` 生成）必须**不**红在这一条：E:\\Temp 副本里 `node tools/sync-unify-core.mjs --write` 后跑 U07，A08 第④条通过（该副本另有一条与本改动无关的红：副本整体落在 E:\\Temp 下，使 A08 第⑦条「往仓内别处写必须被拒」把 `<副本>/lib/U07-x` 也当成合法证据根 —— 这是把仓根放进 E:\\Temp 的产物，不是本条判据）；把 `render.cjs` 改一个字节后再跑，U07 立刻红在这一条。"
+      },
+      "authorization": {
+        "quoteVerbatim": "全按推荐",
+        "quoteSource": "docs/unify/authorization.json#decisions.quoteVerbatim",
+        "decision": "决-9",
+        "ruling": "主持人裁定·决-9 连带",
+        "detail": "决-9 允许「`test/pack-template-rules.mjs` 只加登记项、不改判据强度」以让 U19 收口；本条是**同一收口动作的连带对齐**（U19 生成 `tools/unify/` 十四副本时 U07 的 A08④ 必然红），由主持人按授权范围裁定，强度只增不减（见 strength）。"
+      },
+      "evidence": "验收：主树 `node test/audit/U07.mjs` → `PASS U07 checks=8 failed=0 skipped=0`（exit 0），证据 `audit-evidence/U07/runs/U07-<pid>/detail.json` 的 `comparisons.A08.mirror`（含 `mirrorAbsent` / `zeroWrites` / `controls`）。反空转：E:\\Temp 副本里忠实副本通过该条、假副本（改一个字节）红在该条，各一次。"
+    },
+    {
+      "id": "U07-DELTA-COMMENT-ONLY",
+      "kind": "source-comment-only",
+      "title": "lib/unify/render.cjs：收口期只改注释（`lessonKeyOf` 的域说明），渲染输出逐字节不变",
+      "what": "bytes 36506 → 36723；sha256 eba1a1844fe3… → b6b43b88b050…。改动只涉及函数上方的注释：把\"页面域键是两段 / 运行态身份是三段、两域在 lib/verify.js 里搭桥\"写清楚。",
+      "why": "U20 收口期发现 `lib/verify.js` 的深链判据拿运行态三段键去页面里找（页面按决-11 写两段），恒不成立。修法落在 verify.js（跨域搭桥），render.js 的**输出**保持原样；只是把这条域约定补进注释，避免下一个人再改回去。",
+      "notWeakened": "没有改任何判据：A01（三条判据同时成立）/A02/A04（内核渲染逐字节）本轮复跑全绿，证明渲染输出未被改动。",
+      "evidence": "U07 复跑 PASS；`node tools/sync-unify-core.mjs --check` ok=true same=14。"
+    }
+  ],
+  "verdict": {
+    "entry": "node test/audit/U07.mjs",
+    "line": "PASS U07 checks=8 failed=0 skipped=0",
+    "exitCode": 0,
+    "checks": 8,
+    "failed": 0,
+    "skipped": 0,
+    "singleLine": true,
+    "evidenceSha256": "6998ed7e6e567a4c213009fcf02776e2632eee8b1868a18254398ff2df13fb77",
+    "evidenceShas": {
+      "audit-evidence/U07/pre-change.json": "6998ed7e6e567a4c213009fcf02776e2632eee8b1868a18254398ff2df13fb77",
+      "audit-evidence/U07/pre-change.canonical.json": "8d876e10fb47b3903e524773f6f0d4ab7158faee35a685e9abe30729e9281789",
+      "audit-evidence/U07/pre-sources.json": "df460a59a1da9a55fd99ece6e1510ccc146464f5c0d771092a496a8113d1bbda",
+      "audit-evidence/U07/fixtures.mjs": "3f50cfcc83fdaa22f830a3c41edc5b9d5df7cc02400da7a3de0a3e6c3b33b809",
+      "audit-evidence/U07/capture-baseline.mjs": "cac370335095d51a1ba5136103bfe5028afe860c9a532fd0f45d6e257d9ef714",
+      "audit-evidence/U07/capture-canonical.mjs": "14d6dc9c743fb36acc4d392880814bfe627ff2d7894b9c0ff43318b36cd51296",
+      "audit-evidence/U07/identity-era.mjs": "b306bbf07b75697d3c601a76a1e0eec63a776668d66d61462084d44c9791dc05",
+      "audit-evidence/U07/helper-snapshot.mjs": "76753159a8736ab35eb9a48897e65a433345050d9fb63c5b06e7eddfa4d0f27f",
+      "audit-evidence/U07/mirror-copy.mjs": "4cf95c1a14e88e541a15489af7d2598069f4e57156864404932fe1c48d000699",
+      "test/audit/U07.mjs": "594e0386a6fe7a23c79faa9b6f8a356297d564422f05327934a151b904aa7a5a"
+    },
+    "failureMode": "断言失败 → FAIL U07 … exit 1；缺改前采集材料 / 证据根越界 → BLOCKED U07 … exit 2（实现里用 Blocked，不吞错、不 skip、不恒真）。"
+  },
+  "assertions": [
+    {
+      "id": "A01",
+      "claim": "可归因的逐字节等价（两代基准；三条判据缺一不可）",
+      "how": "两份基准：`pre-change.json`（baselineEra=pre-U09-identity，U09 身份收敛**之前**采的旧字节）与 `pre-change.canonical.json`（baselineEra=canonical-identity，当前基准）。三条判据各自是纯函数、各自带**进程内负对照**：① **现状稳定** —— 同一进程内同输入渲染两次逐字节相同，且与当前基准逐字节相同（宿主冷/热两代各两轮；包侧两轮 build 的 lessons/** 全树互相同字节且各自等于基准；13 组 helper 与两代基准都相同）；② **差异可归因** —— 现算一张身份迁移表（旧 id/anchor → 规范 id/anchor，**全部经 `lib/unify/identity.cjs` 的 parseLessonKey/lessonKey**，圆圈取 `lessons/<circle>/<point>/point.json` 的磁盘事实），先核「现算表 == 采集时那张」，再核旧基准 → 当前基准的**每一处**差异都只是笔记计数且数值等于 `pack.cjs` 的 `labelOfAnchor` 在「迁移后账本 / 原始账本」上算出的条数；并把夹具身份输入按表迁移后重渲染 —— 必须与**旧基准逐字节相同**（解释不了的差异 ⇒ 红）；③ **非身份零变化** —— 身份串抹掉后全页逐字节相同，且图型/导航/笔记答疑卡/答疑按钮/样式槽位/页脚六个非身份区块逐块逐字节相同。反向抽取仍以改前**包侧**字节为准（并证明旧平铺页上改前两侧本来就一致）；另核：§5 复制清单 = 真实 require 图闭包且逐字等于权威字节、`lib/render-inputs.js` sha256 未变、导出面 18+5 个名字全在。"
+    },
+    {
+      "id": "A02",
+      "claim": "图型、导航、笔记和答疑注入保持",
+      "how": "逐页断言（每条都先证明改前字节里就有）：figures 的 hierarchy → <div class=\"ds-tree\"> 且占位符不留痕；上一课/下一课只在同 halo+point 内连、第一课退回 MISSION；地图前沿的 data-from-plan 与课名逐字；地图缺失的点保留手写 nextPlaceholder 且不许打 data-from-plan；笔记 2/1/0（孤儿 anchor 不计）；答疑 2/0（pending 不计）；TERM_COUNT=3 与 COVER_TERM_COUNT=1；h2/h3 补类、已有 class 不动、h1 不动；PAGE_STYLE 进 <style>；{{PAGE_UP}} 二趟（../../../ 与作者正文相对链接）；coach 三槽位：空 coach 时逐字节等于改前、注入时**只在原整行位置**（摘掉注入内容后与空 coach 逐字节相同）、占位符不留痕。"
+    },
+    {
+      "id": "A03",
+      "claim": "坏源和缺依赖如实失败（不产伪空页、不静默降级）",
+      "how": "九种坏法逐个必须抛错并点名：坏模板（缺 <!-- @WHALE:NEXT -->）/ meta 缺 source / hintTerm 未登记 / data-lesson-meta 坏 JSON / 未声明的图型占位符 / 缺外壳文件 / 缺注入能力（labelAnchorId、shape、glossaryIndex、noteCounts、stripStaticTitles 五条各自点名）/ **缺 tools/unify/render.cjs**（包侧 CLI 非零退出 + 错误点名该文件）/ 包侧缺外壳。凡『失败后不许落产物页』的场景都额外断言产物页数 = 0。"
+    },
+    {
+      "id": "A04",
+      "claim": "纯内核不读取环境、时钟或磁盘",
+      "how": "① 源码静态扫描（剥注释后）：不许出现 node:fs / process.* / __dirname / Date / Math.random / hrtime / ESM import / require.cache / eval / new Function / globalThis，且只许 require 同目录 .cjs、不许顶层 let/var、不许模块级 Map/Set 缓存；② 行为：把 fs 的读/写/stat/readdir/exists/open/mkdir/rm 全部换成抛错、把 Date.now 与全局 Date 换成抛错、Math.random 换成抛错、篡改 process.env 之后，同一输入仍**逐字节**产出与改前快照相同的页。"
+    },
+    {
+      "id": "A05",
+      "claim": "宿主与独立临时包使用同一计算实现",
+      "how": "① 源码层：包侧 build-lessons.js 里 render/renderPage/extractPage/parseSource/nextPlaceholderSpan/collectNavTitles/serializeSource/trimBlankLines/balancedEl/indexOfMarkup/figureMap/substituteFigures/pageSequence/样式合并/coach 正则/帧槽位表**一个都不许有**，且必须真的 require('./unify/render.cjs') 并真的调用它的 7 个入口；包侧 CLI 契约逐项仍在；② ESM 层同样不许藏第二份；③ 全仓扫描：帧槽位表与 coach 正则各**只有一处**（lib/unify/render.cjs）；④ 运行时：E:\\Temp 自建包（模板副本 + 内容 + §5 复制的四个权威模块）从仓外 cwd 跑包侧 CLI，产物与宿主 planBuild 对同一根逐字节相同，且临时包 tools/ 下只有一份 renderPage 实现、render.cjs 与仓内权威字节相同。"
+    },
+    {
+      "id": "A06",
+      "claim": "同进程输入变化可见（不能复制旧缓存假设）",
+      "how": "同一进程内依次改源文件 / point.json 的地图 / notes.jsonl / glossary-data.js，每次 planBuild 的产物都必须跟着变（正文标记、下一课课名、笔记数 0→1、术语数 3→4）；改回去必须逐字节回到改前；内核层换 ctx.frame 两次调用输出跟着变。"
+    },
+    {
+      "id": "A07",
+      "claim": "临时修改一种渲染输出后判据失败",
+      "how": "在 E:\\Temp 副本里把『下一课』span 的 style 多加一个空格 → 用 A01 同一把尺子量：干净副本 problems=0（对照），变异副本必须红且只红带该 span 的两页（0003 地图派生、1001 手写占位），不带该 span 的页不许红；宿主侧 diffPlan 对变异体写盘的页同样报漂移、对干净副本报 0。"
+    },
+    {
+      "id": "A08",
+      "claim": "不编辑模板生成副本，证据与清理受控",
+      "how": "① 进程内 fs 写守卫在**任何用例之前**装好，拦 write/append/mkdir/rm/rmdir/rename/copy/cp/open(w)，记绝对路径；探针写自证守卫挂着；② 归属判类正反各测（写集内允许；identity.cjs / docs/unify/interfaces.md / 既有采集证据 / lib/pack-template/tools/unify/** 一律拒绝）；③ 本次运行的全部写入逐条判类，越界 0 条、仓内只落在写集；④ **模板生成副本三条**（原判据「目录必须不存在」见 DELTA-8）：**存在 ⇒ 必须自洽** —— 等价于 `node tools/sync-unify-core.mjs --check`：14 件齐全、逐件与 `lib/unify/` 权威源码 Buffer 逐字节相同、目录清单正好十四件且无子目录，U07 自己复算一遍（不信任生成器自评），再跑一次真 CLI 要求 exit 0 且自报 `ok=true`；生成器缺失而副本存在 ⇒ 红；**不存在 ⇒ 合法**（U19 收口之前的状态），但证据必须登记 `mirrorAbsent:true`（不静默）；**无论存不存在：本卡本次运行对它零写**（fs 写守卫按绝对路径判，目录本身也算碰过）；该条带五条负对照（改字节 / 多件 / 缺件 / 无生成器 / 本卡写过）与两条正对照；⑤ **依赖内核口径四条**（10 份：render/text/plan/errors/ledger-read/identity/pack/content/glossary + fingerprint）：① **运行期自锚** —— 模块初始化（任何用例之前）记 10 份 sha256，收口前再算一次必须逐条相同（\"我这一跑没写它们\"；含写集内的 render.cjs，fs 写守卫按归属放行它，所以这条必须独立判）；② **外漂移按归属** —— 与 `pre-change.json` 采集值不同的，按 `docs/unify/interfaces.md` §6 **运行时解析**的主人来归因，**无主 ⇒ 红**，有主 ⇒ 只登记 + 记主人；③ **P1/P2 授权面** —— 漂移若落在 `docs/unify/authorization.json` 的 `scope.P1`/`scope.P2` 落点上（授权面每次运行现场解析，路径与引文都不硬编码），判 `authorized-by-P1P2` 并附 `quoteVerbatim` 逐字；PROBE_VERSION 载体那一条还必须\"唯一字面量 + 现值 == 按 PROBE_SOURCES 重算值 + 宿主/包侧不再各自持有字面量\"，否则红；④ **交付物内容锁** —— 本卡四份生产文件必须仍等于本回执登记的 sha256/字节（且回执登记里的 sha256 形状必须合法）。四条判据各带**进程内负对照**：改一份内核的收口 sha / 抹掉漂移记录的主人 / 拿掉 scope.P1 / 改掉回执登记字节 —— 每条都必须红在指定理由上；⑥ 写集实际情况与声明一致（两个适配层真的变了、render-inputs 真的没变、render.cjs 是本卡新建）；⑦ --evidence-root 守卫与读取根恒定；⑧ 临时目录按绝对路径归属清理（守卫该拒的拒）；⑨ tracked 回执合法 JSON 且八项字段齐、写集与本卡一致。"
+    }
+  ],
+  "unverified": [
+    "U19 未生成 lib/pack-template/tools/unify/**（本轮 A08 按第④条登记 mirrorAbsent:true；本卡按卡面不创建也不写该目录）。因此**由 create/writeScaffold 铺出来的新包**现在跑不了包侧构建器（缺 render.cjs）；见 DELTA-4 的最小解除条件与静态影响面清单。本卡未改测试/夹具/pack-scaffold.js，也未撤销委托。",
+    "模板版 build-lessons.js 与活包 tools/build-lessons.js 现在**不是同一份**（活包是改前那份自包含实现，且活包全程只读）。因此 test/pack-scaffold.mjs 的 sanitize(原件) === 模板 这一条对 tools/build-lessons.js 会红 —— 模板与活包原件的收敛归 U17（升级活包），不在本卡写集。",
+    "本卡不跑 test/all.mjs / 任何读活包的套件（render-parity / mirror-parity / pack-parity / parity-registry / pack-scaffold / lesson-blocks-parity / glossary-first-term / export-pack 等），也不访问 E:\\workplace\\study；『红套件数、断言量有没有变化』本卡不下结论，交 U20 按实测对账。",
+    "A05 的『同一计算』证明的是：同一份输入下宿主与包侧**产物逐字节相同**，且包侧/ESM 层都没有第二份渲染实现。**没有**证明包侧 CLI 在真活包上的行为（活包只读，归 U01/U17/U20）。",
+    "h2/h3 类规则的注入实现仍是两份（内核外）：包侧 tools/title-classes.js（build-notes 也在用）与宿主 lib/render.js 里逐字同源的正则。A02 已把它们的行为逐例钉住，但『收敛成一份』需要改 build-notes.js（U15）或 title-classes.js（U19），不在本卡写集 —— 见 DELTA-3。",
+    "U04 的已知判据脆弱问题由主持人另行修复；本卡只消费它的内核（plan.cjs），并用依赖锚点 sha256 断言它在本卡窗口内未被改动。",
+    "全量工程未验证：本卡专项 PASS 只证明渲染单一计算这件事。",
+    "渲染输出里的课次身份串**仍是两段** `point/NNNN`（`#spring-boot/0001`、`data-lesson=\"spring-boot/0001\"`，来自 `lib/unify/render.cjs#lessonKeyOf` 这个页面域槽位）。A01 ②(d) 钉住它两代逐字节未变，但与本轮 U09 的规范身份（`circle/point/NNNN`）口径不一致 —— 属跨卡遗留，U07 不许改渲染侧，只登记；归 lead / U09 复核是否要在渲染槽位上也换规范键（换的话 A01 会红，要求重采基准并更新迁移表）。",
+    "A01 的\"第二份基准\"是**采集**出来的（pre-change.canonical.json），不是现场推导的：渲染真漂了而基准没重采，① 会红；渲染漂了又恰好被重采的基准吸收，② 的\"迁移后必须等于旧基准\"仍会红。两者都不依赖\"我记得一样\"。",
+    "A08 第⑤条自 2026-10-21 起是\"依赖内核口径四条\"（DELTA-7）。它**已有的边界**：① 自锚只覆盖 10 份依赖内核与 4 份本卡交付物；lib/fingerprint.js（宿主 ESM 适配层）与包侧 tools/fingerprint.js 的**字节**不在锚点里（只在载体闸里核\"没有第二份字面量 / 包侧仍在委托\"）。② ④-③ 的归属表与授权面是运行时解析的文档（docs/unify/interfaces.md §6 / docs/unify/authorization.json），它们由别的卡续改 —— 判据不判\"这两份文档本身对不对\"，只判\"按当次解析出来的主人/授权是否自洽\"，并把解析到的版本 sha256 记进 detail.json。③ pack.cjs / content.cjs / glossary.cjs / render.cjs 在 U07 采集那一刻**还没有采集值**（capture-baseline 的 ANCHORS 只含 U02/U04 六件）⇒ 它们没有\"与采集值比\"这一条，只受 ① 自锚覆盖（render.cjs 另受 ④ 内容锁）；它们的外漂移归 U09/U15/U11，本卡不冒充有基准。④ 历史：本轮终验曾因并发 P1 重算 lib/unify/fingerprint.cjs 的 PROBE_VERSION 而红在旧口径上，lead 已按授权面裁决改为四条口径（externalBlockers.EXT-1 status=resolved；四例反空转与两次验收实测见 audit-evidence/U07/p1-verify/）。"
+  ],
+  "evidenceIndex": {
+    "readRoot": "audit-evidence/U07/（改前采集材料；读取根恒定，不受 --evidence-root 影响）",
+    "files": [
+      {
+        "file": "audit-evidence/U07/pre-change.json",
+        "bytes": 204961,
+        "what": "改前实测：三文件 bytes+sha256、六个依赖内核 sha256、宿主/包侧夹具输入清单、宿主冷/热 planBuild 4 页全文、宿主 planExtract、包侧两轮 build + --check + --extract 的 stdout/exit 与 lessons/** 全树字节、13 组 helper 输出；本次判据修正只补了 baselineEra/eraNote 两个说明字段，expected/** 与 fixtures/** 一个字节没动。",
+        "baselineEra": "pre-U09-identity",
+        "sha256": "6998ed7e6e567a4c213009fcf02776e2632eee8b1868a18254398ff2df13fb77"
+      },
+      {
+        "file": "audit-evidence/U07/pre-sources.json + pre-sources/*",
+        "bytes": 1341,
+        "what": "git show HEAD: 落下的改前三份源码快照与导出面（A01 用它证明『改前采集确实采在基线提交的内容上』）"
+      },
+      {
+        "file": "audit-evidence/U07/fixtures.mjs",
+        "bytes": 16982,
+        "what": "改前采集与改后判据**共用**的确定性夹具（深布局 4 页 / 旧平铺页 / 包侧模板副本 / 固定 helper 输入）",
+        "sha256": "3f50cfcc83fdaa22f830a3c41edc5b9d5df7cc02400da7a3de0a3e6c3b33b809"
+      },
+      {
+        "file": "audit-evidence/U07/capture-baseline.mjs",
+        "bytes": 13879,
+        "what": "改前采集脚本（只读仓树、只写 pre-change.json；临时夹具在 E:\\Temp\\u07-capture-<pid>-<rand> 并按归属清理）",
+        "sha256": "cac370335095d51a1ba5136103bfe5028afe860c9a532fd0f45d6e257d9ef714"
+      },
+      {
+        "file": "audit-evidence/U07/runs/U07-<pid>/",
+        "what": "每次运行的原始证据：result.json（八项状态与备注）、cases.jsonl（逐条）、errors.txt（异常栈尾巴）、detail.json（本次写入守卫记录 / spawn 记录 / 对拍明细 / 临时根清理结果）—— 该目录按次新建，不覆盖旧运行"
+      },
+      {
+        "file": "audit-evidence/U07/pre-change.canonical.json",
+        "bytes": 291147,
+        "sha256": "8d876e10fb47b3903e524773f6f0d4ab7158faee35a685e9abe30729e9281789",
+        "what": "**当前基准**（baselineEra=canonical-identity）：身份迁移表 + 迁移后夹具输入清单 + 当前渲染输出（宿主冷/热、包侧双轮 build + --check + --extract、13 组 helper）+ 旧形状账本上的当代表现（legacyEra），供 A01 的 ②③ 归因。旧基准 pre-change.json 原样保留。"
+      },
+      {
+        "file": "audit-evidence/U07/capture-canonical.mjs",
+        "bytes": 14383,
+        "sha256": "14d6dc9c743fb36acc4d392880814bfe627ff2d7894b9c0ff43318b36cd51296",
+        "what": "当前基准采集脚本（只读仓树、只写 pre-change.canonical.json；临时夹具在 E:\\Temp\\u07-canon-<pid>-<rand> 并按归属清理）。自带采集自检：规范身份下必须与旧基准逐字节相同，否则拒绝落盘。"
+      },
+      {
+        "file": "audit-evidence/U07/identity-era.mjs",
+        "bytes": 14042,
+        "sha256": "b306bbf07b75697d3c601a76a1e0eec63a776668d66d61462084d44c9791dc05",
+        "what": "两代身份形状之间的迁移表（旧 id/anchor → 规范 id/anchor，全部经 lib/unify/identity.cjs 的真实函数）+ 夹具迁移（不可映射的原样保留）+ 身份串抹除与区块提取工具。采集与判据共用一份。"
+      },
+      {
+        "file": "audit-evidence/U07/helper-snapshot.mjs",
+        "bytes": 4667,
+        "sha256": "76753159a8736ab35eb9a48897e65a433345050d9fb63c5b06e7eddfa4d0f27f",
+        "what": "A01 的 13 组 helper 快照构造（采集/判据共用一份字面量）+ 稳定序列化（对象键顺序不影响\"逐字节等价\"）。"
+      },
+      {
+        "file": "audit-evidence/U07/mirror-copy.mjs",
+        "bytes": 2960,
+        "sha256": "4cf95c1a14e88e541a15489af7d2598069f4e57156864404932fe1c48d000699",
+        "what": "§5 复制清单：从包侧入口（render.cjs / pack.cjs / content.cjs）沿 require(\"./x.cjs\") 算传递闭包，逐字复制进 E:\\Temp 夹具包（仓内不生成镜像，真包装归 U19）。"
+      },
+      {
+        "file": "audit-evidence/U07/p1-verify/",
+        "what": "A08 第⑤条口径修正（DELTA-7）的核查材料：logs/ 是两条验收（默认证据根 / --evidence-root=E:\\Temp\\U07-p1-verify）与四例反空转的**原始 stdout、stderr、exit code**（0-acceptance-*.stdout/stderr.txt、1-runtime-write.*、2-no-owner.*、3-no-scope-p1.*、4-clean-copy.*）；mutations/ 是每一例变异后的原始字节与逐行改法（含 1-runtime-write 的子进程改写脚本）；antispin-summary.json 是四例的 exit code / 判词 / 事后 sha256。沙箱副本树跑完即按绝对路径清掉（仓内只留这些），本次修正**没有新增采集材料**。"
+      }
+    ]
+  },
+  "externalBlockers": [
+    {
+      "id": "EXT-1",
+      "status": "resolved",
+      "statusLabel": "已解除 · authorized-by-P1P2（owner = U04，scope = P1，逐字引文「选A和授权p1和p2」）",
+      "resolvedWhy": "这次 sha256 变化**不是漂移**，而是 docs/unify/authorization.json 的 scope.P1 授权的那个动作（按 PROBE_SOURCES 重算 PROBE_VERSION 并写进权威内核的唯一字面量）。lead 已按授权面裁决：把 A08 第⑤条改成本卡能真正判定的四条口径（DELTA-7），漂移从此必须**可归属 + 可认领**，而不是\"必须等于采集值\"。",
+      "what": "lib/unify/fingerprint.cjs 在 2026-10-20 13:02:12 被**并发写者**改过（内容变了）：PROBE_VERSION 从 p:e3472ea71c33181c 重算成 p:45a70ecdc10f03d4，正是 U18 回执 regressions.PROBE_VERSION 里登记的 unblock 步骤（\"主持人按 C1/C2 在 U18 之后、U19 之前重算 PROBE_VERSION\"）。",
+      "effect": "A08 第⑤条「依赖内核在本卡窗口里被改了」现在必红（实得 c760f62c072509b05cf13a388ace99eb253e7884cde28a19f11e9c238f128e97 / 期望 9ee09133ba8b11a5a08f18e97a481f38d7b5be3844798b9a3340245e7d86bad4）。这是**共享工作区里的并发写**，不是 A01 的基准问题、也不是 U07 写集内的改动。",
+      "evidence": [
+        "test/audit/U07.mjs 在本轮的两次验收都只红这一条：`FAIL U07 checks=8 failed=1 skipped=0 :: A08: … lib/unify/fingerprint.cjs 在本卡窗口里被改了`；A01–A07 全绿（A01 三条判据 ✓✓✓）。",
+        "U07 写集里的四个生产文件 sha256 与交付时逐字相同：lib/unify/render.cjs eba1a1844fe36033…、lib/render.js ade50cf9b42b7ee8…、lib/render-inputs.js e5887fa138b65186…、lib/pack-template/tools/build-lessons.js 50d1d781692435f2…。",
+        "其余五个依赖锚点（identity / text / plan / errors / ledger-read）仍与旧基准记录逐字相同。"
+      ],
+      "history": {
+        "unresolvedBecause": "（解除之前的状态，原样留存）两条解法都越权：(a) 改 lib/**（卡面禁止，且 U18 正在改）；(b) 把 A08 第⑤条从\"逐字相等\"改成\"相等或登记漂移\"——那是改与基准无关的断言强度，卡面禁止。故按\"登记并上报\"处理，等 lead 裁决。",
+        "handlerOptions": [
+          "由主持人确认 P1 已落账后，授权 U07 把这次漂移做成显式登记（audit-evidence/U07/dependency-drift.json：from/to 两个 sha + 观测时刻 + 归属），A08 第⑤条改成\"未登记就红、登记了就核 from 与 to\"；",
+          "或由主持人把 fingerprint.cjs 恢复到旧字节（不推荐：P1 的重算是有意为之）；",
+          "或在记账口径里把 U07 的窗口锚点改成\"以当前基准采集时刻为准\"（需要主持人统一改口径，U07 不擅自改）。"
+        ]
+      },
+      "resolution": {
+        "decidedBy": "lead（本轮 A08 第⑤条修正任务的直接指令 + docs/unify/authorization.json 的 scope.P1）",
+        "how": "按 lead 的裁决走 handlerOptions 的第一条路线，但**登记物不是一份一次性 JSON，而是判据本身**：A08 第⑤条改成可归因的四条口径（DELTA-7），这次漂移在每次运行时被现场解析成 `authorized-by-P1P2`（owner=U04、scope=P1、quoteVerbatim 逐字）。",
+        "authorization": {
+          "file": "docs/unify/authorization.json",
+          "scope": "P1",
+          "title": "重算 PROBE_VERSION 并同步三份 fingerprint",
+          "quoteVerbatim": "选A和授权p1和p2",
+          "quoteSource": "用户在 dsh 会话（U 系列统筹会话）中的直接消息，原文逐字如上；本文件不转述、不改写、不补全。",
+          "resolvedAtRuntime": "路径集合与引文都在运行时从 authorization.json 读出（不硬编码）；载体漂移另过\"唯一字面量 + 现值 == 按 PROBE_SOURCES 重算值 + 宿主/包侧无第二份字面量\"闸。"
+        },
+        "shas": {
+          "from": "9ee09133ba8b11a5a08f18e97a481f38d7b5be3844798b9a3340245e7d86bad4",
+          "to": "c760f62c072509b05cf13a388ace99eb253e7884cde28a19f11e9c238f128e97",
+          "label": "U07 采集时值 → 现盘值（lib/unify/fingerprint.cjs）"
+        },
+        "newCriteria": [
+          "① 运行期自锚：10 份依赖内核（render/text/plan/errors/ledger-read/identity/pack/content/glossary + fingerprint.cjs）在模块初始化时记 sha256，收口前再比必须逐条相同（\"我这一跑没写它们\"）；",
+          "② 运行期外漂移按归属：与采集时值不同的，按 docs/unify/interfaces.md §6 **运行时解析**主人；无主 ⇒ 红，有主 ⇒ 只登记 + 记主人；",
+          "③ P1/P2 授权面认同：落在 authorization.json 的 scope.P1/scope.P2 落点上 ⇒ authorized-by-P1P2（只登记，附 quoteVerbatim 逐字）；授权面运行时现场解析、不硬编码；载体还须过重算闸；",
+          "④ 交付物内容锁：本卡四份生产文件仍须等于 tracked 回执登记的 sha256/字节。"
+        ],
+        "strength": "**无变弱**：覆盖面 6 → 10，多了一层\"本跑自证\"（含 fs 写守卫按归属放行的 write-set 内核），载体多了一道比逐字相等更硬的重算闸，交付物多了一道对回执字节的锁；非载体漂移从\"一律红\"改为\"有主登记 / 无主红\"是 authorization.json#derivedConsequences.C3 明确要求的口径对齐，不是本卡自选的放宽（逐条对照见 DELTA-7.strength）。",
+        "runs": [
+          "node test/audit/U07.mjs → PASS U07 checks=8 failed=0 skipped=0（exit 0）",
+          "node test/audit/U07.mjs --evidence-root=E:\\Temp\\U07-p1-verify → PASS U07 checks=8 failed=0 skipped=0（exit 0）",
+          "反空转四例（沙箱副本）：运行期写内核 → 红在 ⑤-1；抹掉 §6 归属 → 红在 ⑤-2；拿掉 scope.P1 → 红在 ⑤-3；干净对照 → 绿（原始 stdout/stderr/exit code 在 audit-evidence/U07/p1-verify/logs/）"
+        ],
+        "notTouched": "未改 lib/**（lib/unify/fingerprint.cjs 仍是 P1 重算后的字节）、未改 docs/unify/authorization.json、未改 test/audit/T26.mjs、未 git 写、未升版。"
+      },
+      "meanwhile": "A07 的判定与渲染无关：本次漂移只动 PROBE_VERSION 字面量（新鲜度判据），A01 ① 已证明同一输入两次渲染逐字节相同、与当前基准逐字节相同。"
+    },
+    {
+      "id": "EXT-2",
+      "status": "open",
+      "statusLabel": "未解除 · U19 收口前必然红（属 U07 写集，但不在本轮「两处连带对齐」的裁定范围内，需主持人另裁）",
+      "what": "U19 用 `tools/sync-unify-core.mjs --write` 生成 `lib/pack-template/tools/unify/` 十四副本之后，**除 A08 第④条（已由 DELTA-8 对齐）之外，本卡还有三条判据会红**。这是本轮在 E:\\Temp 副本里实测到的（把忠实副本 `sync --write` 铺进去后跑整卡）：A01 / A03 / A05 / A08 四例红，其中 A08 红在⑦「往仓内别处写必须被拒」——那是「仓根被放进 E:\\Temp」的产物，与副本无关；A01/A03/A05 三例是与副本生成**真实的**冲突。",
+      "effect": [
+        "A01：`A01：临时包的 §5 复制清单与 require 图闭包不一致` —— 副本进了模板之后，包侧 require 图闭包多出 `./unify/*.cjs` 这条路，与 §5 手写的复制清单不再相等。",
+        "A03 ⑧（test/audit/U07.mjs:1031-1047）：夹具 `fx.layPack(root, { templateDir: TEMPLATE })` 把整棵模板（含副本）铺出来，于是「缺 `tools/unify/render.cjs`」这个中间态复现不出来 —— 包侧 CLI 不再非零退出，`assert(r.status !== 0)` 红。最小改法：铺完模板后显式 `rmSync(<pack>/tools/unify/render.cjs)` 再跑 CLI（仍要求点名缺件 + 零产物页）。",
+        "A05 ③（test/audit/U07.mjs:1221-1234）：全仓扫描帧槽位表 / coach 正则，副本是权威源码的**逐字节复制**，`impls.slot` 立刻变成两份以上 ⇒ `sameJson(impls.slot, ['lib/unify/render.cjs'])` 红。最小改法：扫描时排除「已证明与权威字节相同的生成物」`lib/pack-template/tools/unify/**`（用 sync-unify-core 的 `plan().same` 现算，而不是硬编码排除）。"
+      ],
+      "evidence": [
+        "E:\\Temp 副本（仓根副本，非主树）里依次跑了：① 忠实副本（`node tools/sync-unify-core.mjs --write` → `--check` = `UNIFY-CORE ok=true same=14`）→ `FAIL U07 checks=8 failed=4 skipped=0 :: A01: …§5 复制清单与 require 图闭包不一致`，A08 的 note 是⑦那条（说明第④条已通过）；② 把副本里的 `render.cjs` 改一个字节 → `A08 status=fail note=抛异常：A08：模板生成副本 tools/unify/render.cjs 必须与权威源码 lib/unify/render.cjs 逐字节相同`（第④条红在镜子上），其余 A01/A03/A05 照旧红。",
+        "这两次的 failing cases 都是 `A01,A03,A05,A08`（A08 只在假副本那次红在④）。"
+      ],
+      "history": {
+        "whyNotFixedHere": "本轮裁定只覆盖「A08 第④条（目录不存在）」与「U08 的 package.json 整文件哈希」两处（见 DELTA-8 与 U08 回执 deltas.decision9PackageJsonAssertion）。A01/A03/A05 是同一收口动作的另三处连带冲突，但每一处都要改判据语义（A01 的闭包口径、A03 的夹具造法、A05 的扫描范围），必须逐条给 Δ 并经主持人按同一依据（决-9 连带）裁定 —— 所以这里只登记、不擅改。",
+        "nextStep": "主持人裁定后，按 effect 里给的三条最小改法逐条落 Δ（每条的强度对照：A03 是复现中间态的手工步骤变多、A05 是把「生成物」从唯一性扫描里按字节证明排除、A01 是闭包口径改成「权威源码闭包 ∪ 已生成副本」）。"
+      }
+    }
+  ],
+  "statusNote": "status=PASS 是**本卡判据在最后一次干净运行**上的判词。2026-10-20 13:0x 的终验曾因外部并发 P1 重算 lib/unify/fingerprint.cjs 的 PROBE_VERSION（externalBlockers.EXT-1）而红在 A08 第⑤条的旧口径上；lead 已按 docs/unify/authorization.json 的 scope.P1 裁决，把第⑤条改成本卡能真正判定的四条口径（DELTA-7：运行期自锚 / §6 归属 / P1·P2 授权面 / 交付物内容锁）。改后两条验收（默认证据根 + --evidence-root=E:\\Temp\\U07-p1-verify）均 PASS U07 checks=8 failed=0 skipped=0（exit 0），四例外部反空转（运行期写内核 / 抹掉 §6 归属 / 拿掉 scope.P1 / 干净对照）分别红在 ⑤-1 / ⑤-2 / ⑤-3 与绿，原始输出在 audit-evidence/U07/p1-verify/logs/。A01–A07 与 A08 其余八条一个字节没动，本轮复跑全绿。 本轮又追加 DELTA-8：A08 第④条由「模板生成目录必须不存在」改成「模板生成副本三条（存在则必须自洽于 tools/sync-unify-core.mjs --check／不存在则合法但证据登记 mirrorAbsent:true／本卡零写它）」，改后两条验收（主树 + E:\\Temp 副本反空转）均如预期；U19 生成副本后本卡另有 A01／A03／A05 三条判据会红，已登记在 externalBlockers.EXT-2（不在本轮裁定范围内）。"
+}

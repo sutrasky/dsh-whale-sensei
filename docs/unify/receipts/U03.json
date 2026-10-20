@@ -1,0 +1,407 @@
+{
+  "card": "U03",
+  "title": "五态读取与失败结构（B lane · S1 第二卡）",
+  "status": "PASS",
+  "scope": "unresolved",
+  "scopeNote": "U-SPEC §12 的 A/B 范围选择仍未裁决。本卡**不依赖**该裁决（U-BATCHES：U03 只消费 U01；受阻的是 U09/U10/U14）；此处沿用 unresolved 只为跨卡字段一致，不代表 U03 取得了任何 §12 授权。",
+  "completion": {
+    "summary": "在固定基线 2f57b1f 上新建两个纯契约模块并给出可复算的八项判据：① `lib/unify/errors.cjs` —— `failure` 结构（kind ∈ input/confirmation/conflict/io/recovery）+ `makeFailure` 工厂（只造不合并、非法 kind 明确拒绝），U-SPEC 拟新增五码只在此落地；② `lib/unify/ledger-read.cjs` —— `readLedger(file,{format,validate,fs})` 把读取分成 missing/empty/ok/invalid/io-error 五态，坏记录不进 entries、坏行进 problems 且 jsonl 逐行带行号、系统错误码原样保留、只读零写、format 不猜；③ `test/audit/U03.mjs` —— 用 U01 的异步壳（runCard 真 await）跑固定 A01–A08；④ 本回执。",
+    "fiveStates": {
+      "missing": "只有真 ENOENT（exists=false、errorCode=ENOENT、不带 failure —— 不存在不是失败，回不退由领域决定）",
+      "empty": "文件存在但零条有效记录（空文件、只有空行、合法空集合 []）",
+      "ok": "至少一条有效记录且 problems 为空（不带 errorCode / failure）",
+      "invalid": "坏 JSON / null / 不是对象 / 不是数组 / 校验不过 / 校验器没给规范记录 —— 好行照收（不吞），failure.kind=input、code=LEDGER_INVALID、line 指第一处可定位坏行",
+      "io-error": "EISDIR / EACCES / EPERM / 其它读取故障 —— exists=true、errorCode 原样、failure.kind=io、code=IO_ERROR（既有码，不改名）"
+    },
+    "factoryRejection": "**选定：抛 TypeError**（不返回带问题的对象）。非法 kind、空 code、空 error、file/errorCode 非字符串、line 非 >=1 整数、入参非对象 —— 一律 throw TypeError 并点名出错字段；证据在 A02（拒绝面逐条断言）与 A08（纯度：errors.cjs 零 require、无时钟/环境/随机）。",
+    "factoryNoOverwrite": "工厂只产 failure 对象：不修改入参（领域对象逐字节不变）、不把领域字段带出、不覆盖领域顶层 kind/code。领域把自己的 kind/code 留在顶层，失败挂在 `failure` 字段（调用方写 `{...domain, failure}`）。A04 用 `kind:'gate'` / `code:'criteria-not-met'` 的领域对象实证。",
+    "readerBoundary": "readLedger **不做领域归并**：不取最新一条、不排版本链、不取证据最高档、不管队列生命周期，也不代替提交协议（三闸/摘要/锁/回滚）。它只回答\"读到什么\"与\"这本账可不可信\"。",
+    "a04ScopeFix": "A04 原先那条「拟新增码只许出现在 lib/unify」是本卡的**范围错误**：U-SPEC §3 只要求「必须查重名和语义冲突 / 有冲突阻断 / 不能改旧码」，从没要求新码只能待在 lib/unify；U06 的合法消费方（提交守卫 / 恢复状态机）把 LOCK_BUSY / RECOVERY_REQUIRED 当 `code:` 值用正是设计本意，旧判据把**注释与码值用法**一并误杀。现改为 U-SPEC 真正要求的两条：① **定义级查重** —— 五码在 lib/unify/errors.cjs 之外不得被「定义」（对象键绑定 / 标识符绑定 / 成员绑定 / 常量表数组），且每码只能在该文件里声明一次；② **不与既有码重名** —— 名字不得与 U01 锁定的 86 个大写码 + 17 个 kebab 码同名（码表从 interfaces.md §5 动态解析，条数与回执登记动态比对）。使用一律放行（`code:` 值 / failure.code / 返回对象里的值 / 映射表的值 / 注释与文档提及），并带**反空转**子进程：往消费方塞第二定义必须红、只用不定义必须绿。",
+    "verdict": "PASS U03 checks=8 failed=0 skipped=0（权威运行 U03-22176，exit 0；同入口另以 E:\\Temp\\U03-fix-verify 为证据根跑过同判词）"
+  },
+  "dependencies": {
+    "upstream": [
+      {
+        "card": "U01",
+        "requirement": "真实 PASS + 完整 A01–A08 + 原始证据 + tracked 回执；接口/错误码锁与基线可用",
+        "observed": "docs/unify/receipts/U01.json 记 status=PASS；主持人亲跑两次 `PASS U01 checks=8 failed=0 skipped=0` / exit 0；本卡只读消费 interfaces.md 与 baseline.json，未改一个字节（A04 按 U01 回执里的字节数复核）"
+      }
+    ],
+    "note": "本卡不要求 §12 裁决，也不消费 A 路径授权（未引用任何人类授权原文，因为尚不存在）。",
+    "downstreamReleased": [
+      "U06",
+      "U09",
+      "U10",
+      "U14",
+      "U18",
+      "U19"
+    ],
+    "downstreamBoundary": "U06 才做提交协议（planCommit/applyCommit、三闸、whale-commit/1、恢复态）；U09/U10/U14/U18 才把各自领域接到 readLedger 上；U19 才生成 lib/pack-template/tools/unify/ 的包内副本。本卡不改任何既有文件、不接线。"
+  },
+  "interfaceConsumption": {
+    "lock": "docs/unify/interfaces.md",
+    "lockBytes": 46889,
+    "lockSha256": "35acebe7bc1fd4560f59e244ea5a89730c1b11435d27da75ff5fdfa19ab92658",
+    "baseline": "docs/unify/baseline.json",
+    "baselineBytes": 53063,
+    "baselineSha256": "06b75c7b70230a3f73c7d1ba014912a63cbc3a3cd957afb71e84ddf911f375bb",
+    "baseSha": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "branch": "refactor/unify-20261018",
+    "errorCodes": {
+      "distinct": 86,
+      "occurrences": 224,
+      "kebabFamily": 17,
+      "systemCodesExercised": [
+        "ENOENT",
+        "EISDIR",
+        "EACCES",
+        "EPERM"
+      ],
+      "existingBusinessCodesExercised": [
+        "IO_ERROR",
+        "PLAN_STALE",
+        "CONFIRM_REQUIRED",
+        "STAGE_FAILED"
+      ],
+      "kebabCodesExercised": [
+        "criteria-not-met",
+        "evidence-insufficient",
+        "missing-ref",
+        "halo-mismatch",
+        "ambiguous",
+        "busy"
+      ],
+      "newCodesLanded": [
+        "ID_AMBIGUOUS",
+        "MIGRATION_REQUIRED",
+        "LEDGER_INVALID",
+        "LOCK_BUSY",
+        "RECOVERY_REQUIRED"
+      ],
+      "conclusion": "注入什么码就原样带出什么码（不改大小写、不映射、不折成别码）；五个新码**只有一份定义**（lib/unify/errors.cjs，每码恰好一次声明），与既有 86 个大写码 + 17 个 kebab 码零重名；消费方（U06 的提交守卫 / 恢复状态机）把新码当 `code:` 值用、以及注释/文档里的提及，一律按「使用」放行 —— 这是 U-SPEC §3 的本意（它只要求查重名/语义冲突、不许改旧码，没要求新码只能待在 lib/unify）。旧码值零变更：既有源码一字未动（本卡写集全为新增）。"
+    },
+    "fiveStateSource": "lib/state.js:205 的 `EVIDENCE_STATUSES = ['missing','empty','ok','invalid','io-error']` 是五态的既有落点；A01 把 readLedger 的 LEDGER_STATUSES 与之**逐字**比对（不是本卡自造一套）。",
+    "consumersRead": {
+      "lib/evidence-io.js": "readEvidence：只有真 ENOENT 才 missing；空文件 empty；坏行 invalid；目录/权限 io-error 且 errorCode 原样；problems 用「第 N 行…」前缀 —— 本卡把这份五态抽成领域无关的唯一实现",
+      "lib/intake.js": "readIntake：坏行进 problems（`第 N 行解析失败`）、读不动就整体当空态 —— 本卡**不改它**，五态化留给 U10",
+      "lib/goal-io.js": "parseGoalsText：`第 N 行解析失败/不合规`、容错不丢（原文保留但记 problems）—— 本卡只取\"逐行定位\"这一条口径",
+      "lib/teaching-io.js": "parseTeachingText：同上（坏行进 problems，不抛）",
+      "lib/ask-io.js": "loadLedger：台账是手写 JS（require + 清缓存）；lookupAnswer 读不到就 answered:false —— 属领域形状，readLedger 不负责 JS 正本（U-SPEC：JS 正本保留格式，由适配层报告失败）",
+      "lib/glossary-io.js": "glossaryDrift：existsSync/readFileSync 判 missing 并向上一行报差异 —— 本卡不碰，归 U11"
+    },
+    "extractedContract": [
+      "只读一次：一次读只调一次 readFileSync，写能力零调用（领域层不得借读取夹带写）",
+      "真 ENOENT 才是 missing；目录/权限/其它故障是 io-error，exists 仍为 true",
+      "坏行不静默丢、也不静默收：进 problems 且带行号（jsonl）/ 记录序号（整文件 json）",
+      "系统错误码原样（errorCode），不改名也不折成业务码",
+      "格式必须显式声明（json / jsonl），不猜、不互相兜底、不把 jsonl 当 json",
+      "失败统一造成 `failure`（kind/code/error，file/line/errorCode 可选），领域顶层 kind/code 不被工厂覆盖"
+    ]
+  },
+  "writeSet": [
+    {
+      "path": "lib/unify/errors.cjs",
+      "kind": "added",
+      "bytes": 6701,
+      "sha256": "4e18e7183b5e9a124eb7094bfc5aefe281c507a6bd4f5871199591cc08664b12",
+      "note": "failure 结构 + makeFailure（只造不合并、非法 kind 抛 TypeError）+ 五态无关码落点 NEW_CODES；零 require、无时钟/环境/随机"
+    },
+    {
+      "path": "lib/unify/ledger-read.cjs",
+      "kind": "added",
+      "bytes": 12165,
+      "sha256": "820fa52c2d029a20d1c2011344adb4fabae5462b47ad634e21e582cded3db508",
+      "note": "readLedger 五态读取；format 必须显式声明；坏记录不进 entries；只读零写；fs 可注入"
+    },
+    {
+      "path": "test/audit/U03.mjs",
+      "kind": "added",
+      "bytes": 97366,
+      "sha256": "174b5a6f20b8217a9a7140d0609a751a7c234691605d79e12d4d6d03b48f05fa",
+      "note": "本卡八项入口：runCard('U03',FIXED_IDS,cases) + printVerdict + writeRunEvidence；A04 用可解释的「定义 vs 使用」分类器做定义级查重（五个新码只许 errors.cjs 一份定义），并在 E:\\Temp 副本上跑反空转子进程（塞第二定义必须红 / 只用不定义必须绿）；A07 在 E:\\Temp 副本上做读取变异；A08 增设**进程内 fs 写守卫**（本进程每次写都必须落在本卡写集/证据根/E:\\Temp 本卡临时根，且守卫自身要能拦下别人写集）"
+    },
+    {
+      "path": "docs/unify/receipts/U03.json",
+      "kind": "added",
+      "note": "本回执"
+    }
+  ],
+  "writeSetIgnored": {
+    "root": "audit-evidence/U03/",
+    "note": "本次全部原始证据（多次运行的 result.json / cases.jsonl + 四份采集：module-locks.json、reader-samples.json、mutation.json、temp-guard.json）落在 audit-evidence/U03/runs/U03-<pid>/，已被 .gitignore 忽略、不进仓。runs/ 里保留了实现期间与 A04 范围修正期间**修正前的真实 FAIL 运行**（不覆盖、不删除），权威运行是 U03-22176。未覆盖任何既有 T/发布/U01/U02/U04 证据。"
+  },
+  "outOfScope": [],
+  "outOfScopeNote": "无越界写入。本次修正只改 test/audit/U03.mjs、本回执、audit-evidence/U03/ 与 E:\\Temp\\U03-fix-verify（唯一临时目录）；lib/unify/errors.cjs 与 lib/unify/ledger-read.cjs 一个字节都没改。同一工作树里 U06（lib/pack-template/tools/ledger-transaction.cjs、tools/recover-ledgers.mjs、lib/unify/commit.cjs）与 U07（lib/render.js、lib/pack-template/tools/build-lessons.js）正在并发写各自的写集 —— 这些 tracked/untracked 改动**只登记不归因**给 U03；与码值直接相关的宿主文件（lib/evidence-io.js、lib/gate.js、lib/point-ref.js、lib/state.js）由 A04 断言为内容未变。A04 的码表归属扫描对并发写的文件做了退避重读（读不动就点名报错，绝不静默跳过），所以当前这棵并发树上跑也应是 PASS。",
+  "verdict": {
+    "entry": "node test/audit/U03.mjs",
+    "expected": "PASS U03 checks=8 failed=0 skipped=0",
+    "exitCode": 0,
+    "runs": 19,
+    "runsNote": "audit-evidence/U03/runs/ 里累计 25 个运行目录（PASS 19 / FAIL 6，截至本回执写入）；FAIL 一律保留：实现期的 A02/A04/A05/A07/A08 问题 + 本次 A04 范围修正的四条。⚠️ 落点名是 U03-<pid>（unify-runner 的默认命名，属 U01 写集），Windows 复用 pid 时理论上会覆盖同名旧运行 —— 本次观察到 U03-48716 被后来的 PASS 覆盖（原本是分类器漏认 code: 用法的 FAIL）。要彻底免疫得给落点加时间戳，那是落点设计问题，不在本次范围修正内。",
+    "sameVerdictEachRun": true,
+    "blockedPath": "node test/audit/U03.mjs --evidence-root=E:\\workplace\\not-allowed → `BLOCKED U03 --evidence-root 越界…` / exit 2（缺料/越界走 2，不与 FAIL 混）",
+    "failPath": "实现期间三批真实 FAIL 均 exit 1（`FAIL U03 checks=8 failed=5/2 skipped=0 :: …`）；A04 范围修正期间又留下三条真实 FAIL（U03-43952 / U03-44736 = 旧判据把 U06 消费方的码值/注释误杀；U03-47064 = 新判据的数组形态跨语句误判；U03-48716 = 分类器没认出 `code: '…'` 的用法理由），修完才绿，运行目录一律未覆盖",
+    "customEvidenceRoot": "node test/audit/U03.mjs --evidence-root=E:\\Temp\\U03-fix-verify → PASS / exit 0，六份证据落在该目录（只换落点，判据与读取根不变；同名目录以最后一次运行为准）",
+    "a04ScopeFixRuns": {
+      "repoRun": "U03-22176（权威）→ PASS / exit 0",
+      "tempEvidenceRootRun": "→ PASS / exit 0（证据落 E:\\Temp\\U03-fix-verify；同名目录以最后一次运行为准）",
+      "blockedRun": "--evidence-root=E:\\workplace\\not-allowed → BLOCKED / exit 2（越界守卫仍在）"
+    },
+    "meaning": "PASS 只表示本卡八项判据通过（两个新模块的五态读取与失败结构 + 本卡写集自洽），**不代表 U 系列全绿**：全量门槛属 U01/U20，提交协议属 U06，包内副本属 U19。"
+  },
+  "deltas": {
+    "object-key-usage-vs-definition": {
+      "what": "A04 的定义级查重把 object-key 这一形态**一刀切**当定义（「码名出现在对象键的位置 = 又写了一份码值」），于是把**使用**也误杀：真实树上两处 `const RETRY_CODES = Object.freeze({ PLAN_STALE: true, LOCK_BUSY: true })`（lib/unify/records.cjs:801、lib/unify/stage.cjs:97 —— 行号是修正当时的位置，U10/U14 改完各自挪到 810 / 98）被判成「第二份定义」，A04 红在 actual=5 expected=0。这条口径错必须独立修正：否则任何卡写成员集都会被误杀。",
+      "rule": {
+        "alias-code-table": "定义（必须红）：键 = 码名，且值是**同一个字符串字面量**（`{ LOCK_BUSY: 'LOCK_BUSY' }` / `'LOCK_BUSY': \"LOCK_BUSY\"` / `Object.freeze({ … })` 包裹的同类表）—— 等于又写了一份码值字面量。",
+        "membership-set": "使用（放行）：值是 `true` / `false` / `null` / 数字（`{ PLAN_STALE: true, LOCK_BUSY: true }`）—— 只是拿码名当查找键。",
+        "mapping-key": "使用（放行）：值是别的字符串 / 标识符 / 表达式（`{ LOCK_BUSY: 'busy' }`、`{ LOCK_BUSY: kCode }`）—— 只是拿码名当查找键。",
+        "unchanged": "其它形态的判定一个字没改：标识符绑定 `const LOCK_BUSY = '…'`、函数绑定、成员绑定、常量表数组。定义区间仍是「键 + 冒号」，别名表里值那一处照旧记 mapped-value（使用）—— 唯一合法落点 errors.cjs 的 NEW_CODES 本身就是 alias-code-table 形态，「每码恰好声明一次」数的正是键那一次；把值也算进去会把落点自己数成两次（反而假红）。"
+      },
+      "where": "test/audit/U03.mjs：新增 `objectKeyOccurrences()`（看冒号后面的**值**定形态）；`definitionSpans()` 只收 alias-code-table；`classifyCodeOccurrences()` 对成员集/映射键给专门 reason（membership-set / mapping-key）与可读理由 —— 被看见，只是不算定义（不许「扫不到」充绿）。",
+      "antiVacuum": {
+        "greenAdded": "`const RETRY = Object.freeze({ PLAN_STALE: true, LOCK_BUSY: true })` → 必须**绿**（成员集；新增样本，证明没有把所有 object-key 一刀切放过）",
+        "redKept": [
+          "`const CODES = { LOCK_BUSY: 'LOCK_BUSY' }` → 必须**红**（别名表；原样本保留）",
+          "`const RECOVERY_REQUIRED = 'RECOVERY_REQUIRED'` → 必须**红**（标识符绑定；原样本保留）"
+        ],
+        "assertions": [
+          "绿副本里成员集必须被判成 use/membership-set（被看见，不是没扫到），且消费方零定义",
+          "红副本里 LOCK_BUSY 必须仍是 definition/alias-code-table、RECOVERY_REQUIRED 仍是 definition/identifier-binding",
+          "子进程两跑：绿 exit 0 / `CODE-OWNERSHIP OK`，红 exit 1 / `CODE-OWNERSHIP FAIL` 并点名两个码"
+        ],
+        "liveSamples": "另有 6 条进程内活样本断言（别名表普通写法 / Object.freeze 包裹 / 引号键 → definition/alias-code-table；成员集 → use/membership-set；映射表字符串 / 变量引用 → use/mapping-key），落在 reader-samples.json 的 codes.ownership.objectKeySplit.liveSamples。"
+      },
+      "strength": "判据强度没降：**真别名表仍然红（有活样本证明）**。手工复演 `node test/audit/U03.mjs --code-ownership-check=<仅含真别名表的树>` → `CODE-OWNERSHIP FAIL [副本] …：…ID_AMBIGUOUS（alias-code-table） | …MIGRATION_REQUIRED（alias-code-table）：actual=2 expected=0` / exit 1（原始输出 audit-evidence/U03/classify-fix/counter-spin.raw.txt）；修正后真实树 perCode[*].declarationsInSingle 仍全为 1，definitions 只剩 lib/unify/errors.cjs:47-51 五处。",
+      "boundary": "**没修**的一条，说清：records.cjs 旧表 `{ INVALID: 'LEDGER_INVALID', AMBIGUOUS: 'ID_AMBIGUOUS', MIGRATION: 'MIGRATION_REQUIRED' }` 的**键不是码名**（值才是），它本来就落在 mapped-value（使用），修前修后都不算 object-key 定义。本卡不放宽也不扩大这一口径（扩大 = 判据口径变更，不在授权内）；U14 已把那张表删掉。也就是说「值位置的第二份字面量（键是别的名字）」仍不在本卡判据强度内 —— 要覆盖得另开一条 delta。",
+      "evidence": {
+        "run": "audit-evidence/U03/runs/U03-11076/（result.json 1266B sha256 36abeb43468c113d106760599dd69c8f21bec290249a024fe09bda0dcda3a416、reader-samples.json 46651B sha256 def8e6b24fe7ac3282139c392bae024222b21fa74cfb94d28da27cd2ded0d388）",
+        "raw": [
+          "audit-evidence/U03/classify-fix/raw-run-default.txt（`PASS U03 checks=8 failed=0 skipped=0` / EXIT=0）",
+          "audit-evidence/U03/classify-fix/raw-run-evidence-root.txt（`--evidence-root=E:\\Temp\\U03-classify-verify`，同上 / EXIT=0）",
+          "audit-evidence/U03/classify-fix/counter-spin.raw.txt（绿成员集 / 绿映射键 / 红别名表的原始判词与退出码）",
+          "audit-evidence/U03/classify-fix/classifier-delta.json（判别规则、误报两实例、perCode 快照、边界）",
+          "audit-evidence/U03/classify-fix/before-after.md（修前 raw、修前口径、修后口径、剩余边界）"
+        ],
+        "supersede": "本回执顶层的 verdict / evidenceIndex 两块写于**上一阶段**（authoritativeRun=U03-22176、U03.mjs 86791B）；A04「码表归属」判据以本条 delta 为准（现 U03.mjs 95848B / sha256 69a16975c32864b6dbf05be96ed712a9bd6fcdecab4d5b7fb8cbebdf198ffb72）。其余条目一字未动。"
+      }
+    },
+    "assertions": {
+      "newCaseIds": [
+        "A01",
+        "A02",
+        "A03",
+        "A04",
+        "A05",
+        "A06",
+        "A07",
+        "A08"
+      ],
+      "increment": 8,
+      "note": "只新增 U 系列专项 8 条；未改任何既有 test/*.mjs、test/audit/T*.mjs、harness 与 release 检查器的一个断言（本卡对它们零写）。"
+    },
+    "a04ScopeFix": {
+      "what": "A04 的旧断言 ⑤ 是「五个拟新增码在 lib/unify 之外零命中」（纯文本包含），它把 U06 合法消费方的 `code: 'LOCK_BUSY'` 用法和注释提及一起判成冲突（主持人复跑在 U06 接线后得到 actual=4 expected=0）。",
+      "now": "换成 U-SPEC §3 真正要求的两条：① 定义级查重 —— 分类器把每个命中点判成「定义」（对象键绑定 object-key / 标识符绑定 identifier-binding / 函数绑定 function-binding / 成员绑定 member-binding / 常量表数组 code-table-array）或「使用」（code: 值 / 映射表的值 / 比较 / 返回值 / 实参 / 注释提及），只有「定义」且在 lib/unify/errors.cjs 之外才算违规，且每码在该文件里恰好一次声明；② 名字不与既有码重名 —— 码表从 interfaces.md §5.1/§5.2 动态解析（86 大写 + 17 kebab），条数与 U01 回执登记动态比对，重名一律阻断。",
+      "antiVacuum": "在 E:\\Temp 副本上跑**子进程**同一份判据：消费方只用不定义 → `CODE-OWNERSHIP OK` / exit 0；往消费方塞两份第二定义（`const CODES = { LOCK_BUSY: 'LOCK_BUSY' }` + `const RECOVERY_REQUIRED = 'RECOVERY_REQUIRED'`）→ `CODE-OWNERSHIP FAIL …` / exit 1 并点名两个码；对照副本里消费方的合法用法（含注释提及）必须被认出 ≥3 处，否则该条也算失败（防判据空转）。",
+      "unchanged": "A04 其余断言一条未动：系统码/业务码/kebab 码逐个原样往返、工厂不覆盖领域顶层 kind/code、两个新模块无改名表、旧码宿主内容仍在、lib/unify 零 tracked 改动、U01 两个出口字节数与回执动态相符。",
+      "evidence": "audit-evidence/U03/runs/U03-22176/reader-samples.json 的 codes.ownership（逐命中点定义/使用分类 + perCode 计数）与 codes.antiVacuum（green/red 判词与退出码）；E:\\Temp\\U03-fix-verify\\anti-vacuum\\green.raw.txt / red.raw.txt 是手工复演的原始输出。"
+    },
+    "writeGuard": {
+      "what": "顺带体检发现本卡没有\"整棵树只有我在写\"类的写纪律断言（D3 已把旧的 tracked-clean 断言换掉），于是按主持人给的口径**只保留**一条自己说了算的：A08 ⑦ 的**进程内 fs 写守卫**。",
+      "how": "在进程启动时包住 fs 的写能力（writeFileSync/appendFileSync/mkdirSync/rmSync/rmdirSync/unlinkSync/copyFileSync/renameSync/createWriteStream/truncateSync，copy/rename 记第二参数=写目标），逐次记下目标；A08 断言每一次写都在「本卡写集文件 / audit-evidence/U03 / --evidence-root / E:\\Temp\\u03-s1-blane」里。",
+      "antiVacuum": "守卫自身也要非空转：本卡写集里的文件必须放行、lib/render.js（别人的写集）必须拦下、E:\\Temp\\u03-someone-else（本卡临时根之外）必须拦下；且记录数必须 ≥5。",
+      "evidence": "temp-guard.json 的 writeGuard：本次 55 次写全部列出、越界 0。"
+    },
+    "suites": {
+      "topLevelSuitesBefore": 56,
+      "topLevelSuitesAfter": 56,
+      "note": "test/audit/U*.mjs 不在 test/_suite-manifest.mjs 的发现范围（只发现顶层 test/*.mjs 并排除 _ 前缀与 5 个入口），套件数不变；新专项不替代旧套件。"
+    },
+    "skipped": {
+      "baselineFrozen": 2,
+      "added": 0,
+      "note": "本卡入口不许 skip（runner 里 skip 不计 pass）；基线原有 2 条 skip 未被本卡触碰。"
+    },
+    "fullGate": {
+      "ran": false,
+      "note": "全量门槛只属 U01/U20；本卡不跑、不访问活包 E:\\workplace\\study、不向主树 E:\\workplace\\dsh-whale-sensei 写任何东西。"
+    }
+  },
+  "unverified": [
+    "readLedger **不含领域归并**：\"最新一条\"、版本链（goal/teaching 的 v）、证据最高档、队列生命周期都还在各领域自己手里 —— 本卡只交付读取层，接线归 U09/U10/U14/U18。",
+    "提交协议（planCommit/applyCommit、三闸顺序、whale-commit/1、busy/rolled-back/recovery-required 七态、包锁与 txn 日志）归 U06，本卡没有实现也没有断言。",
+    "`questions-data.js` / `glossary-data.js` 这类**手写 JS 正本**不走 readLedger（U-SPEC：JS 正本保留格式，由适配层报告失败）；其读取失败形状未在本卡验证。",
+    "包内副本 `lib/pack-template/tools/unify/{errors,ledger-read}.cjs` 未生成 —— U19 的 tools/sync-unify-core.mjs --write 才做；本卡未在包内验证（S1 阶段允许，真包装归 U17/U19）。",
+    "真实消费方（intake/goal-io/teaching-io/ask-io/evidence-io/glossary-io）尚未改为调用 readLedger：本卡只抽契约，不改调用点（接线按批次表归后续卡）。",
+    "错误码跨机器一致性未验证：码值原样带出在本机 Node v25.2.1 / Windows 上实测；不同平台的系统码取值（例如 EISDIR 的触发条件）未逐一采样（本卡只用一次真实目录读 + 注入值覆盖 EACCES/EPERM）。",
+    "全量门槛与随包联调未跑（只属 U01/U20）；本 PASS 不与\"全工程已绿\"等价。"
+  ],
+  "evidenceIndex": {
+    "root": "audit-evidence/U03/",
+    "authoritativeRun": "audit-evidence/U03/runs/U03-22176/",
+    "authoritativeFiles": [
+      {
+        "file": "result.json",
+        "bytes": 1266,
+        "sha256": "9087003987f8b742b68da37b1d32a1879451168fc4974a7262eece2802fb365c"
+      },
+      {
+        "file": "cases.jsonl",
+        "bytes": 621,
+        "sha256": "b0cface743e6fd42edc9f34e9187af537d66d5c148a822deb4535aaf750a1b74"
+      },
+      {
+        "file": "module-locks.json",
+        "bytes": 561,
+        "sha256": "6ceb0eee6a5133a81e2a5a2424a44d9a999d7ad4df0333b8348f221396948b77"
+      },
+      {
+        "file": "reader-samples.json",
+        "bytes": 19922,
+        "sha256": "46d163a1e1a0f88eaf469ab5c9010ae57734ed111835040ec3d68ef342022300"
+      },
+      {
+        "file": "mutation.json",
+        "bytes": 439,
+        "sha256": "a463bf6848a0c79afe391ff8947887e5cf6330b1506c8682994a82b05056324f"
+      },
+      {
+        "file": "temp-guard.json",
+        "bytes": 7431,
+        "sha256": "f1352ca2988fb849bc42037e4ce263e4ab8983d7a97d15e2b9f1026d6c4628aa"
+      }
+    ],
+    "highlights": [
+      "module-locks.json：本次判据所对的三个源文件字节数与 sha256（errors.cjs 6701 / ledger-read.cjs 12165 / U03.mjs 86791）+ 运行时的 HEAD",
+      "reader-samples.json：五态真实采样、混合好坏行采样、两种格式对照、码值往返、只读快照、坏输入清单，以及 **codes.ownership**（五个新码每个命中点的 definition/use 分类、形态、行号、原文片段、perCode 计数）与 **codes.antiVacuum**（对照副本 CODE-OWNERSHIP OK / exit 0、变异副本 FAIL / exit 1 的原始判词）",
+      "mutation.json：A07 的变异落点、干净副本 exit 0 / 变异副本 exit 1 的判词、以及\"EISDIR 在变异副本里变成 empty、在权威源码里仍是 io-error\"的双向对照",
+      "temp-guard.json：E:\\Temp\\u03-s1-blane 临时根、本次运行目录、五个危险目标的守卫拒绝、清理后残留，以及 **writeGuard**（本进程 55 次 fs 写全部列出，越界 0；连\"守卫自身不得恒放行/恒拒绝\"的反空转也一并记下）",
+      "E:\\Temp\\U03-fix-verify\\：另一次只换落点的等价 PASS 运行证据（同名目录以最后一次运行为准）+ anti-vacuum\\green.raw.txt、red.raw.txt、exits.txt（手工复演的绿/红原始输出，复演脚本 anti-vacuum\\make.mjs 也在那里）",
+      "runs/ 里保留了实现期间与 A04 修正期间的全部真实 FAIL 运行（不覆盖、不删除），权威运行单独点名 U03-22176"
+    ]
+  },
+  "commands": {
+    "verify": [
+      {
+        "argv": [
+          "node",
+          "test/audit/U03.mjs"
+        ],
+        "exitCode": 0,
+        "stdout": "PASS U03 checks=8 failed=0 skipped=0",
+        "runs": 19
+      },
+      {
+        "argv": [
+          "node",
+          "test/audit/U03.mjs",
+          "--evidence-root=E:\\Temp\\U03-fix-verify"
+        ],
+        "exitCode": 0,
+        "stdout": "PASS U03 checks=8 failed=0 skipped=0"
+      },
+      {
+        "argv": [
+          "node",
+          "test/audit/U03.mjs",
+          "--evidence-root=E:\\workplace\\not-allowed"
+        ],
+        "exitCode": 2,
+        "stdout": "BLOCKED U03 --evidence-root 越界（只许 U03 新运行目录 / U20 复验目录 / 带 U03- 或 u20- 前缀的临时目录）：E:\\workplace\\not-allowed"
+      },
+      {
+        "argv": [
+          "node",
+          "test/audit/U03.mjs",
+          "--code-ownership-check=E:\\Temp\\U03-fix-verify\\anti-vacuum\\green"
+        ],
+        "exitCode": 0,
+        "stdout": "CODE-OWNERSHIP OK",
+        "note": "反空转绿：消费方只用不定义"
+      },
+      {
+        "argv": [
+          "node",
+          "test/audit/U03.mjs",
+          "--code-ownership-check=E:\\Temp\\U03-fix-verify\\anti-vacuum\\red"
+        ],
+        "exitCode": 1,
+        "stdout": "CODE-OWNERSHIP FAIL [副本] 拟新增码出现了第二份定义（重名/语义冲突必须阻断；只许 lib/unify/errors.cjs 一份）：lib/pack-template/tools/ledger-transaction.cjs:6 LOCK_BUSY（object-key） | …:7 RECOVERY_REQUIRED（identifier-binding）：actual=2 expected=0",
+        "note": "反空转红：往消费方塞两份第二定义"
+      },
+      {
+        "argv": [
+          "node",
+          "-e",
+          "require('./docs/unify/receipts/U03.json')"
+        ],
+        "exitCode": 0,
+        "stdout": "（无输出 = JSON 合法）"
+      }
+    ],
+    "caseIndex": {
+      "A01": "五态分开（契约内核 + 真实文件 + 与 lib/state.js 的 EVIDENCE_STATUSES 逐字比对）",
+      "A02": "坏 JSON / null / 非记录 / 声明错用法：内容坏不崩且 invalid，用法错明确 TypeError",
+      "A03": "混合好坏行的 jsonl：好行进 entries、坏行进 problems 且分别指到第 2/3/6 行",
+      "A04": "系统码与既有业务码逐个原样往返 + 工厂不覆盖领域 kind/code + 五个新码只有一份定义（定义 vs 使用分类，消费方的码值用法与注释提及一律放行）+ 不与 86 大写码 / 17 kebab 码重名 + 反空转（塞第二定义必红）+ 旧码宿主零改动",
+      "A05": "整文件 json 与 jsonl 按声明处理（同内容同记录；声明错格式互不兜底）",
+      "A06": "真实文件读前读后清单/内容/mtime 不变 + 注入探针零写调用 + 源码里没有写能力",
+      "A07": "E:\\Temp 副本上把 io-error 折成 empty：干净副本 exit 0，变异副本 exit 1 并点名 io-error",
+      "A08": "确定性注入逐字节可复现 + 模块纯度/依赖白名单 + 临时根绝对路径与归属 + 进程内 fs 写守卫（本进程每次写都在本卡写集/证据根/临时根里，且守卫自身要能拦下别人写集）+ 四份证据落盘 + 清理守卫"
+    },
+    "rawVerdictRecord": "audit-evidence/U03/runs/U03-22176/result.json"
+  },
+  "deviations": [
+    {
+      "id": "D1",
+      "what": "A02 的\"两条粘成一行 / 后一行坏 JSON\"类用例，初始断言写的是 entries=0；实测 `{\"a\":1}\\n{\"b\":` 的前一行本身是合法记录。",
+      "effect": "断言改为\"按用例声明的期望条数\"（该例 1 条），并追加\"坏结构不许进 entries、entries 里不许出现非记录\"两条。语义**没有放宽**：坏记录仍不进 entries、status 仍是 invalid。"
+    },
+    {
+      "id": "D2",
+      "what": "A05 里\"整文件数组声明成 jsonl\"的实测结果是 entries=1（该数组里第 3 行 `{\"id\":\"b\",\"n\":2}` 自身就是合法 JSON 对象行）。",
+      "effect": "断言改为 `entries=['b']` + `不许出现数组元素` + status=invalid。判据更精确：jsonl 逐行读只能收下\"真正合法的记录行\"，**不许把数组还原**。"
+    },
+    {
+      "id": "D3",
+      "what": "A04 原本断言\"工作树里零 tracked 改动\"；实测同一工作树里 U04 lane 正在并发修改 lib/text.js、lib/plan.js、lib/fingerprint.js、lib/pack-template/tools/{pack-text,plan-map,fingerprint}.js。",
+      "effect": "该断言被**换成内容证明**：⑥-1 两个模块在固定提交对象里不存在（`git cat-file -e HEAD:<path>` 失败）+ 工作树里是 untracked；⑥-2 本卡命名空间 lib/unify/ 零 tracked 改动；⑥-3 码值宿主（lib/evidence-io.js 的 IO_ERROR、lib/gate.js 的三个 kebab 码、lib/point-ref.js 的三个 kebab 码、lib/state.js 的 EVIDENCE_STATUSES）里码值仍在；⑥-4 U01 两个出口的字节数仍等于 U01 回执所记。其余 tracked 改动如实登记进 reader-samples.json 的 codes.trackedDirty 并注明属其它 lane、不归因 U03 —— 这样以后谁重构那些宿主文件，只要码值没变就不会把 U03 的入口假红。",
+      "note": "这是一次判据**重写**而不是放宽：断言数没减，且新增了 ⑥-2/⑥-3 两条原设计里没有的断言。"
+    },
+    {
+      "id": "D4",
+      "what": "真实文件上的 io-error 用\"路径是目录\"触发。本机实测：`fs.readFileSync(<真实目录>, 'utf8')` 抛 EISDIR（Node v25.2.1 / Windows），与 lib/evidence-io.js 自检里的既有结论一致。",
+      "effect": "真实文件态断言 `errorCode === 'EISDIR'` 成立；EACCES/EPERM 走确定性注入（不依赖本机 ACL，换机器也不会假红）。"
+    },
+    {
+      "id": "D5",
+      "what": "runs/ 里有实现期间的 FAIL 运行（判据/证据问题，修正后消失），另有数次 PASS 运行。",
+      "effect": "原则上保留不删、不覆盖；权威运行单独在 evidenceIndex 里点名（U03-22176）。中间运行的 module-locks 可能与权威运行不同（随后又修正过 test/audit/U03.mjs），以权威运行的 module-locks.json 为准即可逐字节复算。任何人可据此看出\"判据确实红过之后才绿\"，而不是一次性写出来的绿。A04 范围修正期间的 FAIL（U03-43952 / U03-44736 旧判据误杀 U06 消费方；U03-47064 新判据数组形态误判）保留；U03-48716（分类器漏认 code: 用法）那一目录后来被 pid 复用的 PASS 运行覆盖 —— 见 verdict.runsNote。"
+    },
+    {
+      "id": "D6",
+      "what": "`missing` 状态带 `errorCode: 'ENOENT'` 但**不带** `failure`。",
+      "effect": "这是有意的设计选择：不存在不是失败，回退与否是领域的决定（U-SPEC：missing 的原业务回退不扩大）。A01/A04 都显式断言 `!('failure' in result)`，防止读取层私自把\"没有台账\"升级成失败。"
+    },
+    {
+      "id": "D7",
+      "what": "A04 旧断言 ⑤「五个拟新增码在 lib/unify 之外零命中」是**范围错误**：它按纯文本包含判定，在 U06 把 LOCK_BUSY / RECOVERY_REQUIRED 当 `code:` 值接进提交守卫与恢复状态机之后，把**合法用法和注释提及**判成了重名/语义冲突（主持人复跑：lib/pack-template/tools/ledger-transaction.cjs 与 tools/recover-ledgers.mjs 各两处，actual=4 expected=0）。",
+      "effect": "改为 U-SPEC §3 真正要求的两条（定义级查重 + 不与既有码重名），使用一律放行；并补**反空转子进程**（消费方塞第二定义 → CODE-OWNERSHIP FAIL / exit 1；只用不定义 → OK / exit 0）。这是判据**修正**不是放宽：新增了\"每码只许一次声明\"\"名字不与 86+17 个既有码重名\"\"第二定义必须红\"三条原设计没有的断言，A04 其余断言一条未动。lib/unify/errors.cjs 与 lib/unify/ledger-read.cjs 本次**一个字节都没改**（字节数/sha256 与修正前一致）。"
+    }
+  ],
+  "handoff": {
+    "to": "S1 后续卡（B lane 顺序）",
+    "consumers": {
+      "U06": "提交协议消费 `failure`（kind=confirmation/conflict/recovery）与 `makeFailure`；readLedger 不代替提交协议",
+      "U09": "pack.cjs / lessonIndex 一类读取可改用 readLedger（本卡不改 lib/pack-model.js）",
+      "U10": "stage.cjs 把 intake/goal/teaching 的坏行口径统一到 readLedger（本卡未改这三个文件）",
+      "U14": "records.cjs 处理 questions/pending 队列时用同一五态（JS 正本仍由适配层报失败）",
+      "U18": "evidence.cjs 用 readLedger 承载 evidence.jsonl 的读侧五态（写侧仍走事务）",
+      "U19": "按本卡的 errors.cjs / ledger-read.cjs 生成 lib/pack-template/tools/unify/ 副本并登记（本卡不生成）"
+    },
+    "how": "接口口径以本回执 + `lib/unify/*.cjs` 真实字节为准；发现差异按 U-SPEC §10 暂停并带证据报差异，不在卡内静默适配。",
+    "reverify": "node test/audit/U03.mjs（判定用；证据默认落 audit-evidence/U03/runs/U03-<pid>），或 `--evidence-root=<绝对新目录>` 只换落点；A04 的码表归属判据可单独对任意副本复跑：`node test/audit/U03.mjs --code-ownership-check=<含 lib/unify/errors.cjs 的副本根>`（OK / exit 0，或 FAIL / exit 1）。",
+    "noRerun": "本卡不跑全量门槛、不访问活包、不写主树、不做模板登记/生成、不操作 git index。"
+  }
+}

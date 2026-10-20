@@ -1,0 +1,419 @@
+{
+  "card": "U04",
+  "title": "文本 / 大纲 / 指纹三类确定性计算收为单一源码（S1 · C lane）",
+  "status": "PASS",
+  "scope": "unresolved",
+  "scopeNote": "U-SPEC §12 的 A/B 两项范围选择在用户明确裁决前未裁决。本卡不在 U09/U10/U14 三张被阻断卡之列，执行的是它们的独立准备范围（共享内核收敛），不代选 A/B、不声称任何旧断言已获授权变更。",
+  "base": {
+    "sha": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "branch": "refactor/unify-20261018",
+    "head": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "headAtDelivery": true,
+    "note": "派发时 HEAD 已是本卡基线；按要求不切分支、不 checkout -B、不做任何 git 写操作（本卡全程零 add/commit/index 操作）。"
+  },
+  "completion": {
+    "summary": "把三类确定性计算收成**单一手工源码**，原入口只留适配：① 新建 lib/unify/{text,plan,fingerprint}.cjs（CommonJS、只用内置能力、text/plan 纯函数；fingerprint 只读目录不算环境/时钟/网络）；② 宿主 lib/{text,plan,fingerprint}.js 改成 ESM 适配层（createRequire 取 CJS 内核后具名再导出，导出面/默认值/返回形状逐字保留，含包侧没有的 planGate 与 PROBE_SOURCES）；③ 包侧 lib/pack-template/tools/{pack-text,plan-map,fingerprint}.js 改成**纯委托**（pack-text/fingerprint 是 module.exports = require('./unify/<mod>.cjs')，plan-map 是逐键薄委托以保持包侧 7 键导出面、不把宿主独有的 planGate 带进包侧）。",
+    "beforeChangeBaseline": "改动前先落改前快照：6 个现有文件的 bytes+sha256、三件宿主的导出面、三个包侧文件的导出面、三类夹具的逐例输出、PROBE_VERSION 与探针源现场重算值、整树逐文件内容清单、既有审计证据（U01/T23）清单摘要 —— 见 audit-evidence/U04/pre-change.json（271534 B）与 capture-baseline.mjs / fixtures.mjs。",
+    "verdict": "PASS U04 checks=8 failed=0 skipped=0（exit 0；见 evidenceIndex.runs）",
+    "notClaimed": [
+      "不声称全工程已绿：本卡只证明本卡范围（三类内核 + 六个入口的值语义与委托形态）。",
+      "不声称仓内模板已可分发：lib/pack-template/tools/unify/ 的十四份副本只归 U19 生成。",
+      "不跑全量门槛（node test/all.mjs --pack=E:\\workplace\\study --mode=real 只属 U01/U20），不访问/不写活包。"
+    ]
+  },
+  "dependencies": {
+    "upstream": [
+      {
+        "card": "U01",
+        "verdict": "PASS U01 checks=8 failed=0 skipped=0",
+        "evidence": "由主持人亲跑两次（exit 0）；本卡消费的是它的 tracked 出口，不是它的原始证据目录。"
+      }
+    ],
+    "note": "U01 是本卡唯一上游（接口锁 + 基线 + 异步判据壳）。C lane 本卡之前无同 lane 卡要求串行。",
+    "blockedCards": [
+      "U09",
+      "U10",
+      "U14"
+    ],
+    "blockedWhy": "§12 未裁决；A 路径未确立前这三卡保持 BLOCKED。本卡不因执行独立范围而越过它们。"
+  },
+  "interfaceConsumption": {
+    "lock": "docs/unify/interfaces.md",
+    "lockBytes": 46889,
+    "lockSha256Prefix": "35acebe7bc1fd456",
+    "baseline": "docs/unify/baseline.json",
+    "baselineBytes": 53063,
+    "baselineSha256Prefix": "06b75c7b70230a3f",
+    "baseSha": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "runner": "test/audit/unify-runner.mjs",
+    "runnerBytes": 14600,
+    "consumedLocks": [
+      "lib/fingerprint.js 7901 B / 65a6a10c0ecf74d0d9eec118632df5d9af8c43be4980f6c0bfeca626de8bab23 —— interfaces.md §2 的导出面锁（digestTree / PROBE_SOURCES / PROBE_VERSION）与本卡改前实测逐条相符",
+      "lib/pack-scaffold.js 28263 B / ec83bad62bf741046b43c6ca171f4eeeb3225d0ff9f83cfdbd35e141eac8a23 —— TEMPLATE_FILES 只读（写权仅 U19；本卡未新增任何模板件）",
+      "lib/pack-template/tools/engine-files.cjs 7389 B / 3a1b189cd12077d937847f37b190070b3f79556b6d151c25f59f83dd2190ab41 —— 随包引擎闭包闸只读（它机械走目录，本卡未新增模板文件，故闸仍通过）",
+      "test/_t26-migrated-pack.mjs 4476 B / 89366905eb194e1d1cd491ab9f27f8995512b173bd1483661bd886d9a18b90d0 —— T26 夹具复制规则只读（第 45-48 行是本次新增回归的根因）",
+      "test/mirror-parity.mjs 48788 B —— ①③⑥ 三节与 ③b 的断言形状只读（本卡未改一行）",
+      "test/audit/T26.mjs 16595 B —— F01 的 PROBE_VERSION 钉子只读（本卡未改一行）"
+    ],
+    "interfaceConflicts": "无。卡面点名要保留的导出面（text 3 / plan 8 / fingerprint 3）与 interfaces.md §2 的锁逐条对上；包侧导出面无扩大。",
+    "codValues": "本卡不新增也不改任何错误码（不触及 U03 的码表）；三件内核不抛业务码，parseJsonLoose 仍抛 Error、消息形状与改前逐字相同。"
+  },
+  "writeSet": [
+    "lib/unify/text.cjs",
+    "lib/unify/plan.cjs",
+    "lib/unify/fingerprint.cjs",
+    "lib/text.js",
+    "lib/plan.js",
+    "lib/fingerprint.js",
+    "lib/pack-template/tools/pack-text.js",
+    "lib/pack-template/tools/plan-map.js",
+    "lib/pack-template/tools/fingerprint.js",
+    "test/audit/U04.mjs",
+    "docs/unify/receipts/U04.json"
+  ],
+  "writeOutOfSet": "无。判据范围修正后按**可归因**口径判定（不再做改前整树快照的全量对拍）：· 本卡进程的写：fs 写守卫记录到本次进程的每一笔写，零笔落在 {写集 11 项 ∪ 本卡证据根 ∪ E:\\Temp 本次临时根} 之外；· tracked 侧的改动：git status 的 M/D/A/R 全部落在 interfaces.md §6 的 U01–U20 授权写集并集里，逐条点名到卡（同树 U01 的 docs/unify/baseline.json、U06 的 ledger-transaction.cjs 与 recover-ledgers.mjs、U07 的 render.js 与 build-lessons.js 均属各自卡写集），越出并集的路径一个都没有；· 本卡 11 条交付物在运行结束时的 sha256 仍等于运行中记录值（未被手改）；· audit-evidence/U01：本卡运行期**内容锁**里的文件逐个 sha256 未变（新增只登记条数与文件名，不判红 —— 账本同步任务的 ledger-sync-*.txt 属别人的合法新增），关键产物 interfaces.md / baseline.json / evidence-index.json 在本卡运行期**未被写**（interfaces.md 与 baseline.json 的现 sha 与改前快照不同，但与 U01 回执登记的 47673 B / 60232 B 一致，归 U01，不判红）。",
+  "deltas": [
+    {
+      "id": "DELTA-1",
+      "kind": "pack-text-what-prefix",
+      "title": "包侧 parseJsonLoose 的 what 前缀收敛到宿主语义（改前已知差异，收成一份时只能留一种）",
+      "cases": [
+        "parseJsonLoose:j12",
+        "parseJsonLoose:j13",
+        "parseJsonLoose:j14",
+        "parseJsonLoose:j15",
+        "parseJsonLoose:j16"
+      ],
+      "before": {
+        "host": "what 是默认参数：显式传 falsy 值时前缀就是它的字符串形式（'' → ' 不是合法 JSON…'、null → 'null 不是…'、0 → '0 不是…'、false → 'false 不是…'、NaN → 'NaN 不是…'）",
+        "pack": "旧实现用 `what || 'JSON'`：上面五个 falsy 取值全部落到 'JSON 不是合法 JSON…'"
+      },
+      "after": "两侧统一到**宿主**语义（默认参数），包侧那五例现在与宿主逐字相同",
+      "evidence": "audit-evidence/U04/pre-change.json 的 packVsHost.text（改前差分逐例值）+ A01/A05 的判据",
+      "whyAllowed": "卡面要求『导出与默认值/返回形状必须完整保留』并点名要对拍『parseJsonLoose 的报错信息形状与 what 前缀』；两份实现收成一份时必须选定一种，宿主是被 MIRROR-OF 指向的那一侧，故以宿主为准，Δ 逐例登记。",
+      "risk": "低：五个取值都是 falsy-but-not-undefined 的显式传参；仓内调用方（lib/**、lib/pack-template/**）没有传 falsy what 的调用点。"
+    },
+    {
+      "id": "DELTA-2",
+      "kind": "single-source-placement",
+      "title": "PROBE_VERSION 字面量与 PROBE_SOURCES 清单的归属",
+      "decision": "PROBE_VERSION 的唯一字面量放进 lib/unify/fingerprint.cjs（宿主与包侧都从同一处取；A04 断言它在 lib/** + tools/** 的代码里唯一且就是内核那一处）；PROBE_SOURCES 保留在 lib/fingerprint.js（插件侧清单，包侧从来没有它，内核不携带）。",
+      "valueUnchanged": "p:e3472ea71c33181c",
+      "evidence": "A04 ⑤⑥ 与 ④（字面量唯一性扫描）；改前值见 pre-change.json 的 probe.PROBE_VERSION"
+    },
+    {
+      "id": "DELTA-3",
+      "kind": "probe-version-recompute-regression",
+      "title": "PROBE_SOURCES 里有 lib/text.js 与 lib/plan.js —— 它们的字节改了，探针源指纹跟着变",
+      "what": "按设计 PROBE_VERSION = sha256(按 PROBE_SOURCES 顺序拼接的源码原始字节) 前 16 位。本卡把 lib/text.js（P01）与 lib/plan.js（P08）改成适配层 → 重算值必然不等于 e3472ea71c33181c。本卡按卡面硬约束『常量不能漂』**保持字面值不变**，因此该钉子会红：",
+      "affectedAssertions": [
+        "test/challenge-gate.mjs:134（⑧① `PROBE_VERSION == 探针源指纹`）",
+        "test/audit/T26.mjs:63（F01 里同一套重算断言）"
+      ],
+      "classification": "已发现新增回归（U-SPEC §5）：challenge-gate 在 U01 基线里本来就红（1 项：spring-boot 的上一课 = 0002），本条是**原红套件内的新失败项**；T26 是 T 线冻结卡的自动入口，本卡不改。",
+      "minimalUnlink": "需要一次**显式授权的值更新**：把 PROBE_VERSION 改成重算值，并同步 U19 生成的随包副本（生成器复制内核即可自动同值）与活包侧 tools/fingerprint.js 的同值关系（活包只读，U20 窗口才可对拍）。这已越出本卡写集（卡面明写常量不能漂 + A04 断言字面值保留），故只登记不执行。",
+      "evidence": "pre-change.json 的 probe.matches=true（改前相等）+ A03 的 PROBE_VERSION 断言 + 报告里的重算值"
+    },
+    {
+      "id": "DELTA-4",
+      "kind": "template-wrapper-without-generated-copy",
+      "title": "仓内随包闭包待 U19：包侧包装器 require('./unify/<mod>.cjs')，而 lib/pack-template/tools/unify/ 只归 U19 生成",
+      "consequence": "U19 之前，任何**从仓内模板铺出来的包**（test/_fixture.mjs 逐字节铺、writeScaffold、直接拷模板）与**由活包派生的 T26 夹具**（test/_t26-migrated-pack.mjs:45-48 用模板的 tools/fingerprint.js 覆盖夹具里的同名件）里都没有 tools/unify/ ⇒ 真去跑那些工具会 MODULE_NOT_FOUND。",
+      "certainRegressions": [
+        {
+          "file": "test/_t26-migrated-pack.mjs",
+          "lines": "45-48",
+          "why": "migratedPack 把 lib/pack-template/tools/fingerprint.js 复制进夹具；该文件现在是 `require('./unify/fingerprint.cjs')`，夹具里没有 tools/unify/ ⇒ require 立即抛",
+          "breaks": [
+            "test/mirror-parity.mjs:384（③ require 夹具的 tools/fingerprint.js）",
+            "test/mirror-parity.mjs:444（③b 同上）",
+            "test/mirror-parity.mjs:115 / 279（②、②b spawn 夹具的 tools/ask-server.js，而它 require ./fingerprint.js）",
+            "test/judge-parity.mjs:46（require 夹具 fingerprint）与 :273（spawn ask-server）",
+            "test/lightup.mjs:146（spawn ask-server）"
+          ]
+        },
+        {
+          "file": "test/mirror-parity.mjs",
+          "lines": "446-456",
+          "why": "③b 用正则从**源码**里取 PROBE_VERSION 字面量并比三份（插件/包侧/模板）。模板与夹具那份现在是委托壳、没有字面量 ⇒ lit() 返回 null，三条断言红。",
+          "note": "U19 生成内核对这一条**无效**：字面量已按『单一源码』收回内核，测试断言的对象需要被授权改写（不在本卡、也不在 U19 的写集内）。"
+        },
+        {
+          "file": "test/audit/T26.mjs",
+          "lines": "63",
+          "why": "F01 同时断言 ①重算值 == PROBE_VERSION ②模板源码里的 `const PROBE_VERSION = '…'` 逐字等于它。②与本条同因（委托壳无字面量），①见 DELTA-3。",
+          "note": "T 线已冻结，本卡不改；解除需要一次显式授权（改断言或改单一源码的取法）。"
+        },
+        {
+          "file": "test/mirror-parity.mjs",
+          "lines": "477-556（④ 星图载荷契约）",
+          "why": "writeScaffold 建出的 A/B 两个包从模板拿 tools/plan-map.js（委托壳），却都没有 tools/unify/ ⇒ `node tools/build-starmap.js`（它 require ./plan-map.js）直接非零退出。"
+        },
+        {
+          "file": "test/_fixture.mjs",
+          "lines": "43 / 121-125 / 140-141（逐字节铺仓内模板）",
+          "why": "同一原因：用 _fixture 造出来的合成包也会缺 tools/unify/。静态影响面分析里，circle-create / create-engine-error / pack-open / render-parity / pack-scaffold 等真去跑 build-lessons / build-starmap / build-notes / app-server 的套件因此可能变红。",
+          "note": "这几条是**静态可达性**结论（未执行）：其中多数要读活包（U01/U20 独占窗口），T 卡证据已冻结，本卡一律不跑。"
+        }
+      ],
+      "whyU19Fixes": "U19 独占 tools/sync-unify-core.mjs 的 --write/--check，把 lib/unify/*.cjs 逐字节生成 lib/pack-template/tools/unify/ 十四份副本，并把它们登记进 TEMPLATE_FILES（否则 engine-files 的 requiredButNotRegistered 会当场拒建包）。生成后：① 从模板铺出来的包自带 tools/unify/；② migratedPack 夹具复制模板 fingerprint.js 时也能解析到同目录的 unify/；③ template-unify 闭包被登记后 requiredButNotRegistered() 重新为空。",
+      "stillMissingAfterU19": [
+        "PROBE_VERSION 字面量的断言对象（mirror-parity ③b 的 lit()、T26 F01 的正则）需要一次显式授权改写：字面量已收进内核，测试不再能在包装器源码里找到它。",
+        "PROBE_VERSION 的值本身是否需要重算（DELTA-3）也是同一次授权的决定项。",
+        "活包侧 tools/fingerprint.js 与新内核对值（只读；U20 窗口才有对拍权）。"
+      ],
+      "evidence": "audit-evidence/U04/static-impact.json（模板工具 require 闭包 = app-server / ask-server / build-lessons / build-notes / build-starmap；逐套件启发式影响面）+ 本回执逐行确认的文件/行号"
+    },
+    {
+      "id": "DELTA-5",
+      "kind": "pack-side-surface",
+      "title": "包侧导出面不扩大：plan-map 用逐键薄委托而不是整体 require",
+      "why": "内核多一个宿主独有的 planGate；整体 `module.exports = require('./unify/plan.cjs')` 会把 planGate 带进包侧 API。改为逐键转出 7 键（不含 planGate），A04 断言包侧导出键（含顺序）与改前逐键一致，且每个导出与旁边那份内核**同一性**相同（不是同名同值）。"
+    },
+    {
+      "id": "DELTA-6",
+      "kind": "audit-criterion-scope",
+      "title": "A08 的越界判据从「改前整树快照对拍」换成四条可归因口径（判据范围修正，强度不降）",
+      "reportedFailure": "node test/audit/U04.mjs → FAIL U04 checks=8 failed=1 skipped=0 :: A08 · 写集外出现了写入：docs/unify/baseline.json, lib/pack-template/tools/build-lessons.js, lib/pack-template/tools/ledger-transaction.cjs, lib/render.js, tools/recover-ledgers.mjs（实得 5 / 期望 0）",
+      "whyWrong": "这 5 个文件**全是兄弟 lane 的合法写集**：docs/unify/baseline.json 是 U01 的出口（按主持人指令补记偏差 D5，53063→60232 B）；lib/render.js 与 lib/pack-template/tools/build-lessons.js 是 U07 写集；lib/pack-template/tools/ledger-transaction.cjs 与 tools/recover-ledgers.mjs 是 U06 写集。旧 A08 ③ 拿「改前整树逐文件清单」跟「现在的树」全量比，任何兄弟 lane 的后续写入都会被算到本卡头上 —— 在「一个工作树、多 lane」的编排下这个判据**必然假红**，而且会随兄弟卡进度反复红。",
+      "before": "A08 ③ = 改前整树逐文件清单 ↔ 现在的树的全量 diff（WRITE_SET 之外一律红，只给少数他卡落点开了硬编码白名单 SIBLING_LANDINGS）。",
+      "after": [
+        "① 进程内 fs 写守卫：拦 writeFileSync/appendFileSync/mkdirSync/cpSync/copyFileSync/renameSync/unlinkSync/rmSync/truncateSync/symlinkSync/createWriteStream/openSync(写意图) + 回调族 + promises 族，记录每笔写的绝对路径，断言**本卡本次进程**的每一笔写都落在 {写集 11 项 ∪ 本卡证据根 ∪ E:\\Temp 下本卡本次临时根} 之内；并用一次**探针写**（写进本次临时根）自证守卫真的挂上了、真的能记录（recorded/created/bytes 三项都查）。A08 之后还有一次收口复核，覆盖证据落盘那几笔写。",
+        "② 授权写集并集（tracked 侧）：git status --porcelain -uall 里的 tracked 改动（M/D/A/R）必须 ⊆ U01–U20 全部卡授权写集的并集。并集来源 = docs/unify/interfaces.md §6 落点表，**独立解析**（不 import U01 的 AUTHORIZED_WRITE_SET）；另加三重防假放行：§6 必须解析出 20 张卡 + 锚点路径必须都在、§6 里 U04 的落点必须逐条等于 WRITE_SET、git diff --name-status HEAD 与 status 的 tracked 部分必须是同一批路径。",
+        "③ 本卡交付物内容锁：11 个文件改完后记录 sha256，本次运行结束时（收口复核）必须仍等于实际值；不一致 → PASS 降 FAIL（判词与落盘记录一致）。改前↔改后逐字节对拍仍在 A01–A07，一条没动。",
+        "④ **不统计他卡的文件数/字节数**：删掉对 audit-evidence/T23 文件数的等值断言、对 audit-evidence/U01 文件数的下界断言（U01 每复验一次就多一个 runs/U01-*）；T23 改为只比内容摘要；docs/unify/* 的体积从不参与判定。"
+      ],
+      "attribution": "同一批路径在两张账上结论相反，正是归因的要点：lib/render.js（U07）在 ② 里**放行**（兄弟可以写），在 ① 里**判越界**（本卡写它就是真越界）。",
+      "selfProof": "两条纯函数自证每次运行都跑（A08 断言 failures 为空）：proveScopeBoundary()（野路径 M/D/R 必红、兄弟 lane 真实形状必放行、混合输入只抓野的）+ proveWriteScope()（写允许面边界，含\"U07/U06/U01 的落点对本卡进程判越界\"）。也可单独跑：node audit-evidence/U04/self-prove-A08.mjs",
+      "unchanged": "A01–A07 一条没放宽：改前↔改后逐例/逐值对拍、导出面与 ESM↔CJS 同一性、包侧纯委托、独立包加载、变异有效性全部保留；A08 里改前材料齐、既有文件真被改、内核 CJS、--evidence-root 守卫、临时目录归属清理、回执字段也全部保留。",
+      "evidence": "test/audit/U04.mjs 的 A01–A08；audit-evidence/U04/runs/U04-<pid>/detail.json 的 comparisons.A08（writeGuard / authorizedUnion / contentLock / existingEvidence 四块）与 closing；audit-evidence/U04/self-prove-A08.mjs 的纯函数自证输出；本回执 assertions.A08 与 writeOutOfSet。"
+    },
+    {
+      "id": "DELTA-7",
+      "kind": "evidence-recency-criterion-realignment",
+      "title": "删掉「给 audit-evidence/U01 证据目录计时」这条判据，换成三条可归因判据（内容锁 + 外部锚点 + 沿用写守卫）",
+      "reportedFailure": "node test/audit/U04.mjs → FAIL U04 checks=8 failed=1 skipped=0 :: A08: 抛异常：A08 · 既有证据 U01 有 runs/ 之外的文件晚于本卡改前采集时刻（说明被写过）：ledger-sync-U01-default.txt, ledger-sync-U01-verify-baseline.txt, ledger-sync-acceptance.txt, ledger-sync-option-A-simulation.txt, ledger-sync-self-prove-scope.txt（实得 12 / 期望 0）",
+      "whyWrong": "这 12 个 ledger-sync-*.txt 是**整合 lane 期间主持人派出的授权写集账本同步任务的产物** —— 另一笔授权工作的合法落点，不是 U04 越界，也不是 U01 的采集证据被污染（U01 自己的 A08 仍在断言它自己的采集证据不变）。被删的判据拿「audit-evidence/U01 下 runs/ 之外文件的 mtime 必须早于本卡改前采集时刻」当越界口径，而 mtime 只说明「被写过」，**说不出「谁写的」**：在「一个工作树、多 lane」的编排下，**原判据会因任何授权工作在 U01 证据目录落文件而假红**（不只是账本同步这一个任务，任何一次合法补证、任何一次 U01 之外的授权落点都会），而且它与 U01 自己的 A08 重复 —— 拿别人的写入给本卡记过，属于**不可归因**的判据。",
+      "before": "A08 ⑦（判据 4/4）= ① T23 全目录内容摘要对拍 + ② audit-evidence/U01：runs/ 之外每个文件的 mtime 必须 ≤ 本卡改前采集时刻（+2s 容差），且改前采集之后新增的文件必须全在 runs/U01-(collected|verify-baseline)-<pid>/ 下（否则红）。",
+      "after": [
+        "① （沿用，未改）**本进程写守卫**：本卡本次进程的每一次写都必须落在 {U04 写集 11 项 ∪ 本卡证据根 ∪ E:\\Temp 下本卡本次唯一临时根} 之内，并有一次探针写自证守卫真的挂上、真的记得到 —— 「我没越界」的真正判据，精确到本进程、精确到路径。",
+        "② **U01 采集证据内容锁**：本次运行**开始时**，对 audit-evidence/U01/ 下**我当时看见过的那批文件**逐个记 sha256（锁定面 = 运行开始时整棵证据树，U01 回执登记的 102 个文件是其子集并逐个核对登记 sha），收口前（A08 一次 + 进程收口复核一次）再比一次必须相同：内容变了 / 文件没了 → 红。运行期**新增**的文件只登记条数与文件名，**不作失败判据**（账本同步那批正是「别人的合法新增」的形状）。只锁「已看见的」，所以不因新增而红。",
+        "③ **U01 关键产物外部锚点**：docs/unify/interfaces.md、docs/unify/baseline.json、audit-evidence/U01/evidence-index.json 与 U01 登记值（回执 interfaceConsumption 的 lockBytes/baselineBytes、baseline.json#evidence.files 与 evidence-index.json#files 的逐文件 sha256、本卡改前快照 sha256）不同时**只登记 + 按 §6 归属**（interfaces.md / baseline.json 归 U01，evidence-index.json 归 U01 证据根）；只有当它们**在本卡运行期被写**（本进程写守卫记到，或运行起止 sha 变了）时才红。"
+      ],
+      "attribution": "删掉的那条把「谁写的」压成「什么时候写的」—— 不可归因。替代三条各管一段可归因面：① 抓**本卡这一次进程**写出去的任何字节（精确归因，含写 U01 证据目录、含写 U01 关键产物）；② 抓**本卡运行期**U01 采集证据的内容漂移（谁写的都算，但只报「内容变了」这一件可证伪的事实，不给人记过）；③ 抓**本卡运行期**是否动了 U01 最关键的三件产物，其余差异只点名归属 U01、不判红（例：interfaces.md 现 sha 与改前快照不同、但与 U01 回执登记的 47673 B 一致 —— 那是 U01 在运行期之外自己的更新，归 U01）。",
+      "strength": [
+        {
+          "criterion": "① 本进程写守卫（沿用）",
+          "vs": "被删的 mtime 窗口",
+          "verdict": "更强",
+          "why": "原判据只能看到「目录里某个文件的 mtime 新了」，看不到是谁写的；写守卫把本卡这一次进程的每一笔写都记到绝对路径，能抓「写 U01 证据目录」这种越界本身（含写进 runs/ 的情况，原判据对 runs/ 是故意豁免的），且不会把别人的写算到本卡头上。"
+        },
+        {
+          "criterion": "② U01 采集证据内容锁",
+          "vs": "被删的 mtime 窗口（对「内容被改」这一半）",
+          "verdict": "等价或更强",
+          "why": "等价：本卡运行期任何人改动已看见文件的内容 / 删除它，都会红。更强：判定用内容 sha256 而不是 mtime，报错能精确到「哪个文件、期望 sha 与实得 sha」，不会因一次 touch 式写而假红；锁定面是整棵证据树（原判据对 runs/ 豁免），并把 U01 回执登记的 102 个文件逐个核对登记 sha。更弱的一小半（明确登记、不回避）：别人在**运行期之外**往 U01 证据目录新增文件，原判据会红而新判据只登记 —— 那正是本次要修掉的假红（法定授权工作的合法落点），且这批文件的内容归属由 U01 自己的 A08 管（它仍在断言自己的采集证据不变）。"
+        },
+        {
+          "criterion": "③ U01 关键产物外部锚点",
+          "vs": "被删的 mtime 窗口",
+          "verdict": "更强",
+          "why": "原判据完全没有覆盖 docs/unify/interfaces.md / baseline.json / evidence-index.json 这三件外部锚点（它们不在 audit-evidence/U01 下或未参与判定）；新判据给它们挂了 U01 登记的 sha/字节数 + 本卡改前快照三重锚点，并在运行期被写时判红，其余差异点名归属 —— 覆盖面严格更大。"
+        },
+        {
+          "criterion": "（登记）唯一不再单独判红的输入",
+          "vs": "被删的 mtime 窗口",
+          "verdict": "等价（归因后由 ① 承担）",
+          "why": "他人在本卡运行窗口内对既有文件做「只 touch 不改一个字节」的写：mtime 变了但内容没变，新判据不单独判红。这是不可归因的那一半（谁写的看不出来）；若写者是本卡，① 写守卫逐笔判红（更强）。因此「本卡是否越界写 U01 证据」这个问题的判定强度只增不减。"
+        }
+      ],
+      "selfProof": "A08 每次运行都跑四组纯函数自证（failures 必须为空）：proveScopeBoundary()（授权并集）+ proveWriteScope()（写允许面，含 lib/unify/records.cjs / lib/whatever.js 必判越界）+ proveEvidenceLock()（内容锁两个方向：新增放行 / 改写与删除必红）+ proveAnchorJudge()（锚点：运行期写必红 / 运行期之外与登记值不同只登记归 U01）。独立入口 node audit-evidence/U04/self-prove-A08.mjs 逐条打印同一批函数的结果，并额外打印本次要求的 3 红 + 2 绿人造用例：红 = 运行期写 docs/unify/baseline.json（锚点）、运行期写 lib/unify/records.cjs（别卡内核落点）、写 lib/whatever.js（野路径）；绿 = audit-evidence/U01/ 下新增一个文件（只登记）、docs/unify/interfaces.md 在运行期之外变（归属 U01）。",
+      "unchanged": "A01–A07 一条没动；A08 里改前材料齐、本卡 11 条逐路径查表、内核 CJS、写守卫与探针写、授权并集三重防假放行、本卡交付物内容锁、T23 内容摘要对拍、audit-evidence 第一层目录形状、--evidence-root 守卫、临时目录归属清理、回执字段与 Δ 点名全部保留；不数他卡文件数/字节数这条口径继续有效。",
+      "evidence": "test/audit/U04.mjs（A08 的 ⑤⑥ 段与 proveEvidenceLock / proveAnchorJudge / classifyWriteTarget / diffEvidenceSnapshot 导出）；audit-evidence/U04/runs/U04-<pid>/detail.json 的 comparisons.A08.u01EvidenceLock（locked/observed/registeredManifest/added 仅登记/changed/missing）与 u01Anchors（三行锚点 + informational + reds）、closing.u01Lock/u01Anchors；audit-evidence/U04/self-prove-A08.mjs 的 3 红 2 绿原始输出。"
+    },
+    {
+      "id": "DELTA-8",
+      "kind": "decision-4-probe-sources",
+      "title": "A04 ③ 的 PROBE_SOURCES 条目锁 9 → 11（决-4 的同步动作；只改口径，采集材料一个字节没动）",
+      "authority": {
+        "file": "docs/unify/authorization.json",
+        "field": "decisions.approvedChanged",
+        "id": "决-4",
+        "what": "PROBE_SOURCES 补 lib/unify/identity.cjs 与 lib/unify/pack.cjs（9→11），**再次重算** PROBE_VERSION，同步 U04 的 lib/fingerprint.js 与内容锁",
+        "quoteVerbatim": "全按推荐",
+        "derivedConsequences": "C2（同类口径：以「全按推荐」落账的推荐项的实施动作）"
+      },
+      "before": {
+        "lock": "9 件 —— pre-change.json 的 probe.PROBE_SOURCES 采集值",
+        "assertions": [
+          "sameJson(PROBE_SOURCES, preDoc.probe.PROBE_SOURCES) —— 必须与改前那 9 件逐字相同",
+          "sameJson(PROBE_SOURCES, [9 件硬编码清单]) —— 必须还是「入口两件在前、其余按字节序」那九件"
+        ]
+      },
+      "after": {
+        "lock": "11 件 —— 等于 lib/fingerprint.js 的现清单（决-4 之后）",
+        "assertions": [
+          "① 条数锁：eq(PROBE_SOURCES.length, 11)",
+          "② 整份清单逐字逐序锁：sameJson(PROBE_SOURCES, [11 件硬编码])",
+          "③ 顺序规则三条：前两件必须 = 入口 lib/state.js + lib/state-scan.js；其余 9 件必须按字节序；按字节序排序后必须与原序逐字相同 —— 另加一条**反例自证**（把新增两件反过来必须判 false），防「按字节序」变成恒真",
+          "④ 与改前的关系（口径变化的地方）：eq(preDoc.probe.PROBE_SOURCES.length, 9) 作为前提 + sameJson(PROBE_SOURCES.slice(0, 9), preDoc.probe.PROBE_SOURCES) —— 前 9 条逐字且顺序不变（原有条目一条没动、没重排），只许在**尾部**新增",
+          "⑤ 新增两条的出处：sameJson(PROBE_SOURCES.slice(9), ['lib/unify/identity.cjs', 'lib/unify/pack.cjs']) + 读 docs/unify/authorization.json，断言 decisions.approvedChanged 里有决-4、其 what 明写 PROBE_SOURCES、明写 9→11、并逐条点名这两件（出处是台账里写着的，不是「我们自己说有」）"
+        ]
+      },
+      "strength": {
+        "verdict": "只升不降",
+        "why": [
+          "旧口径是「与改前的 9 件逐字相同」一条；新口径保留了**同一份逐字逐序比对**（②），只是被比的基准从「改前那 9 件」换成「现在的 11 件」—— 逐字逐序这条严格性没有降低。",
+          "新口径**多出**三条旧口径没有的：顺序**规则**（③，含反例自证，旧口径只比数组字面量，说不出「为什么是这个顺序」，把整份清单换成一个同样有序的错误清单时旧口径也会红、新口径也红，但新口径还能指出规则被破坏）、**前缀不变**（④，钉住「原有 9 条一条没动、没重排」，这是旧口径隐含的、现在被显式钉住）、**授权出处**（⑤，新增条目必须有台账出处，旧口径不可能有这条）。",
+          "反空转实际做过（不是只写在纸上）：清单改回 9 条 → A04 红；新增两件改序 → A04 红（原始输出见 evidence）。旧口径在决-4 之后**结构性无法通过**（清单合法地长了 2 件），所以口径只能改，但改法把「Δ 的形状」也框住了：只许尾部新增 + 有授权，插到中间、改序、删条目、多条目一律红。"
+        ]
+      },
+      "untouched": "audit-evidence/U04/pre-change.json **一字未动**（它是采集证据，不是判据；仍记 9 件）；lib/fingerprint.js、lib/unify/fingerprint.cjs、lib/unify/identity.cjs、lib/unify/pack.cjs 属决-4 的落账范围，本次同步**一个字节都没碰**（lib/fingerprint.js 6278 B / sha256 567ba058d466…c798，同步前后一致）。",
+      "selfProof": "audit-evidence/U04/a04-probe-sources-self-proof.txt：在 E:\\Temp 整仓副本（排除 .git）里跑**同一个入口** node test/audit/U04.mjs —— ① 对照（未变异）A04 pass；② 清单改回 9 条 → A04 红「必须恰好 11 件（实得 9 / 期望 11）」exit 1；③ 把新增两件改序 → A04 红「必须就是那 11 件（值 + 顺序逐字）」并把实得/期望逐条打出，exit 1。三次运行的 A08 红得一字不差（副本无 .git），故 A04 的红只能归因到变异。",
+      "evidence": "test/audit/U04.mjs 的 A04 ③（③ / ③-a / ③-b / ③-c 四段）；audit-evidence/U04/runs/U04-<pid>/detail.json 的 comparisons.A04.probeSources（now / lockedBefore / added / authority）；audit-evidence/U04/a04-probe-sources-self-proof.txt"
+    },
+    {
+      "id": "DELTA-9",
+      "kind": "decision-4-probe-sources",
+      "title": "决-4 的**值与交付物数字**：PROBE_VERSION 再算一次（p:45a70ecdc10f03d4 → p:051afdd22ab1b6cb）、探针闭包 9→11，两件交付物的 bytes+sha256 在这里登记（与 DELTA-8 互补：DELTA-8 管 A04 ③ 的锁口径，本 Δ 管值与本卡交付物的数字）",
+      "authority": {
+        "file": "docs/unify/authorization.json",
+        "field": "decisions.approvedChanged",
+        "id": "决-4",
+        "what": "PROBE_SOURCES 补 lib/unify/identity.cjs 与 lib/unify/pack.cjs（9→11），**再次重算** PROBE_VERSION，同步 U04 的 lib/fingerprint.js 与内容锁",
+        "quoteVerbatim": "全按推荐"
+      },
+      "what": "lib/pack-model.js 现在 import 了 lib/unify/identity.cjs 与 lib/unify/pack.cjs（U09 加的）⇒ 探针导入闭包已 11 件，而 PROBE_SOURCES 停在 9 件：这两个内核改动**不会**让旧快照的 probeVersion 过期 —— 正是 PROBE_VERSION 机制要防的「探针改了、判据还是旧的」。按决-4 把两件补进清单（顺序仍「入口两件在前、其余按字节序」：都在 lib/text.js 之后（t < u），identity 在 pack 之前；**其余 9 条一条没动、没重排**）并按同一算法重算字面量。",
+      "numbers": {
+        "probeSources": { "before": 9, "after": 11, "added": ["lib/unify/identity.cjs", "lib/unify/pack.cjs"] },
+        "probeVersion": { "before": "p:45a70ecdc10f03d4", "after": "p:051afdd22ab1b6cb" },
+        "concatBytes": { "before": 160695, "after": 205618, "fileBytes": 205608, "separators": 10 },
+        "deliverables": [
+          { "path": "lib/fingerprint.js", "bytes": 6278, "sha256": "567ba058d4668c408376dbac984ac12ffcf061bc36c8687c69ee51aa8e85839f", "what": "PROBE_SOURCES 9→11 + 注释说明补条目来由；`export const PROBE_VERSION = core.PROBE_VERSION` 未变（无第二份字面量）" },
+          { "path": "lib/unify/fingerprint.cjs", "bytes": 9454, "sha256": "530c7b1d3e2dfee1aae4e3e3f28b9b52bf9d98a55fdce11249fe201b7c0fb9b0", "what": "唯一字面量（第 137 行）+ 注释「值的历史」追加决-4 段；digestTree/SKIP_DIR/BOM 归一一个字节没动" }
+        ]
+      },
+      "writeSetAndContentLock": "本回执的 writeSet 是**纯路径数组**（11 条，无 bytes/sha），无需改数字；本卡交付物内容锁由 test/audit/U04.mjs 的 recordContentLock/verifyContentLock **每次运行按当时实际字节**记录（没有静态登记值），也没有静态数字要同步。interfaceConsumption.consumedLocks 里那条 `lib/fingerprint.js 7901 B / 65a6…` 是 **interfaces.md §2 的接口锁**（真值在 interfaces.md、归 U01，本轮不许改也没改），不是本卡交付物的内容锁 ⇒ 逐字不动；两件的**现行** bytes+sha 登记在 numbers.deliverables。",
+      "verification": [
+        "E:\\Temp\\d4-probe-31328\\verify.mjs：闭包 == PROBE_SOURCES（11 == 11）、顺序规则成立、重算值 = 内核唯一字面量 = 宿主导出值 = p:051afdd22ab1b6cb → VERDICT ALIGNED（exit 0）。",
+        "E:\\Temp\\d4-probe-31328\\t26-f01.mjs：T26 F01 的 9 条断言逐条复跑全 PASS（9/9；F01 此前正红在「闭包 11 vs 清单 9」）。",
+        "test/audit/U04.mjs 的 A04：DELTA-8 落成 11 件锁之后 **A04 绿**（整卡剩余红在 A08 的跨 lane 事实，见 unverified 与 P1-P2 回执 deltas[kind=probe-sources-closure-completion].sideEffects）。",
+        "test/audit/U07.mjs：PASS checks=8 failed=0 skipped=0 —— 对 lib/unify/fingerprint.cjs 的漂移判 authorized-by-P1P2（scope.P1）。",
+        "test/challenge-gate.mjs 整卡**未跑**（需要 --pack=课程包，本轮不访问活包）：⑧① / ⑧② 用同一条 walk 规则、同一套算法的一次性脚本复算，没有伪造。"
+      ],
+      "unchanged": "本卡判据、夹具、口径、内容锁机制、写守卫、锚点、回执形状一条没改；写集 11 条路径不变；内核里只改**唯一字面量与注释**，算法原样；PROBE_SOURCES 的其余 9 条逐字未动。",
+      "evidence": "docs/unify/receipts/P1-P2.json 的 deltas[kind=probe-sources-closure-completion]（11 件逐项 bytes+sha256、拼接总字节、算法未变的说明）；E:\\Temp\\d4-probe-31328\\verify.mjs 与 t26-f01.mjs 的原始输出。"
+    },
+    {
+    "what": "audit-evidence 第一层白名单从硬编码「U 卡目录 + T23」改为「U 卡目录 + T23 + 真实存在的 T 卡」。决-1/决-2/决-5/决-6/决-9/P2 之后，T 卡（T01/T03/T10/T12/T26…）由别的 lane 合法运行并把证据目录留在仓内，旧硬编码口径会把**别人的合法产物**算成本卡越界（结构性假红）。",
+    "rule": "isRealT(d) = /^T\\d{2}$/.test(d) && fs.existsSync(test/audit/<d>.mjs) —— 只有盘上真有入口的 T 卡才放行。",
+    "antiVacuity": "同处追加反空转自证：unexpectedOf([U01, T23, T01, TXX-nobody]) === [TXX-nobody]（真实存在的 T 卡放行；没有入口的 TXX-nobody 仍必须被判出来，任何非 T 非 U 目录仍红）。",
+    "strength": "判据只增不减：原放行面 {U\\d\\d, T23}，新放行面 {U\\d\\d, T23, 真实存在的 T\\d\\d}，同时新增 TXX-nobody 反空转断言。不是「T 一律放行」。",
+    "outOfSet": "无。只改本卡自己的入口 test/audit/U04.mjs 与本卡 tracked 回执 docs/unify/receipts/U04.json。",
+    "movedOutOfRepo": "E:\\Temp\\stray-T01-T03-evidence\\ —— T01 25 件/18623 B、T03 41 件/49068 B，**移出仓但保留、不删**（处置前后逐文件数/字节数一致）。",
+    "evidence": "移出 + 白名单修改后本卡复验：PASS checks=8 failed=0 skipped=0（exit 0）。",
+    "source": "E:\\Temp\\HANDOFF-U-SERIES-20261020.md §3 根因 / §4 决-A1（状态：已确认）。",
+    "kind": "stray-t-evidence-allowlist"
+    }
+  ],
+  "verdict": {
+    "entry": "node test/audit/U04.mjs",
+    "line": "PASS U04 checks=8 failed=0 skipped=0",
+    "exitCode": 0,
+    "skipped": 0,
+    "checks": 8,
+    "failed": 0,
+    "singleLine": true,
+    "failureMode": "断言失败 → FAIL U04 … exit 1；缺改前采集材料 / 授权 / 证据根越界 → BLOCKED U04 … exit 2（实现里用 Blocked，不吞错、不 skip）"
+  },
+  "assertions": {
+    "A01": "文本边界 56 例（stripBom/splitLines 各 18 例 + parseJsonLoose 20 例：BOM 在开头/中间行/无 BOM/空串/CRLF/纯空白/null/undefined/数字/布尔/对象/数组/双 BOM/中文+CRLF/结尾换行/空行，报错形状与 what 前缀）逐例对拍改前，包侧按 DELTA-1 收敛",
+    "A02": "大纲 32 份文档 × (validatePlan 默认与自定义 where、planGate、summarizePlan、planNode(1/99)) + 15 个前沿用例（两颗星/一颗/没有/exhausted/字符串号/Set/undefined/null/混进图外号）逐例对拍改前；另有反空转：ok/bad 文档分布、stars 数集合必须含 0/1/2、第二颗星必须 branch:true、planGate 必须真拒",
+    "A03": "指纹 14 个用例（多目录/中文名/CRLF/BOM 开头与行首/SKIP_DIR 11 个目录/零字节/空目录/不存在目录/确定性/多文件·改字节·换行编码必变/中文路径参与/PROBE_VERSION 形状）逐值对拍改前；含基线自检（若改前夹具本就空转则当场红）",
+    "A04": "导出面与常量完整保留：宿主 3/8/3 键与类型、PLAN_KEYS/NODE_KEYS 冻结且值序不变、PROBE_SOURCES **11 件**逐字逐序（决-4 把条目锁 9→11，DELTA-8：前 9 条逐字且顺序不变 —— 原有条目一条没动、没重排；新增 2 条 = lib/unify/identity.cjs + lib/unify/pack.cjs，出处逐条对 docs/unify/authorization.json 的 decisions.approvedChanged 决-4）、顺序规则三条（入口两件在前 + 其余按字节序 + 排序后逐字相同，另附反例自证防恒真）、PROBE_VERSION 字面值与内核那份一致且 lib/**+tools/** 代码里唯一（就在内核）；ESM↔CJS 桥用**函数同一性**证明；宿主文件里不许再留算法（replace/JSON.parse/isSafeInteger/SKIP_DIR/createHash 一律不许出现）；包侧 3/7/2 键含顺序与类型逐键一致",
+    "A05": "包侧只剩委托：源码层（剥注释后）只允许一处 require('./unify/<mod>.cjs')、无函数声明/箭头函数/第二份计算痕迹/第二份常量、module.exports 唯一；运行时把权威模块复制进 E:\\Temp 自建包后三类夹具输出与宿主逐例等价，且副本内核与仓内内核逐字节相同",
+    "A06": "独立包可加载：E:\\Temp 自建 <pack>/tools/<tool>.js + <pack>/tools/unify/<mod>.cjs（无 package.json），子进程从**两种不同仓外 cwd** require，结果相同且与宿主一致；内核源码无盘符/本机路径、无 process.env/时钟/随机/定时器/网络、只 require node:(fs|path|crypto)、不 require 相对路径",
+    "A07": "变异有效性：把内核 digestTree 改成返回常量（仅 E:\\Temp 副本），A03 的判据必须失败（逐值不等、fp06/fp08 的 changed 变 false、≥5 条与基线不同），未变异对照必须复现基线，仓内内核逐字节未受影响",
+    "A08": "证据与越界守卫（可归因口径，DELTA-6 + DELTA-7）：① 改前材料齐 + 改前探针重算相等；6 个现有文件真的被改且都含 unify/ 委托；内核是 CJS（无 ESM import/export）；② 本卡 11 条写集逐路径查表（6 改 + 5 建，与 pre-change.json 的 files/toBeCreated 对齐）—— 只查自己的路径，不做全树对拍；③ 进程内 fs 写守卫：本卡本次进程的每一次写（writeFileSync/appendFileSync/mkdirSync/cpSync/copyFileSync/renameSync/unlinkSync/rmSync/openSync 写意图/createWriteStream + 回调/promises 同族）都必须落在 {写集 11 项 ∪ 本卡证据根 ∪ E:\\Temp 下本卡本次临时根}；用**探针写**自证守卫真的挂上、真的记得到，A08 之后还有一次收口复核覆盖证据落盘那几笔；④ 授权写集并集（tracked 侧）：git status --porcelain -uall 的 tracked 改动（M/D/A/R）必须 ⊆ U01–U20 全部卡授权写集并集；并集独立解析 interfaces.md §6（不 import U01 常量），另有 §6 锚点、§6 里 U04 落点逐条等于 WRITE_SET、git diff --name-status HEAD 与 status tracked 部分同批双源对账；⑤ 四条纯函数自证每次都跑：授权面 14 条人造 porcelain（野路径必红 / 兄弟 lane 真实形状必放行 / 混合输入只抓野的）+ 写允许面 14 条（兄弟 lane 的合法写入、lib/unify/records.cjs、lib/whatever.js 对本卡进程仍判越界）+ U01 内容锁 3 条（运行期新增放行 / 改写必红 / 删除必红）+ U01 锚点 3 条（运行期写必红 / 运行期之外与登记值不同只登记归 U01 / 一致放行）；⑥ 本卡交付物内容锁：11 文件 sha256 记录后，运行结束时（收口复核）必须仍等于实际值，不一致 → PASS 降 FAIL；⑦ 判据 4/4——**不统计他卡的文件数/字节数**：T23 只比内容摘要（不再比文件数），U01 改为**采集证据内容锁 + 关键产物外部锚点**（DELTA-7：删掉「给 U01 证据目录计时」的 mtime 窗口判据；只锁运行开始时看见过的文件的内容，运行期新增只登记条数与文件名、不判红；interfaces.md / baseline.json / evidence-index.json 挂 U01 登记值锚点，只在**本卡运行期被写**时红、其余差异只登记并归 U01），docs/unify/* 的体积从不参与判定；⑧ 既有证据守卫、audit-evidence 第一层只允许 U 卡编号目录 + 既有 T23、--evidence-root 守卫（默认落 runs/U04-<pid>、仓内越界/既有证据目录/相对路径一律拒、读取根不受影响）、临时目录归属守卫与真清理、tracked 回执五项 + 写集 + Δ 点名（含 DELTA-7 的 kind）+ 未验证边界齐。"
+  },
+  "unverified": [
+    "仓内随包闭包待 U19：lib/pack-template/tools/unify/ 十四份副本未生成（本卡按卡面不创建该目录、不手改生成件）。因此「新包能不能从模板长出来并跑通 build-lessons/build-starmap/build-notes/ask-server」本卡**未验证**，也不声称仓内模板已可分发。",
+    "T26 夹具新增回归（DELTA-4）：test/_t26-migrated-pack.mjs:45-48 → 夹具里没有 tools/unify/，test/mirror-parity.mjs:384/444/115/279、test/judge-parity.mjs:46/273、test/lightup.mjs:146 会红；mirror-parity.mjs:446-456 与 test/audit/T26.mjs:63 的字面量断言在任何 U19 生成之后仍会红（需显式授权改写断言）。本卡未改这些文件、未撤销委托、未跑这些套件（它们读活包 / T 证据冻结）。",
+    "PROBE_VERSION 的重算冲突（DELTA-3）：lib/text.js 与 lib/plan.js 在 PROBE_SOURCES 里，字节一改重算值就不再等于 e3472ea71c33181c；本卡按卡面硬约束保持字面值，钉子红的状态登记在此，不自行改值。",
+    "全量门槛与 U20 对账：本卡不跑 node test/all.mjs --pack=E:\\workplace\\study --mode=real（只属 U01/U20），也不访问/写活包；「红套件数、断言量有没有变化」本卡不下结论。",
+    "其他套件的真实影响面：audit-evidence/U04/static-impact.json 是**静态启发式**（模板工具 require 闭包 = app-server / ask-server / build-lessons / build-notes / build-starmap；逐套件按「夹具是否从仓内模板铺出来 × 是否真去跑这些工具」判定）。它既可能多算（注释提及）也可能漏算（命令串交 helper、跨文件间接调用），最终以 U19 生成随包副本后的实测为准。",
+    "并发写入他卡：本次修正窗口里同工作树有 U01/U06/U07 卡并发落盘（docs/unify/baseline.json；lib/render.js、lib/pack-template/tools/build-lessons.js；lib/pack-template/tools/ledger-transaction.cjs、tools/recover-ledgers.mjs），此前还有 U02/U03 的落盘。A08 不再按全树 diff 分摊责任，而是：① 本卡进程的写守卫证明本卡没写它们；② tracked 侧按 interfaces.md §6 的并集判定它们合法，并在 detail.json 的 authorizedUnion.trackedChanges 里逐条点名 owners。本卡仍不验证它们内容的正确性 —— 那是各自卡的事（A08 只判\"这棵树上的 tracked 改动都在某张 U 卡的授权写集里\"）。",
+    "T 线冻结证据：本卡未运行任何 T 卡入口（会写 T 证据）；只读引用 test/audit/T26.mjs 的行号作登记。",
+    "A04 ③ 口径同步（DELTA-8）之后的验收状态：A04 已转绿（runs/U04-<pid>/detail.json 的 cases.A04 = pass，A01/A02/A03/A05/A06/A07 同绿），但整卡复跑仍是 FAIL，唯一一条红与本卡口径无关 —— A08 的「audit-evidence 第一层只允许 U 卡编号目录 + 既有 T23」判据撞上了 audit-evidence/T26/（T 线的证据目录；interfaces.md §6 里 T26 行的证据落点写的是「（无）」）。同一条判据在 U01 的 A08 里也是同一个口径（只放行 T23），所以这是 T 线落点问题而不是本卡的判据问题；本卡不自行放宽 A08（那会是第二处口径改动），也不删别人的证据目录。整卡 PASS 的结论待 T 线把 T26 证据落到 §6 声明的位置后复跑得到。另：反空转用的 E:\\Temp 整仓副本没有 .git，副本里的 A08 因此红（三次运行一字不差），那是副本噪音，与本组变异无关。",
+    "A04 ③ 的顺序规则是「规则 + 反例」而不是只比数组：字节序比较函数 byteOrder/isByteSorted 同时用于正向判定与反例自证（把新增两件反过来必须判 false）。若将来采纳的排序规则变了（比如改成按 basename 排），两条会同时变，不会出现「判据一套、排序另一套」。"
+  ],
+  "evidenceIndex": {
+    "readRoot": "audit-evidence/U04/（改前采集材料；读取根恒定，不受 --evidence-root 影响）",
+    "files": [
+      {
+        "file": "audit-evidence/U04/pre-change.json",
+        "bytes": 271534,
+        "what": "改前实测：6 文件 bytes+sha256、宿主/包侧导出面、三类夹具逐例输出、PROBE_VERSION 与探针源现场重算、packVsHost 差分（恰好 5 条 parseJsonLoose:j12..j16）、整树逐文件清单（376 条）、既有证据 U01(171 条)/T23(5 条) 摘要"
+      },
+      {
+        "file": "audit-evidence/U04/fixtures.mjs",
+        "what": "改前采集与改后判据**共用**的固定夹具（文本/大纲/指纹/整树清单/包侧按真实形态加载）"
+      },
+      {
+        "file": "audit-evidence/U04/capture-baseline.mjs",
+        "what": "改前采集脚本（只读仓树、只写 pre-change.json、临时夹具在 E:\\Temp 并核对归属后清理）"
+      },
+      {
+        "file": "audit-evidence/U04/static-impact.mjs",
+        "what": "静态影响面分析脚本（不执行任何套件）"
+      },
+      {
+        "file": "audit-evidence/U04/static-impact.json",
+        "bytes": 37598,
+        "what": "静态影响面结果：模板工具 require 闭包 + 逐套件启发式判定（受影响 10 套，含上界说明）"
+      },
+      {
+        "file": "audit-evidence/U04/observed-verdicts.txt",
+        "what": "开发过程中真实出现过的判词序列（FAIL/FAIL/.../BLOCKED/PASS，逐行照抄 + 退出码）—— 证明判据不是恒真、FAIL=1 与 BLOCKED=2 两条路径都真的走到过"
+      },
+      {
+        "file": "audit-evidence/U04/final-run.stdout.txt",
+        "bytes": 37,
+        "what": "最终运行的**原始 stdout**（UTF-8，只有一行判词，37 B；早先那份是 PowerShell 重定向的 UTF-16，已按本次最终运行刷新；stderr 为 0 字节，退出码见 final-run.exit.txt）"
+      },
+      {
+        "file": "audit-evidence/U04/final-run.stderr.txt",
+        "bytes": 0,
+        "what": "最终运行 stderr（空 —— 判词只走 stdout 一行）"
+      },
+      {
+        "file": "audit-evidence/U04/final-run.exit.txt",
+        "bytes": 2,
+        "what": "最终运行退出码（0）"
+      },
+      {
+        "file": "audit-evidence/U04/runs/U04-rerun-argv/",
+        "what": "--evidence-root=E:\\Temp\\U04-rerun-check 那次复验的产物（result.json / cases.jsonl / detail.json），已从临时目录复制进本卡证据根；证明写入根可改而读取根不变"
+      },
+      {
+        "file": "audit-evidence/U04/runs/U04-<pid>/",
+        "what": "本卡默认运行的证据：result.json（判词/8 项状态/耗时）、cases.jsonl（逐用例）、detail.json（用例索引 + 对拍比较面的规模 + 临时目录清理结果 + A08 的可归因块：writeGuard / authorizedUnion / contentLock / existingEvidence / u01EvidenceLock / u01Anchors + closing 收口复核（含 u01Lock 与 u01Anchors 的收口复核结果）+ 改前材料摘要）"
+      },
+      {
+        "file": "audit-evidence/U04/self-prove-A08.mjs",
+        "what": "A08 纯函数自证（DELTA-6 + DELTA-7）的独立入口：import test/audit/U04.mjs 的 proveScopeBoundary / proveWriteScope / proveEvidenceLock / proveAnchorJudge / classifyWriteTarget / diffEvidenceSnapshot / judgeU01Anchors（主入口有 IS_MAIN 守卫，import 不会触发整卡执行、不挂写守卫），逐条打印\"野路径判红 / 兄弟 lane 放行 / 写允许面边界 / U01 内容锁两个方向 / U01 锚点两个方向\"，并另打本次要求的 3 红 + 2 绿人造用例（运行期写 baseline.json / 运行期写 lib/unify/records.cjs / 写 lib/whatever.js；U01 下新增文件 / interfaces.md 运行期之外变）。判据本体就是 A08 每次运行调的那批函数，不是另写一遍的演示。"
+      },
+      {
+        "file": "audit-evidence/U04/a04-probe-sources-self-proof.txt",
+        "bytes": 5437,
+        "what": "A04 ③ 口径同步（DELTA-8）的反空转原始输出：在 E:\\Temp 整仓副本（排除 .git）里跑同一个入口 node test/audit/U04.mjs —— 对照（A04 pass）/ 清单改回 9 条（A04 红：必须恰好 11 件）/ 新增两件改序（A04 红：值 + 顺序逐字）三次的判词与退出码逐字照抄，并附变异前后仓内 lib/fingerprint.js 的 sha256（未变）"
+      }
+    ],
+    "reproduce": [
+      "node audit-evidence/U04/capture-baseline.mjs   # 只在**改动之前**跑；会拒绝覆盖既有 pre-change.json",
+      "node test/audit/U04.mjs                        # 判据；缺改前材料 → BLOCKED（exit 2）",
+      "node test/audit/U04.mjs --evidence-root=E:\\Temp\\U04-rerun-<n>   # 复验：只改产物落点，读取根不变",
+      "node audit-evidence/U04/self-prove-A08.mjs      # A08 的纯函数自证原始输出（含 3 红 + 2 绿人造用例）"
+    ]
+  }
+}

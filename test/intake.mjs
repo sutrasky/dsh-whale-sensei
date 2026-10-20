@@ -68,26 +68,26 @@ ok(buildQuestions({ point: 'vue' }).questions.length === 5, '不传 pack 就只�
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whale-intake-'))
 const file = path.join(tmp, 'learning-records', 'intake.jsonl')
 
-const e1 = { point: 'vue', level: '零基础', goal: '能独立写前端', at: '2026-09-21' }
+const e1 = { point: 'programming/vue', level: '零基础', goal: '能独立写前端', at: '2026-09-21' }
 const r1 = recordIntake(tmp, e1)
 ok(r1.ok === true, 'recordIntake 写成功')
 ok(fs.readFileSync(file, 'utf8').trim().split('\n').length === 1, '文件多了一行')
 
 const read1 = readIntake(tmp)
 ok(read1.entries.length === 1, 'readIntake 读到 1 条')
-ok(read1.latest.vue?.level === '零基础', 'latest[point] 字段一致')
+ok(read1.latest['programming/vue']?.level === '零基础', 'latest[point] 字段一致')
 
 // 再记一次同 point → latest 应是后一条
-const e2 = { point: 'vue', level: '有基础', goal: '精通', at: '2026-09-22' }
+const e2 = { point: 'programming/vue', level: '有基础', goal: '精通', at: '2026-09-22' }
 const r2 = recordIntake(tmp, e2)
 ok(r2.ok === true, '第二次记录也成功')
 const read2 = readIntake(tmp)
 ok(read2.entries.length === 2, '文件现在有 2 条')
-ok(read2.latest.vue?.level === '有基础', 'latest[point] 是后一条')
-ok(read2.latest.vue?.at === '2026-09-22', 'latest 日期是后一条')
+ok(read2.latest['programming/vue']?.level === '有基础', 'latest[point] 是后一条')
+ok(read2.latest['programming/vue']?.at === '2026-09-22', 'latest 日期是后一条')
 
 // intakeStatus
-const st1 = intakeStatus(tmp, 'vue')
+const st1 = intakeStatus(tmp, 'programming/vue')
 ok(st1.done === true, 'vue 的 intakeStatus.done = true')
 ok(st1.level === '有基础', 'intakeStatus 返回最新 level')
 
@@ -264,12 +264,12 @@ const gateTool = installAuthor(gateTmp)
 fs.writeFileSync(path.join(gateTmp, 'progress.json'), JSON.stringify({ learned: [] }, null, 2) + '\n', 'utf8')
 const pg1 = await gateTool.execute({ ...vueArgs })
 ok(pg1.ok === false && pg1.needsPrerequisite === true, `前置没学完 → 拒绝生成新课（实得 ok=${pg1.ok} needsPrerequisite=${pg1.needsPrerequisite}）`)
-ok(String(pg1.error).includes('spring-boot') && (pg1.missing || []).includes('spring-boot/0001'),
+ok(String(pg1.error).includes('spring-boot') && (pg1.missing || []).includes('programming/spring-boot/0001'),
 	`拒绝理由点名缺的是哪一课（实得 ${JSON.stringify(pg1.missing)}）`)
 ok(!fs.existsSync(vueTarget), '被前置闸拦住后，目标文件不存在')
 
 // 点亮前置课 → 前置闸放行，接着由摸底闸接手
-fs.writeFileSync(path.join(gateTmp, 'progress.json'), JSON.stringify({ learned: ['spring-boot/0001'] }, null, 2) + '\n', 'utf8')
+fs.writeFileSync(path.join(gateTmp, 'progress.json'), JSON.stringify({ learned: ['programming/spring-boot/0001'] }, null, 2) + '\n', 'utf8')
 const pg2 = await gateTool.execute({ ...vueArgs })
 ok(pg2.needsPrerequisite !== true && pg2.needsIntake === true, '前置点亮后放行，改由摸底闸接手')
 

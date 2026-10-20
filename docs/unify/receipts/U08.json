@@ -1,0 +1,450 @@
+{
+  "card": "U08",
+  "title": "引擎升级和发布协议适配（D lane / S3）",
+  "status": "PASS",
+  "scope": "unresolved",
+  "scopeNote": "U-SPEC §12 的 A/B 范围选择仍未裁决。本卡不依赖该裁决：只做引擎升级与发布协议适配（U08 卡面写集），不触碰 U09/U10/U14 的旧断言。此处沿用 unresolved 只为跨卡字段一致。",
+  "base": {
+    "sha": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "branch": "refactor/unify-20261018",
+    "head": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "headAtRun": "2f57b1f2cec02e4128b69497e3b6819d36aa707b"
+  },
+  "completion": {
+    "engineUpgrade": {
+      "what": "planEngineUpgrade() / applyEngineUpgrade() 改调 U06 的共同协议：计划身份 = planCommit() 的 whale-commit/1 计划（返回里带 commit 原件）；提交 = applyCommit() 的闸①（有效计划）/ 闸②（confirm:true + 回引 digest 逐字相符）/ 闸③（锁内重读真实字节 + 重建输出摘要）。锁 / 日志（whale-txn/1）/ 七态 / 离线恢复全部复用 lib/pack-template/tools/ledger-transaction.cjs（经 lib/unify/commit.cjs）。",
+      "kept": [
+        "planEngineUpgrade 的返回形状 {ok, root, source, files:[{path, action:add|replace|reject, before, after:{sha256,bytes}, why?}], beforeHashes, planDigest, upToDate} 逐字保留（planDigest 的值改为共同协议摘要，语义仍是计划身份 + 过期判据；另加 commit 键）",
+        "applyEngineUpgrade 的返回字段 {ok, root, planDigest, replaced, added, backupDir, rolledBack, error, note} 全在（新增 code / failure / state 三个字段）",
+        "失败文案逐字保持：--confirm / 计划摘要 / 过期或对不上 / 软链 / 备份失败",
+        "先备份再替换：<root>/.engine-backup-<时间戳>/（含 plan.json）与 rollbackEngineUpgrade() 原封不动；备份失败不替换；备份时机在闸①②之后、拿锁之前（前置拒绝时连目录都不建）",
+        "目标为软链 / 目录联接 ⇒ 计划里 action:reject、提交直接拒、绝不写穿链接",
+        "升级源只取插件模板（TEMPLATE_DIR）；ENGINE_FILES / ENTRY_REGISTRY / verifyEngine / trustedManifest 等导出与口径一字未改"
+      ],
+      "additive": [
+        "planEngineUpgrade(root, {fs}) / applyEngineUpgrade(root, {confirm, planDigest, now, fs, transaction})：fs / transaction 是判据注入点（既有调用不传也照旧；now 语义不变）",
+        "ENGINE_COMMIT_SCHEMA（= whale-commit/1）新导出；digestOfPlan 保留导出但不再是计划身份（仅兼容旧 import）"
+      ]
+    },
+    "publication": {
+      "what": "publish-policy.cjs 的 planPublication() / applyPublication() 接同一套三闸：planPublication 用 planCommit() 产出计划身份（planDigest = whale-commit/1 摘要，operation 覆盖 kind / includeProgress / 策略摘要 / 净化输入逐文件内容指纹）；applyPublication 在前置核 confirm 之后，于暂存完成时调 applyCommit() 做锁内真实字节摘要复核（files:[] 的零写提交：只借锁与闸③，产物落位仍是既有「暂存目录 → 原子换上去」，源包一个字节不改）。",
+      "kept": [
+        "导出面一字未变：module.exports = { planPublication, applyPublication, publicationPolicy, PUBLISH_KINDS }；PUBLISH_KINDS = [reader, public]",
+        "码值一字未变：PLAN_REQUIRED / CONFIRM_REQUIRED / PLAN_STALE / STAGE_FAILED（A05 与基线 git show 2f57b1f 的动态对拍）",
+        "发布排除策略一字未变：PRIVATE_SURFACES（12 条，path/why/mode 逐条）、STRUCTURAL_EXCLUDES（8 条）、PUBLIC_TOP / PUBLIC_FILES / PUBLIC_DROP / DERIVED_FROM / 产物根 —— A06 与基线 publicationPolicy() 逐键对拍",
+        "applyPublication 的返回形状与 schema:whale-publication/1、files/excluded/derived/inputManifest 均保留；opts（confirm/outDir/decorate/verify/withNode）语义不变",
+        "失败绝不替换既有产物；暂存目录清理；A10「产物全集 == plan.files」机械判据原封"
+      ],
+      "additive": [
+        "计划对象新增 commit（共同协议的 whale-commit/1 计划）、policyDigest（策略 + 输入摘要，便于对拍）",
+        "applyPublication 新增判据注入点 opts.fs / opts.transaction；新增码 LOCK_BUSY / RECOVERY_REQUIRED（U03 已登记，仅在共同协议报忙/待恢复时出现）",
+        "Δ（有意变更）：planDigest 的算式从「sha256(规范 JSON{kind,includeProgress,files,excluded,derived})」改为共同协议的计划摘要（operation 里含上述策略摘要 + 净化输入内容指纹）。语义只增不减：策略变、产物清单变、源包任一净化输入字节变 ⇒ 摘要都变。T20 的 P01/P02/P03 三条性质（确定性、与输入联动、三档互异）由 A05/A03 复证。"
+      ]
+    },
+    "noSecondSystem": "本卡没有新建任何计划格式 / 日志 / 锁：锁与日志仍只有 .whale-write.lock 与 .whale-txn/<id>/journal.json（whale-txn/1），七态仍由事务件拥有；lib/unify/commit.cjs 只被调用，未被修改（本卡无 lib/unify/* 写权）。"
+  },
+  "dependencies": {
+    "upstream": [
+      {
+        "card": "U01",
+        "requirement": "接口锁 / 错误码基线 / 落点表 / 异步判据壳；真实 PASS + tracked 回执",
+        "observed": "docs/unify/receipts/U01.json status=PASS；本卡只读消费 docs/unify/interfaces.md（46889 字节 / sha256 35acebe7bc1fd4560f59e244ea5a89730c1b11435d27da75ff5fdfa19ab92658，与 U06 消费时记的锁值一致）与 docs/unify/baseline.json（60232 字节 / sha256 cf53c0c41d5b55b090ed6503fda59ffc2f52372f7629f8924f8e97efd35f36e1，与 U06 观察值一致）；两个文件一个字节都没写（A08 的依赖锚点在跑前/跑后逐字比对）"
+      },
+      {
+        "card": "U03",
+        "requirement": "lib/unify/errors.cjs（failure 结构 + makeFailure 唯一工厂，含五个新码）；真实 PASS + tracked 回执",
+        "observed": "docs/unify/receipts/U03.json status=PASS；errors.cjs 当前 6701 字节 / sha256 4e18e7183b5e9a124eb7094bfc5aefe281c507a6bd4f5871199591cc08664b12（与 U06 回执记的 4e18e718… 一致，A08 锚点断言）；本卡所有新失败面都经 makeFailure() 过形状，kind 只用 input/confirmation/conflict/io/recovery，新码只用 LOCK_BUSY / RECOVERY_REQUIRED（A05 用「U01 既有码表 ∪ U03 新码」双向断言：旧码一个不丢、新码不许自造）"
+      },
+      {
+        "card": "U06",
+        "requirement": "lib/unify/commit.cjs（planCommit / applyCommit / 七态 / STATE_CODES）；真实 PASS + tracked 回执",
+        "observed": "docs/unify/receipts/U06.json status=PASS；commit.cjs 当前 33453 字节 / sha256 8061e8f6f6553408e6f19aa44a560491c4b8d2307d9f93340e4677e5a1cf70b6；本卡只调用它的 planCommit / applyCommit / COMMIT_SCHEMA，没有第二套计划/日志/锁；A07 的三个变异都在它的闸上（确认闸 / 摘要闸 / 锁内重建），证明本卡判据真的依赖这三道闸"
+      },
+      {
+        "card": "仓内事务件（T09 基线，U06 追加 failureFor）",
+        "requirement": "withPackTransaction / recoverPack / assertNoRecoveryRequired 的真实签名与约束（U01 §3 落点锁：35601 字节 / sha256 0361593f…）",
+        "observed": "当前 lib/pack-template/tools/ledger-transaction.cjs = 38268 字节 / sha256 e338abf02dfb5125b3a407185e00921937b0263776df59ddab9d5efad7726614（U06 的纯插入改动；本卡未写它）。引擎侧显式注入同一模块实例；发布侧显式注入同目录那份（理由见 regressionsDiscovered[1]）"
+      }
+    ],
+    "note": "准入：U03/U06 均已由主持人亲跑 PASS U03 checks=8 failed=0 skipped=0 / PASS U06 checks=8 failed=0 skipped=0（exit 0）；本卡不重复验证它们的判据，只消费其接口与真实字节。"
+  },
+  "interfaceConsumption": {
+    "lock": "docs/unify/interfaces.md",
+    "lockBytes": 46889,
+    "lockSha256": "35acebe7bc1fd4560f59e244ea5a89730c1b11435d27da75ff5fdfa19ab92658",
+    "baseline": "docs/unify/baseline.json",
+    "baselineBytes": 60232,
+    "baselineSha256": "cf53c0c41d5b55b090ed6503fda59ffc2f52372f7629f8924f8e97efd35f36e1",
+    "baseSha": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "commitInterface": {
+      "planCommit": "planCommit(root, build, {fs}) → {ok:true, plan:{schema:whale-commit/1, root, operation, files, planDigest}} | {ok:false, plan:null, code, error, failure}（U06 交付，本卡未改）",
+      "applyCommit": "applyCommit(root, plan, {confirm, planDigest, build, transaction, fs}) → {ok, state, code?, error?, failure?, rollbackError?, journal?, value?}；七态 building/prepared/committed/rejected/busy/rolled-back/recovery-required（U06 交付，本卡未改）"
+    },
+    "codesConsumed": [
+      "PLAN_REQUIRED",
+      "CONFIRM_REQUIRED",
+      "PLAN_STALE",
+      "IO_ERROR",
+      "STAGE_FAILED"
+    ],
+    "newCodesConsumed": [
+      "LOCK_BUSY",
+      "RECOVERY_REQUIRED"
+    ],
+    "newCodesLandedWhere": "只出现在 lib/engine.js 与 lib/pack-template/tools/publish-policy.cjs 的映射分支里（code === LOCK_BUSY / RECOVERY_REQUIRED），来源是 lib/unify/commit.cjs 的 STATE_CODES；本卡没有新增任何码值。",
+    "probeConsumers": "lib/pack-server.js#ensurePackServer、lib/rebuild-job.js、lib/ask-io.js 仍只用 verifyEngine / trustedManifest / engineVerdict / buildManifest / digestOfManifest（签名与语义未变；test/upgrade-entry.mjs 50/0 真跑证明四个提示点与新引擎入口在 npm 安装产物里仍然同源可用）"
+  },
+  "writeSet": [
+    {
+      "path": "lib/engine.js",
+      "action": "modify",
+      "before": {
+        "bytes": 17109,
+        "sha256": "19834909d0d152320642ebc5d3ea45f16d3bad3099d4f923f1dcb61694eee6ac"
+      },
+      "after": {
+        "bytes": 26876,
+        "sha256": "7cbb93d3b9c7008d8e4aef6b0460d273d5c20f1564669a511beb679600817604"
+      },
+      "what": "升级计划/提交接 U06 共同三闸；保留备份、回滚、软链拒绝、既有文案与导出面；新增 fs/transaction 判据注入点与 ENGINE_COMMIT_SCHEMA"
+    },
+    {
+      "path": "lib/pack-template/tools/publish-policy.cjs",
+      "action": "modify",
+      "before": {
+        "bytes": 43989,
+        "sha256": "d37189faedc1281c3fafb8497960b6f539c1cdbda911f9356cb9ffad077bf196"
+      },
+      "after": {
+        "bytes": 50963,
+        "sha256": "1289127b6fa9ce4383aadbd08ce3970872d6fa39b61a325cea9dee611843aa17"
+      },
+      "what": "计划身份与锁内输入复核接 ./unify/commit.cjs（planCommit / applyCommit）；显式注入同目录事务件；策略常量、导出面、码值与产物落位语义原封"
+    },
+    {
+      "path": "test/audit/U08.mjs",
+      "action": "create",
+      "what": "本卡八项判据（A01–A08），复用 test/audit/unify-runner.mjs 的异步壳"
+    },
+    {
+      "path": "docs/unify/receipts/U08.json",
+      "action": "create",
+      "what": "本回执"
+    },
+    {
+      "path": "audit-evidence/U08/",
+      "action": "create",
+      "what": "本次新建的原始证据（忽略；不覆盖任何既有证据）"
+    }
+  ],
+  "writeSetIgnored": {
+    "root": "audit-evidence/U08/",
+    "runs": [
+      {
+        "run": "audit-evidence/U08/runs/U08-46424",
+        "status": "PASS",
+        "line": "PASS U08 checks=8 failed=0 skipped=0",
+        "exitCode": 0,
+        "authoritative": true,
+        "note": "权威运行（当前实现 + 收尾清场守卫；含 A05 修正后的真码值对拍）"
+      },
+      {
+        "run": "audit-evidence/U08/runs/U08-15848",
+        "status": "FAIL",
+        "note": "实现期真实 FAIL（A04 校验失败码 undefined / A05 把标识符与卡号当码值 / A07 副本 writeScaffold 被自己的 unify 副本挡住 / A08 mkdtemp 前缀越界），保留未覆盖"
+      },
+      {
+        "run": "audit-evidence/U08/runs/U08-42336 与 U08-46164 与 U08-46648",
+        "status": "FAIL",
+        "note": "另外三次真实 FAIL（夹具 bug / 码扫描正则漏下划线导致空转），全部保留未覆盖 —— 判据确实能红"
+      },
+      {
+        "run": "audit-evidence/U08/runs/U08-45516 与 U08-28592",
+        "status": "PASS",
+        "note": "实现期 PASS 复跑（U08-28592 额外存了 upgrade-entry 与 R1-b 的 A/B 证据；已复制进权威运行目录）"
+      },
+      {
+        "run": "audit-evidence/U08/runs/U08-40068 与 E:\\Temp\\U08-verify-final（原始 result 已并入权威目录 verify-final-run.json）",
+        "status": "PASS",
+        "note": "实现期/收尾 PASS 复跑（U08-40068 是加清场守卫之前的最后一次全绿；U08-46424 是当前实现）"
+      }
+    ],
+    "supplementary": [
+      "audit-evidence/U08/runs/U08-40068/upgrade-entry/upgrade-entry.stdout.txt —— node test/upgrade-entry.mjs 真跑：50 通过 / 0 失败 / exit 0（npm 安装产物里的 --plan 只读、两步 apply、APPLY ok=true digest=… replaced=1 added=0 backup=…、升完 verifyEngine ok、再算 files=0）",
+      "audit-evidence/U08/runs/U08-40068/regression-r1b-ab.json —— R1-b 的 A/B：require(仓内模板 publish-policy) ⇒ MODULE_NOT_FOUND ./unify/commit.cjs；包侧 build-offline-payload.js --plan 无副本 ⇒ exit 1 同因；有副本（逐字节复制 lib/unify/{commit,errors}.cjs）⇒ exit 0 且给出 planDigest",
+      "audit-evidence/U08/runs/U08-40068/evidence-index.json —— 本运行全部证据文件的 bytes + sha256（24 个文件）"
+    ]
+  },
+  "outOfScope": [
+    "release.mjs 恒 exit 2 是设计（私有分发 / 终态阻断）——本卡不修，也不跑",
+    "tools/check-distribution.mjs --mode=private 恒 exit 2 ——同上",
+    "lib/unify/*.cjs（U03/U06 交付物）只读消费；lib/pack-template/tools/unify/ 的生成与模板登记只归 U19",
+    "package.json（version=0.3.3 / dsh.distribution.mode=private / bin）与 lib/pack-scaffold.js 只归 U19 ——本卡无写权（A06 逐项断言：version / dsh.distribution.mode 逐字不变；dependencies·devDependencies·engines 与 package-lock.json 按原始文本/Buffer 与基线逐字节；files·bin 只许白名单新增且不许删既有条目 —— 见 deltas.decision9PackageJsonAssertion）",
+    "既有 test/*.mjs、test/audit/T*.mjs、test/audit/release*.mjs、harness 一个断言都没改",
+    "活包 E:\\workplace\\study：不访问、不采样、不写（A08 断言零写入）",
+    "全量 node test/all.mjs 与任何 T 卡入口：按派发纪律不跑"
+  ],
+  "verdict": {
+    "entry": "node test/audit/U08.mjs",
+    "expected": "PASS U08 checks=8 failed=0 skipped=0",
+    "exitCode": 0,
+    "stdout": "PASS U08 checks=8 failed=0 skipped=0",
+    "runs": 10,
+    "runsPassed": 6,
+    "sameVerdictEachRun": true,
+    "authoritativeRun": "audit-evidence/U08/runs/U08-46424",
+    "failPath": "实现期 4 次真实 FAIL / exit 1（保留在 U08-15848 / U08-42336 / U08-46164 / U08-46648）：A04 注入 readFileSync 打空导致「模板全缺件」、A05 码扫描把标识符与卡号当码值、A05 码正则漏掉下划线（空转，已加「基线至少 4 个码」的反空转断言）、A07 副本里 writeScaffold 被自己的 unify 副本挡住、A08 mkdtemp 前缀被记为越界 —— 全部修正后复跑",
+    "blockedPath": "node test/audit/U08.mjs --evidence-root=E:\\workplace\\not-allowed → BLOCKED U08 --evidence-root 越界（只许 U08 新运行目录 / U20 复验目录 / 带 U08- 或 u20- 前缀的临时目录）：E:\\workplace\\not-allowed / exit 2",
+    "meaning": "PASS 只表示本卡八项判据通过：两类计划只读、缺确认/缺计划前置拒绝且共同协议零调用、输入变动后旧计划失效且不覆盖新内容、暂存/校验/备份失败不替换、既有码值与 CLI 契约逐字不变（含 npm 安装产物真跑）、升级源与发布排除策略未放宽、变异绕过共同守卫后判据必红、全程夹具 + 写守卫 + 授权写集并集 + 依赖锚点。不表示全工程已绿：全量与对账属 U01/U20，随包生成属 U19，迁移闭环属 U17。",
+    "caseIndex": {
+      "A01": "引擎 + 发布两类计划各自：夹具整树 sha256 跑前=跑后、进程内写调用增量 0、不建 .engine-backup-* / .whale-txn / .whale-write.lock / .tmp-*；两份计划都带 commit.schema=whale-commit/1（证明是同一套计划协议）",
+      "A02": "引擎：缺 --confirm ⇒ CONFIRM_REQUIRED、文案点名 --confirm、计数探针 0、夹具不动；缺计划摘要 ⇒ PLAN_STALE、文案点名「计划摘要」、探针 0。发布：缺 confirm ⇒ CONFIRM_REQUIRED、探针 0、既有产物逐字节不变；缺计划 ⇒ PLAN_REQUIRED、探针 0",
+      "A03": "引擎：改 1 字节 ⇒ 计划摘要变 ⇒ 旧 digest 提交被拒（PLAN_STALE + 过期或对不上），且被改的那一字节仍在（旧计划没覆盖新内容）。发布：改 1 字节 ⇒ 摘要变 ⇒ PLAN_STALE，既有 outDir 逐字节不变、源包那个字节还在",
+      "A04": "引擎三路注入：①备份失败（占位文件堵住 .engine-backup-<stamp>）⇒ IO_ERROR、备份失败文案、原字节不变；②暂存失败（.tmp-txn- 写抛 EACCES）⇒ IO_ERROR + state=rolled-back、原字节不变、无临时件残留；③校验失败（模板读漂移）⇒ PLAN_STALE、原字节不变。发布两路：①decorate 抛 ⇒ STAGE_FAILED、既有产物不变、无 .tmp-publication-*；②verify 抛 ⇒ STAGE_FAILED、既有产物不变",
+      "A05": "①引擎 CLI：--help（exit 0 / 绝对入口 / bin 名 / 两步机制 / 无仓根相对路径）、--plan（PLAN ok=true digest=<hex> files=<n> 行、files≥1）、--json（末行 op:plan 且 digest 一致）、缺 --confirm（exit 1 + FAIL 行 + --confirm）、错 digest（exit 1）、缺 --root / 根不存在 / 不像课程包（exit 2）、--apply（exit 0 + APPLY ok=true digest=… replaced=N added=N backup=… 行）、升完 verifyEngine ok、再算 files=0；②--adapters=jvm 迁移分支的 PLAN / APPLY … declarations=N 与缺 confirm exit 1 全部保持；③导出面/形状逐个对拍；④四个码值与基线 git show 2f57b1f 的动态对拍逐字相同；⑤三个落点的既有码字面量：基线有的一个不丢、新出现的码只在「U01 既有码表 ∪ U03 新码」里（并带反空转：基线 publish-policy 至少 4 个码）；⑥lib/engine.js 基线 20 个导出名一个不少；⑦U03 的 kind 域仍是 5 个",
+      "A06": "①升级源 = resolve(TEMPLATE_DIR) 逐字相同；CLI 无 --from/--source/… 开关与字面量；ENGINE_FILES 不抽基线里的件、注册表自洽；②publicationPolicy() 与基线逐键对拍（privateSurfaces 12 条 path/mode/why、structuralExcludes 8 条、publicTop/publicFiles/publicDrop/derivedProducers/outDir）；③运行期：真存在的私人面（lesson.config.json / progress.json / assets/questions-data.js / assets/practice-data.js / questions / notes / learning-records / code）都在 excluded 且不在 files；④FROM_PACK / FROM_PLUGIN / SANITIZE 基线项一个没被抽掉、SANITIZE 规则数 9 不变；⑤package.json **逐项**（见 deltas.decision9PackageJsonAssertion）：version=0.3.3、mode=private、bin 指向逐字不变；dependencies/devDependencies/engines 按原始文本切片与基线逐字节、baseline 没有的依赖面不许新开；package-lock.json 存在性一致且 Buffer 逐字节；files/bin 只许白名单新增（tools/migrate-pack.mjs 或 lib/pack-template/tools/unify/ 相关）、不许删任何既有条目（逐条对比）、既有条目相对顺序不许变；其余顶层键整体闭合、删顶层键即红；去掉白名单新增行之后整文件与基线逐字节相同；写守卫证明本卡零写 package.json 与锁文件",
+      "A07": "四份源码副本（clean / no-confirm / no-digest / no-guard，都在 E:\\Temp 本卡目录）：clean 四项全绿（引擎确认闸、引擎摘要闸、发布确认闸、发布锁内复核）；变异①跳过确认闸 ⇒ 引擎「缺确认必拒」变 false；变异②跳过摘要闸（回引 + 锁内写前摘要 + 锁内重建摘要）⇒ 引擎「旧计划必拒」变 false；变异③跳过锁内重建 ⇒ 发布「锁内复核必拒」变 false（用状态化 fs + 事务入口翻转：前置检查放行、锁内才漂移）",
+      "A08": "进程内 fs 写守卫（拦 20 个写能力，记绝对路径）：本次 6458 次写全部落在 {证据根 ∪ E:\\Temp 本卡唯一目录}，越界 0、仓库写 0；探针写自证守卫在挂；授权写集并集从 interfaces.md §6 解析 137 条，tracked 改动 16 条全部 ⊆ 并集（越界 0），且本卡两个落点确实在改动清单里、tools/upgrade-pack.mjs 与基线逐字节相同；依赖锚点 10 个跑前=跑后；清理守卫认本卡目录并拒绝非本卡目录；零写入活包；夹具里逐字节复制的权威模块（commit.cjs）与 lib/unify/commit.cjs sha 相同；safeRemoveTree 清理成功"
+    }
+  },
+  "deltas": {
+    "assertions": {
+      "newCaseIds": [
+        "A01",
+        "A02",
+        "A03",
+        "A04",
+        "A05",
+        "A06",
+        "A07",
+        "A08"
+      ],
+      "increment": 8,
+      "note": "只新增 U 系列专项 8 条；未改既有 test/*.mjs、test/audit/T*.mjs、harness.mjs、release*.mjs 的一个断言。"
+    },
+    "planDigestFormula": {
+      "where": "lib/pack-template/tools/publish-policy.cjs",
+      "before": "sha256(JSON{kind, includeProgress, files, excluded, derived}) —— 不含输入内容",
+      "after": "共同协议 planCommit() 的 whale-commit/1 摘要：sha256(JSON{schema, root, operation, files:[]})，operation = publish:<kind>:<0|1>:<policyDigest>，policyDigest = sha256(JSON{kind, includeProgress, files, excluded, derived, inputManifest})",
+      "why": "计划身份必须由共同协议给（卡面：两类计划都接共同三闸），且必须覆盖净化输入的真实字节（A03「改一个字节 ⇒ 摘要变」）",
+      "riskChecked": "T20 P01/P02/P03 的三条性质（确定性 / 策略变则变 / 三档互异）由 A05 的确定性 + A06 的策略对拍 + A03 的输入敏感性复证；T28 只断言 64 位 hex（未变）",
+      "residualRisk": "T20/T28 这两个既有审计套件已登记为 R1-b 的受影响面（见 regressionsDiscovered[0]）：U19 生成包侧副本之前它们跑不起来，所以上面这些性质由 U08 自己的判据独立复证，不靠「跑一遍 T20 就绿」。"
+    },
+    "apiAdditive": [
+      "lib/engine.js：planEngineUpgrade(root,{fs})、applyEngineUpgrade(root,{…,fs,transaction})、ENGINE_COMMIT_SCHEMA、plan.commit、回执新增 code/failure/state",
+      "publish-policy.cjs：计划新增 commit/policyDigest；applyPublication 新增 opts.fs/opts.transaction；失败新增 LOCK_BUSY/RECOVERY_REQUIRED 两态映射"
+    ],
+    "existingTestsRerun": {
+      "ran": "node test/upgrade-entry.mjs → 50 通过 / 0 失败 / exit 0（WHALE_ISO_BASE=E:\\Temp，隔离目录里 npm pack + tar + 真子进程）",
+      "notRun": "T 卡入口与全量门槛按派发纪律不跑（T 证据已冻结；test/all.mjs 属 U01/U20 窗口）"
+    },
+    "decision9PackageJsonAssertion": {
+      "kind": "decision-9-package-json-assertion",
+      "title": "A06 第⑥条：package.json 由「整文件与基线逐字节相同」改成「逐项判据 + 其余键整体闭合 + 去掉白名单新增行后逐字节相同」",
+      "before": {
+        "verbatim": "eq(sha256File(path.join(REPO, 'package.json')), sha256(Buffer.from(gitShow('package.json'), 'utf8')), 'package.json 与基线逐字节相同（本卡没有写权，也没写）')",
+        "why必然红": "U19 的 A06 要求把显式迁移 CLI（`tools/migrate-pack.mjs`）登记进发布清单 `package.json#files` —— 那必然改动字节。两条要求互斥：要么 U08 红，要么「发布清单包含迁移 CLI」没做。",
+        "whyOldRulerWeak": "整文件一把哈希：红了说不清是版本变了、依赖面变了还是 files 多了条目；也挡不住「把 files 整段删掉」这类真正该红的改动（它只报一句「与基线不同」，不点名）。"
+      },
+      "after": {
+        "criteria": [
+          "① 版本逐字：`version === '0.3.3'`",
+          "② 私模式逐字：`dsh.distribution.mode === 'private'`",
+          "③ 依赖面逐字节：`dependencies` / `devDependencies` / `engines` 三项按**原始文本切片**与基线逐字节相同；基线没有的键现在也不许有（不许新开依赖面）",
+          "④ 锁文件：`package-lock.json` 存在性与基线一致；存在则 Buffer 逐字节相同（长度 + sha256）；写守卫证明本卡本次运行零写它",
+          "⑤ `files` / `bin`：只许白名单新增（`tools/migrate-pack.mjs` 或 `lib/pack-template/tools/unify/` 相关），**不许删除任何既有条目**（逐条对比基线，缺失即红），既有条目相对顺序不许变；`bin` 既有项不许改名/改指向",
+          "⑥ 其余顶层键整体闭合：除 `files`/`bin` 外**每一个**顶层键的原始文本切片都与基线逐字节相同；删除顶层键即红",
+          "⑦ 字节级闭合：把「整行只是白名单新增条目」的行去掉之后，余下与基线**逐字节**相同 —— 没有新增时这一条就是原判据（整文件逐字节相同）",
+          "⑧ 写守卫：本卡本次运行零写 `package.json`（原判据的「没有写权」换成可归因的证据）"
+        ],
+        "code": "test/audit/U08.mjs 的 A06 第⑥条：`topLevelMembers()`（按顶层成员切原始文本，带字符串/转义状态机，并用「切出来的键集合 == JSON.parse 键集合」自证）+ `gitShowBuffer()`（字节版 `git show`）。"
+      },
+      "strength": {
+        "stronger": [
+          "逐项：原来一个哈希，现在版本 / 私模式 / 依赖面 / 锁文件 / files / bin / 其余键各自独立判 —— 红了直接点名红在哪一项。",
+          "依赖面从「跟着整文件走」升级为**原始文本切片**逐字节（用 `JSON.stringify` 对拍会抹平格式化与键序，这里不会），并新增「基线没有的依赖面现在也不许新开」。",
+          "锁文件从「没管」升级为 Buffer 逐字节 + 存在性 + 写守卫零写三重。",
+          "`files`/`bin` 新增引入白名单：不在白名单里的新增（例：`secret.env`）红，且点名是哪个条目 —— 原判据也红，但说不出「为什么这行不行」。",
+          "「其余顶层键整体闭合 + 删除顶层键即红」把原判据的红面逐项重述并补齐（例如「把 `exports` 整个删掉」现在红在 `exports` 这一条）。",
+          "写守卫给出可归因证据：本卡本次运行零写 `package.json`、零写 `package-lock.json`（原来只是「没有写权」的声明）。"
+        ],
+        "noWeakening": [
+          "无新增条目时，⑦ 退化为原判据（整文件与基线逐字节相同）—— 当前仓就是这一种，实测 PASS。",
+          "原本会红的每一种输入仍然红：version 变 / mode 变 / 依赖面变（含新增一个依赖面）/ 锁文件变 / 删除既有 files 或 bin 条目 / 非白名单新增 / 其余任何键变化 / 删除顶层键 / 无新增时的整文件格式化。",
+          "唯一放开的是 `files`/`bin` 的**白名单新增**（正是 U19 的授权动作），且放开只在「整行新增」这一个维度。"
+        ],
+        "reverseControl": [
+          "控制组（未变异）→ `PASS U08 checks=8 failed=0 skipped=0`",
+          "version 0.3.4 → FAIL，红在「package.json version 必须仍是 0.3.3（逐字）」",
+          "删掉 `files` 里的 `LICENSE` → FAIL，红在「package.json#files 不许删除任何既有条目（缺失即红：LICENSE）」",
+          "白名单新增 `tools/migrate-pack.mjs`（U19 的授权动作）→ PASS（证明这条改法真的解除了互斥，不是把判据改成永绿）",
+          "非白名单新增 `secret.env` → FAIL，红在「新增条目必须在白名单里」"
+        ]
+      },
+      "authorization": {
+        "quoteVerbatim": "全按推荐",
+        "quoteSource": "docs/unify/authorization.json#decisions.quoteVerbatim",
+        "decision": "决-9",
+        "ruling": "主持人裁定·决-9 连带",
+        "detail": "决-9 允许「`test/pack-template-rules.mjs` 只加登记项、不改判据强度」以让 U19 收口；本条是**同一收口动作的连带对齐**（A06 要把 `tools/migrate-pack.mjs` 登记进 `package.json#files`，与「整文件逐字节等于基线」互斥），由主持人按授权范围裁定，强度只增不减（见 strength）。"
+      },
+      "evidence": "验收：主树 `node test/audit/U08.mjs` → `PASS U08 checks=8 failed=0 skipped=0`（exit 0），证据 `audit-evidence/U08/runs/U08-<pid>/cases/A06.json`（逐条 asserts 含 `packageJson` 明细：files/bin 新增与删除清单、锁文件状态、写守卫计数、closedKeys）。反空转：E:\\Temp 副本里控制组绿、version/删条目/非白名单新增三态红、白名单新增绿。"
+    },
+    "filesRegisteredRemoval": {
+      "id": "U08-DELTA-REGISTERED-REMOVAL",
+      "kind": "pkg-files-registered-removal",
+      "title": "A06 ⑤「files 不许删除任何既有条目」→「删除必须逐条登记」（U20 的 docs 收窄是登记过的那一条）",
+      "what": "把 `\"docs\"` 换成 `docs/capabilities.md` + `docs/dsh-native-style.md`：整棵 docs 子树不再随包。",
+      "why": "`docs/unify/**` 与 `docs/unify-mirrors.md` 是审计文档、写有作者机器布局；alien-env 的「随包文件 0 处机器专属路径」因此红（25 文件 / 354 处）。修法只有两条：收窄随包面，或改写 354 处路径（后者会让审计记录失真并牵连多份回执摘要）。",
+      "notWeakened": [
+        "删除仍然**逐条登记**：`REMOVE_ALLOW_EXACT = {docs}`，`illegalRemovals` 非空即红 —— 未登记的删除一条都不放。",
+        "替换不许顺手丢文件：两条明确文件必须都在 `files` 里。",
+        "docs/ 顶层脱离随包面的文件必须**恰好**是 `docs/unify-mirrors.md`（新增顶文件会立刻在这里露出来）。",
+        "⑦ 字节级闭合改成**两侧对称**规范化（删除侧也从基线去掉同一行），其余字节仍必须逐字节相同。"
+      ],
+      "authorizedBy": "决-B2 的「决-9 连带」方法（同一类：授权动作落地后必须对齐过期的冻结判据）+ decisions 决-10（U20 收口权）的\"确认无新增回归\"义务；**判据强度未降**。",
+      "evidence": "audit-evidence/U20/unblock/fa-audit.txt"
+    }
+  },
+  "regressionsDiscovered": [
+    {
+      "id": "R1-b",
+      "severity": "登记（不修；最小解除条件在 U19）",
+      "what": "lib/pack-template/tools/publish-policy.cjs 现在 require(./unify/commit.cjs)，而 lib/pack-template/tools/unify/ 只由 U19 生成 ⇒ 所有从模板/夹具加载包侧发布工具的既有套件在 U19 之前必然红。",
+      "alreadyRegistered": "R1（U06 已 A/B 证明 T04/T11 同因：pack-text / fingerprint / plan-map / build-lessons 已委托 ./unify/*.cjs）。本卡把同一类依赖扩到 publish-policy.cjs。",
+      "affected": [
+        "test/audit/T20.mjs:37（require_(… publish-policy.cjs)）+ :332 / :388 / :398（夹具与 CLI 走包侧 publish-policy）—— T20 在 U08 之前就已经因 R1 红（test/audit/T20.mjs:352 真跑 build-lessons → ./unify/render.cjs），本卡再叠同一个因",
+        "test/audit/T28.mjs:36 / :108 / :113 / :151 / :360 / :658（fs.cpSync(TEMPLATE, pack) 后跑 pack/tools/build-offline-payload.js、并 require 模板的 publish-policy）—— T28 是本卡引入的新红（同因、同解除条件）"
+      ],
+      "evidence": "audit-evidence/U08/runs/U08-40068/regression-r1b-ab.json：require(仓内模板 publish-policy) ⇒ Error: Cannot find module ./unify/commit.cjs (MODULE_NOT_FOUND)；包侧 build-offline-payload.js --plan 无副本 ⇒ exit 1 同因；把 lib/unify/{commit,errors}.cjs 逐字节复制到 <pack>/tools/unify/ ⇒ 同一命令 exit 0 且给出 planDigest（证明行为没坏，只是缺生成件）",
+      "minimalUnblock": "U19 生成 lib/pack-template/tools/unify/{commit,errors}.cjs 并在 lib/pack-scaffold.js#TEMPLATE_FILES 登记 tools/unify/*.cjs（使建包/模板副本都带上它们）。U08 自己的判据在 E:\\Temp 夹具里先补这两个逐字节副本（U-SPEC §5 允许的最小替代，A08 记录清单与 sha256），因此本卡 PASS 不依赖 U19。",
+      "stopConditionHonoured": "未改 lib/pack-scaffold.js、未手补仓内 tools/unify/（那是 U19 独占）；只登记 + 给 A/B。"
+    },
+    {
+      "id": "D5",
+      "severity": "依赖缺陷登记（不修；U06 交付物不在本卡写集）",
+      "what": "lib/unify/commit.cjs 的 defaultTransaction() 用 require(../pack-template/tools/ledger-transaction.cjs) 解析事务件 —— 这条相对路径只对仓内布局（lib/unify/）成立；U19 把它逐字节复制到 lib/pack-template/tools/unify/ 后，该路径会解析到 lib/pack-template/tools/pack-template/tools/…（不存在）。",
+      "evidence": "实现期一次真实失败原文：Cannot find module ../pack-template/tools/ledger-transaction.cjs … Require stack: <pack>/tools/unify/commit.cjs；发布侧显式注入同目录事务件后消失（publish-policy 顶部 LEDGER_TXN + transaction: opts.transaction || LEDGER_TXN）",
+      "mitigation": "本卡两个消费方都显式注入事务件（引擎注入模板的 ledger-transaction.cjs；发布注入同目录那份）——不依赖 commit.cjs 的默认解析。",
+      "forOwner": "建议 U19 生成时让副本仍能由相对路径找到事务件，或在 docs/unify-mirrors.md 明写「包侧 commit.cjs 必须显式注入 transaction」；本卡没有 lib/unify/* 写权，不修。"
+    }
+  ],
+  "deviations": [
+    {
+      "id": "U08-D1",
+      "what": "发布侧的共同协议提交是零写提交（files:[]）：真实产物仍由既有「暂存目录 → 两次 rename 原子换位」落位。",
+      "why": "T20 D04 钉死「跑完一轮 plan+apply，源包内每个文件 path+size+mtime 必须全同」——若把产物逐文件交给事务件写进包根，源包文件会被重写（mtime 变），直接违反既有判据；而空目录（app/questions 等）也无法由「写文件」造出来。",
+      "whatItBuys": "锁内闸③（真实字节摘要）与包级锁、七态、日志仍然来自同一个事务件；计划身份来自同一个 planCommit。不是第二套计划/日志/锁。",
+      "honestBoundary": "产物换位本身不在锁内（换位前后各是一个完整目录），与既有实现一致；本卡没有把「目录换位」包装成「多文件 rename 对读者原子可见」。"
+    },
+    {
+      "id": "U08-D2",
+      "what": "publish-policy 的 planDigest 算式被替换（见 deltas.planDigestFormula）。",
+      "why": "计划身份必须由共同协议给，且必须覆盖净化输入字节。",
+      "honestBoundary": "这是有意的契约 Δ，不是逐字保持：T20 注释里那句公式已不成立；本卡在 A05/A06/A03 里用行为断言复证三条必要性质，并在本回执明写 Δ。"
+    },
+    {
+      "id": "U08-D3",
+      "what": "applyEngineUpgrade 在「已经一致（up-to-date）」时也会走一次共同协议事务（空计划、零写、无备份目录）。",
+      "why": "三闸对显式危险写入是一视同仁的：缺确认 / 摘要不符即使「无事可做」也必须拒（既有语义就是这样 —— 老实现也在计算计划前先核 confirm 与 digest）。",
+      "cost": "一次锁 + 一条 whale-txn/1 日志的建删（事务件自己清理；.whale-txn 空目录可能留存 —— 与宿主其它事务写口同一条既有行为）。"
+    },
+    {
+      "id": "U08-D4",
+      "what": "夹具里逐字节复制了 lib/unify/{commit,errors}.cjs 到 E:\\Temp 包的 tools/unify/（U19 才负责真随包）。",
+      "basis": "U-SPEC §5：各卡只在自己的 E:\\Temp 包逐字复制已交付权威模块验证（记录复制清单与摘要），不修改仓内生成目录，不宣称随包完整。A08 记录复制清单 + sha256（commit.cjs 与权威源逐字相同）。"
+    },
+    {
+      "id": "U08-D5",
+      "what": "T 卡入口与全量门槛都没跑（含 T04 —— 它本来就已经因 R1 红）。",
+      "basis": "派发纪律：不跑 T 卡入口、不跑读活包的套件、不跑 test/all.mjs。T04 的升级段契约（PLAN / APPLY 行、exit 码、备份/回滚/软链语义）由 U08 的 A04/A05 + test/upgrade-entry.mjs（50/0）真跑覆盖；T20/T28 的红按 R1-b 登记，不伪称已绿。"
+    }
+  ],
+  "unverified": [
+    "全量 node test/all.mjs 与 U20 对账：未跑（纪律 + 归 U20）。本卡 PASS 只覆盖八项判据。",
+    "随包完整：包侧 tools/unify/*.cjs 未生成（U19），真实课程包里的 build-public.js / build-offline-payload.js 在 U19 之前跑不起来（R1-b）。",
+    "冻结 T 证据：未重跑、未覆盖任何 T 证据目录（T20/T28/T04 的判词不是本卡产生的）。",
+    "活包 E:\\workplace\\study：零访问、零采样、零写入（A08 断言）；因此本卡不提供任何活包侧证据。",
+    "发布链里的生成器分支（build-notes.js 重建 reference/NOTES.html、build-starmap-svg.js 重建星图快照）在夹具里被避开（夹具没有 starmap/content.js 且没有 lessons/src 课程源）—— 那是 U07/U15/U19 的生成链，本卡不声明验证过它们。",
+    "rollbackEngineUpgrade() 的既有实现原封保留但未纳入八项判据（它由 T04 的 T04-UPGRADE-rollback-restores 钉住；本卡实现期 smoke 里真跑过一次恢复成功）。",
+    "并发窗口：闸③只在事务件持锁期间成立；两次 apply 之间的外部并发写不在本卡判据范围内（那是事务件与宿主写口的既有纪律）。"
+  ],
+  "evidenceIndex": {
+    "root": "audit-evidence/U08/",
+    "authoritativeRun": "audit-evidence/U08/runs/U08-46424",
+    "indexFile": "audit-evidence/U08/runs/U08-46424/evidence-index.json",
+    "files": 26,
+    "bytes": 145032,
+    "contains": [
+      "result.json / cases.jsonl（八项逐条状态与耗时）",
+      "run.json（argv / base / branch / head / 证据根 / 夹具根 / 依赖锚点 / 复制清单）",
+      "cases/A01..A08.json（逐条断言 + 反空转记录）与 cases/A0x-evidence.json（摘要）",
+      "a07/{clean,no-confirm,no-digest,no-guard}.json（变异探针原始输出）",
+      "upgrade-entry/upgrade-entry.stdout.txt（既有套件 50/0 真跑）",
+      "regression-r1b-ab.json（R1-b 的 A/B）",
+      "verify-final-run.json（收尾再验的 result.json）"
+    ],
+    "excluded": "本次运行的 E:\\Temp 夹具目录（A08 已按守卫清理：safeRemoveTree(SESSION, {parent: E:\\Temp}) → removed=true）"
+  },
+  "commands": [
+    {
+      "argv": [
+        "node",
+        "test/audit/U08.mjs"
+      ],
+      "cwd": "<repo>",
+      "exitCode": 0,
+      "stdout": "PASS U08 checks=8 failed=0 skipped=0",
+      "evidence": "audit-evidence/U08/runs/U08-40068"
+    },
+    {
+      "argv": [
+        "node",
+        "test/audit/U08.mjs",
+        "--evidence-root=E:\\workplace\\not-allowed"
+      ],
+      "cwd": "<repo>",
+      "exitCode": 2,
+      "stderr": "BLOCKED U08 --evidence-root 越界（…）：E:\\workplace\\not-allowed"
+    },
+    {
+      "argv": [
+        "node",
+        "test/upgrade-entry.mjs"
+      ],
+      "cwd": "<repo>",
+      "exitCode": 0,
+      "stdoutTail": "=== 50 通过 / 0 失败 ===",
+      "env": "WHALE_ISO_BASE=E:\\Temp\\u08-upgrade-entry2",
+      "evidence": "audit-evidence/U08/runs/U08-40068/upgrade-entry/upgrade-entry.stdout.txt"
+    },
+    {
+      "argv": [
+        "node",
+        "E:\\Temp\\u08-r1b-ab.cjs"
+      ],
+      "cwd": "<repo>",
+      "exitCode": 0,
+      "evidence": "audit-evidence/U08/runs/U08-40068/regression-r1b-ab.json"
+    },
+    {
+      "argv": [
+        "node",
+        "test/audit/U08.mjs",
+        "--evidence-root=E:\\Temp\\U08-verify-final"
+      ],
+      "cwd": "<repo>",
+      "exitCode": 0,
+      "stdout": "PASS U08 checks=8 failed=0 skipped=0",
+      "note": "收尾再验一遍（同时也是 --evidence-root 只换落点的真实用法）；原始 result.json 已复制进权威运行目录 verify-final-run.json",
+      "evidence": "audit-evidence/U08/runs/U08-40068/verify-final-run.json"
+    }
+  ],
+  "handoff": {
+    "to": "U12 / U19 / U20",
+    "U12": "离线旧库迁移接三闸时可直接抄本卡两条做法：①planCommit 产出计划身份、applyCommit 提交；②消费方若在包侧（tools/**），必须显式注入同目录 ledger-transaction.cjs（见 regressionsDiscovered[1]）；③失败码映射回既有码值，别新增同义码。",
+    "U19": "必须生成 lib/pack-template/tools/unify/{commit,errors}.cjs（逐字节）并在 TEMPLATE_FILES 登记 tools/unify/*.cjs，否则 R1 / R1-b 无法解除（T04/T11/T20/T28 仍红）。另请处理 regressionsDiscovered[1] 的默认事务件解析问题（或在其镜像文档里明写「包侧必须显式注入」）。",
+    "U20": "本卡 PASS 只证明 U08 范围；全量对账以 U01 基线为准。U08 之后仍红的套件里，T20/T28 的部分原因属 R1/R1-b（U19 解除），不是本卡判据失败。tools/upgrade-pack.mjs 与基线逐字节相同（A06/A08 断言）；package.json 按 A06 ⑥ 的**逐项**判据（版本 / 私模式 / 依赖面 / 锁文件逐字节，files·bin 只许白名单新增），CLI 契约未改名。",
+    "reverify": "node test/audit/U08.mjs（判据；证据默认落 audit-evidence/U08/runs/U08-<pid>），或 --evidence-root=<绝对新目录> 只换落点（越界 → BLOCKED / exit 2）。"
+  }
+}

@@ -1,0 +1,1331 @@
+{
+  "schema": "whale-unify-baseline/1",
+  "card": "U01",
+  "scope": "unresolved",
+  "scopeNote": "U-SPEC §12 的两项范围选择（A 受控测试契约迁移 / B 继续禁止旧断言变更）在用户明确裁决前**未裁决**；本基线只做独立准备，不代选也不声称已授权。",
+  "base": {
+    "sha": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "branch": "refactor/unify-20261018",
+    "planningHead": "12c782e6d0363abfd82981852dd6935bf393f8e3",
+    "worktrees": 2,
+    "worktreeList": [
+      "E:/workplace/dsh-whale-sensei (audit/hardening-20261016)",
+      "E:/workplace/dsh-whale-sensei-unify (refactor/unify-20261018)"
+    ],
+    "bothTreesAtBase": true,
+    "trackedDirty": 0,
+    "untrackedPlanFiles": 23,
+    "untrackedPlanFilesNote": "cards/U*.md 计划文件（不 add、不删）；派发说明写 24，实测 23，按实测登记。",
+    "protectedPaths": "既有 test/*.mjs、test/audit/T*.mjs、test/audit/harness.mjs、test/audit/release*.mjs、lib/**、tools/**、package.json 与仓库根文件 —— 见 audit-evidence/U01/ 的采集与 U01.mjs A01 的受保护清单断言"
+  },
+  "sourceLock": {
+    "note": "内容锁（sha256），不是 mtime。11 个用户点名文件 + 18 个 U01 另读落点。原表见 audit-evidence/U01/source-lock.json。",
+    "gitDiff": {
+      "fromSha": "12c782e6d0363abfd82981852dd6935bf393f8e3",
+      "toSha": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+      "changedFileCount": 108,
+      "keyFilesInDiff": [
+        "lib/pack-model.js",
+        "lib/ask.js",
+        "lib/ask-io.js",
+        "lib/state.js",
+        "lib/state-scan.js",
+        "lib/fingerprint.js",
+        "lib/glossary.js",
+        "lib/glossary-io.js",
+        "lib/client.js",
+        "package.json",
+        "tools/upgrade-pack.mjs"
+      ],
+      "specClaimsFileCount": 110,
+      "observedVsClaim": "U-SPEC §1 写「110 文件」，git diff --name-status 实测 108；差 2 按实测登记，不修改 SPEC。"
+    },
+    "files": [
+      {
+        "path": "lib/pack-model.js",
+        "bytes": 61085,
+        "sha256": "d342cc0c5a6cce0e42fab9b82c332fbebf5bf5181dd74941a0919b22f1d14c8e",
+        "role": "key-u-writeset"
+      },
+      {
+        "path": "lib/ask.js",
+        "bytes": 14455,
+        "sha256": "9872646513dc68eef9b420ca5fd1b86d88214f2946fe1ba38073e6800ac4ebf8",
+        "role": "key-u-writeset"
+      },
+      {
+        "path": "lib/ask-io.js",
+        "bytes": 33165,
+        "sha256": "0bda2a688fae011cc7eaba93c48937027935ee1ee47ad35c200dd575491cd589",
+        "role": "key-u-writeset"
+      },
+      {
+        "path": "lib/state.js",
+        "bytes": 34089,
+        "sha256": "d8d9b07df1405204aff0531b8b53957fda2c1eed50253c15b693468b798c7afe",
+        "role": "key-u-writeset"
+      },
+      {
+        "path": "lib/state-scan.js",
+        "bytes": 19051,
+        "sha256": "2cdb2387c456438a9a9c1d7e05aaed704f61443d0a645f8391106aa6f6c07629",
+        "role": "key-u-writeset"
+      },
+      {
+        "path": "lib/fingerprint.js",
+        "bytes": 7901,
+        "sha256": "65a6a10c0ecf74d0d9eec118632df5d9af8c43be4980f6c0bfeca626de8bab23",
+        "role": "key-u-writeset"
+      },
+      {
+        "path": "lib/glossary.js",
+        "bytes": 14444,
+        "sha256": "2d40daa1d46bb6a8b350353d11218edd20870d3f7c9e3e8918d7b965db9a3003",
+        "role": "key-u-writeset"
+      },
+      {
+        "path": "lib/glossary-io.js",
+        "bytes": 4320,
+        "sha256": "cccaf35a1a205261fc077d0228676d6bb18875a409f7f8a88eca2d0401c6641a",
+        "role": "key-u-writeset"
+      },
+      {
+        "path": "lib/client.js",
+        "bytes": 180596,
+        "sha256": "582add7cdb8719aa58ed03fbb6d1602712d3d049857802024e6096b4094a5730",
+        "role": "key-u-writeset"
+      },
+      {
+        "path": "package.json",
+        "bytes": 1569,
+        "sha256": "25a6e767eda8ed9363b60f11b1db236e04e0e50453745bd189f13e6d704c4b6b",
+        "role": "key-u-writeset"
+      },
+      {
+        "path": "tools/upgrade-pack.mjs",
+        "bytes": 13300,
+        "sha256": "8f45b14c8241ddf57c8093ba6224435e7168a30e8cacdfbe0e8877e5966cc403",
+        "role": "key-u-writeset"
+      },
+      {
+        "path": "lib/adapters/jvm.js",
+        "bytes": 11687,
+        "sha256": "45a5ddb7beb61715ad425053745d4a0f6854242ed96bb57b57873081853b11de",
+        "role": "u01-extra-read"
+      },
+      {
+        "path": "test/_suite-manifest.mjs",
+        "bytes": 922,
+        "sha256": "4bea52efad459cd66e855523f07f648951cef3e99e2ef2fedf6df92491b0246d",
+        "role": "u01-extra-read"
+      },
+      {
+        "path": "test/_t26-migrated-pack.mjs",
+        "bytes": 4476,
+        "sha256": "89366905eb194e1d1cd491ab9f27f8995512b173bd1483661bd886d9a18b90d0",
+        "role": "u01-extra-read"
+      },
+      {
+        "path": "tools/check-contracts.mjs",
+        "bytes": 17787,
+        "sha256": "c43d598b756c3e5663289abd76e37da07fb88e6681663b21752624e42979c459",
+        "role": "u01-extra-read"
+      },
+      {
+        "path": "tools/check-distribution.mjs",
+        "bytes": 5961,
+        "sha256": "3670314e3733a91b91801f666ea33599e080b97b1f7dd316dcad343af110a288",
+        "role": "u01-extra-read"
+      },
+      {
+        "path": "lib/pack-template/tools/distribution-license.cjs",
+        "bytes": 12872,
+        "sha256": "36f4ae392139acc05f36d705663ba799fdb717dc077983d90aaadab427951d6d",
+        "role": "u01-extra-read"
+      },
+      {
+        "path": "lib/pack-scaffold.js",
+        "bytes": 28263,
+        "sha256": "ec83bad62bf741046b43c6ca171f4eeeb3225d0ff9f83cfdbd35e141eac8a23e",
+        "role": "u01-extra-read"
+      },
+      {
+        "path": "lib/pack-template/tools/engine-files.cjs",
+        "bytes": 7389,
+        "sha256": "3a1b189cd12077d937847f37b190070b3f79556b6d151c25f59f83dd2190ab41",
+        "role": "u01-extra-read"
+      },
+      {
+        "path": "lib/pack-template/tools/engine-policy.cjs",
+        "bytes": 12968,
+        "sha256": "a3c01f050d184d3082f81b258154704aba6fd6b6277dbf97d3827246d51f1ea0",
+        "role": "u01-extra-read"
+      },
+      {
+        "path": "lib/pack-template/tools/path-policy.cjs",
+        "bytes": 10133,
+        "sha256": "f18915a5c9726ddebbefb1321983a116980351b1ed15a30b30b8a7f78a1d5714",
+        "role": "u01-extra-read"
+      },
+      {
+        "path": "lib/pack-template/tools/ledger-transaction.cjs",
+        "bytes": 35601,
+        "sha256": "0361593f96ca0a940c0b34aef94ca7f74541b18568723a3d79c8c2436b1f8e2f",
+        "role": "u01-extra-read"
+      },
+      {
+        "path": "test/audit/harness.mjs",
+        "bytes": 12728,
+        "sha256": "bd3762103453fcace8a0a08a5ae74849a50c48dc538a42eece33afbaa0dd3289",
+        "role": "u01-extra-read"
+      },
+      {
+        "path": "test/all.mjs",
+        "bytes": 14198,
+        "sha256": "c9bb111d1dc7c24a417454bfd4aefa2a9290b9247391867397d311cfdbadf339",
+        "role": "u01-extra-read"
+      },
+      {
+        "path": "test/run-all.mjs",
+        "bytes": 17259,
+        "sha256": "83ebf874b83694c9100079528cd47b31b4025f2232aaeb278655d2ace102d409",
+        "role": "u01-extra-read"
+      },
+      {
+        "path": "test/_result.mjs",
+        "bytes": 17006,
+        "sha256": "c3f6a4e695c14dcd62dcbdb813abe87cfad42eaa26034b33e3bb4a66a0315c9c",
+        "role": "u01-extra-read"
+      },
+      {
+        "path": "test/_pack.mjs",
+        "bytes": 12119,
+        "sha256": "2fad52b82618afe2406523221b6d7b6fd3fcfa28b2968ce0e6c594d2670d2054",
+        "role": "u01-extra-read"
+      },
+      {
+        "path": "test/audit/release.mjs",
+        "bytes": 11496,
+        "sha256": "b216fe524297c224b406961c34de116a23bc8026deda23ca913a353bb6e31653",
+        "role": "u01-extra-read"
+      },
+      {
+        "path": "test/audit/release-exit-code.mjs",
+        "bytes": 4514,
+        "sha256": "95111523ba36ac243904dc5c992b377a6143b8a8bd7c9cfa972abd7cfe2a565d",
+        "role": "u01-extra-read"
+      }
+    ]
+  },
+  "fullGate": {
+    "entry": "node test/all.mjs --pack=E:\\workplace\\study --mode=real",
+    "argv": [
+      "node",
+      "E:\\workplace\\dsh-whale-sensei-unify\\test\\all.mjs",
+      "--pack=E:\\workplace\\study",
+      "--mode=real"
+    ],
+    "cwd": "<repo>",
+    "exitCode": 1,
+    "signal": null,
+    "timedOut": false,
+    "rerunCount": 1,
+    "ms": 303827,
+    "stdoutBytes": 850,
+    "stderrBytes": 98,
+    "resultFile": "audit-evidence/U01/full-gate/run-all-result.json",
+    "suites": 56,
+    "verdict": "红",
+    "assertions": {
+      "reportedByRunAll": 2883,
+      "sumOfPerSuite": {
+        "passed": 2980,
+        "failed": 36
+      },
+      "reconciliation": "run-all 自报 2883 条：逐套摘要相加是 2980 通过 / 36 失败，差 97 条全部来自 pack-scaffold 一套 —— 它的摘要写 97 通过 / 3 失败，但它的红行都是**缩进**的 ' FAIL …'（不在行首），严格 adapter 判 3 !== 0 条行首红行 → 记该套 0 条通过。2980 - 97 = 2883，逐字对上，不是抹平。",
+      "note": "两个数字都保留：run-all 的自报口径（它只认 adapter 采信的摘要）与逐套摘要原始相加口径。谁都不许拿 2469 当判据。"
+    },
+    "skipped": {
+      "count": 2,
+      "ids": [
+        "practice:practice:026",
+        "visual:visual:030"
+      ],
+      "detail": [
+        {
+          "suite": "practice",
+          "id": "practice:026",
+          "reason": "⚠️  跳过真浏览器那一层：null 连不上（未提供显式浏览器 base） —— 起了服务再跑就是绿的：node tools/app-server.js"
+        },
+        {
+          "suite": "visual",
+          "id": "visual:030",
+          "reason": "⚠️  跳过真浏览器那一层：null 连不上（未提供显式浏览器 base）—— 起了服务再跑就是绿的：node tools/app-server.js"
+        }
+      ],
+      "note": "skip ≠ pass；基线原有 2 条 skip 如实冻结，后续不许新增 skip，专项不得 skip。"
+    },
+    "redSuites": [
+      {
+        "id": "brief",
+        "exitCode": 1,
+        "failedCount": 12,
+        "failItems": [
+          "brief:014 :: 前置没点亮：continue-lesson（第3课 换掉内存库：Spring Data JPA + H2 把 Task 持久化落库的挑战还差 2 项（第1题、第2题）（另有 3 项需人工确认，不阻塞） —— 别开新课）",
+          "brief:015 :: 前置闸点名缺的是 spring-boot/0002（实得 undefined / [\"第1题：带 @Entity、@Id、@GeneratedValue（以及 @Enumerated(STRING)）的 Task 实体类\",\"第2题：TaskJpaRepository：extends JpaRepository<Task, Long>，接口体为空\"]）",
+          "brief:019 :: 前置点亮后先要摸底：continue-lesson（第3课 换掉内存库：Spring Data JPA + H2 把 Task 持久化落库的挑战还差 2 项（第1题、第2题）（另有 3 项需人工确认，不阻塞） —— 别开新课）",
+          "brief:021 :: 摸底补齐后：continue-lesson（第3课 换掉内存库：Spring Data JPA + H2 把 Task 持久化落库的挑战还差 2 项（第1题、第2题）（另有 3 项需人工确认，不阻塞） —— 别开新课）—— 建议是**推出来的**，不是写死的",
+          "brief:052 :: decideNext 的 why 尾注带终点摘要",
+          "brief:068 :: ⑩ 基线建议：continue-lesson",
+          "brief:070 :: ⑩ 卡点**不改分支**（动作还是 open-next-lesson，只改 why）",
+          "brief:071 :: ⑩ 假数据写明卡点 ⇒ why 出现该卡点（ Data JPA + H2 把 Task 持久化落库的挑战还差 2 项（第1题、第2题）（另有 3 项需人工确认，不阻塞） —— 别开新课）",
+          "brief:072 :: ⑩ 卡点带上**是哪一课的**（不然不知道该补哪一段）",
+          "brief:075 :: ⑩ 档位差算得出来（）",
+          "brief:076 :: ⑩ \"还要几节课\"取地图前沿的真数（还差 10 课，与 remainingLessons 同源）",
+          "brief:077 :: ⑩ 两条尾注能**同时**在（卡点 + 档位差）",
+          "前置没点亮：continue-lesson（第3课 换掉内存库：Spring Data JPA + H2 把 Task 持久化落库的挑战还差 2 项（第1题、第2题）（另有 3 项需人工确认，不阻塞） —— 别开新课）",
+          "前置闸点名缺的是 spring-boot/0002（实得 undefined / [\"第1题：带 @Entity、@Id、@GeneratedValue（以及 @Enumerated(STRING)）的 Task 实体类\",\"第2题：TaskJpaRepository：extends JpaRepository<Task, Long>，接口体为空\"]）",
+          "前置点亮后先要摸底：continue-lesson（第3课 换掉内存库：Spring Data JPA + H2 把 Task 持久化落库的挑战还差 2 项（第1题、第2题）（另有 3 项需人工确认，不阻塞） —— 别开新课）",
+          "摸底补齐后：continue-lesson（第3课 换掉内存库：Spring Data JPA + H2 把 Task 持久化落库的挑战还差 2 项（第1题、第2题）（另有 3 项需人工确认，不阻塞） —— 别开新课）—— 建议是**推出来的**，不是写死的",
+          "decideNext 的 why 尾注带终点摘要",
+          "⑩ 基线建议：continue-lesson",
+          "⑩ 卡点**不改分支**（动作还是 open-next-lesson，只改 why）",
+          "⑩ 假数据写明卡点 ⇒ why 出现该卡点（ Data JPA + H2 把 Task 持久化落库的挑战还差 2 项（第1题、第2题）（另有 3 项需人工确认，不阻塞） —— 别开新课）"
+        ],
+        "note": null
+      },
+      {
+        "id": "challenge-gate",
+        "exitCode": 1,
+        "failedCount": 1,
+        "failItems": [
+          "spring-boot 的上一课 = 0002（该知识点现有的最后一课）"
+        ],
+        "note": null
+      },
+      {
+        "id": "pack-model",
+        "exitCode": 1,
+        "failedCount": 1,
+        "failItems": [
+          "映射表覆盖 4 课（5）"
+        ],
+        "note": null
+      },
+      {
+        "id": "pack-scaffold",
+        "exitCode": 1,
+        "failedCount": 3,
+        "failItems": [],
+        "note": null
+      },
+      {
+        "id": "parity-registry",
+        "exitCode": 1,
+        "failedCount": 1,
+        "failItems": [
+          "registry:2 :: 每一对：两个实现文件都在 / 落点存在 / **落点真的在跑**（包:tools/lesson-map.js ↔ 插件:lib/pack-model.js：插件:lib/pack-model.js --selftest 退出码 1（对拍没跑通））",
+          "每一对：两个实现文件都在 / 落点存在 / **落点真的在跑**（包:tools/lesson-map.js ↔ 插件:lib/pack-model.js：插件:lib/pack-model.js --selftest 退出码 1（对拍没跑通））"
+        ],
+        "note": null
+      },
+      {
+        "id": "practice",
+        "exitCode": 1,
+        "failedCount": 3,
+        "failItems": [
+          "practice:001 :: 四课都有实践数据（alge/0001、spring-boot/0001、spring-boot/0002、spring-boot/0003、vue/1001）",
+          "practice:019 :: 真包磁盘上的 practice-data.js 与现算结果**逐字节相同**（漂移检查绿）",
+          "practice:020 :: 干净副本：一致（2 个圆圈 · 3 个知识点 · 5 门课程（已点亮 2） · 实践区 5 课 · 有漂移）",
+          "四课都有实践数据（alge/0001、spring-boot/0001、spring-boot/0002、spring-boot/0003、vue/1001）",
+          "真包磁盘上的 practice-data.js 与现算结果**逐字节相同**（漂移检查绿）",
+          "干净副本：一致（2 个圆圈 · 3 个知识点 · 5 门课程（已点亮 2） · 实践区 5 课 · 有漂移）"
+        ],
+        "note": null
+      },
+      {
+        "id": "settings-teaching",
+        "exitCode": 1,
+        "failedCount": 15,
+        "failItems": [
+          "教学方式 3 层**默认全部收起**（0 个层体，全部带 ws-hidden）",
+          "3 层各有自己的折叠按钮（实得 0）",
+          "「跟老师说」是**每层各一个**（实得 0 个，期望 3）",
+          "渲染消耗 31 个 hook 槽位（预期 29 —— 对不上说明面板结构变了，上面的槽位表要跟着更新）",
+          "渲染结果里带「注入原文」的说明",
+          "渲染结果里有圆圈名（数学）",
+          "渲染结果里显示的是**生效值**那句指令（全局层改了 explainOrder）",
+          "圆圈那一行标出\"继承全局层\"（没把全局取值当圆圈特化）",
+          "渲染结果里有「发给老师」按钮",
+          "渲染结果里带自由补充（如实说它进备课上下文）",
+          "渲染结果里有「固定做法」那一段（P2 加的）",
+          "固定做法的标题与每一行都渲染出来了（学生看得见，但他改不了）"
+        ],
+        "note": "**假定六红之外的第 7 条红** —— 如实登记；f5f289b 当时是否也红本卡无法证明（禁止重跑），交 U20 按「原红变化」处理并暂停接纳。"
+      }
+    ],
+    "candidateSixActuallyRed": [
+      "challenge-gate",
+      "pack-model",
+      "brief",
+      "practice",
+      "parity-registry",
+      "pack-scaffold"
+    ],
+    "candidateSixVerdict": "候选六红**全部实测为红**（不是照抄假定）；实测另有第 7 条 settings-teaching。"
+  },
+  "courseGate": {
+    "passed": 35,
+    "total": 38,
+    "failed": [
+      "tools/offline-server.test.mjs（9466ms 后失败）",
+      "tools/skill-draft-sync.test.mjs（87ms 后失败）",
+      "tools/notes-card.test.mjs（862ms 后失败）"
+    ],
+    "source": "all.mjs 打印的「闸门失败项」行（它把 <pack>/tools/gate.mjs 的输出吃掉后只转述摘要）",
+    "boundary": "<pack>/tools/gate.mjs 的**逐项原始输出**不由 test/all.mjs 落盘（all.mjs 用 execFileSync 只取 stdout 再解析），本卡**不重跑**，所以 38 项逐条明细没有原始件；已登记为边界，不伪造逐项列表。"
+  },
+  "assumptions": {
+    "source": "f5f289b 上一位规划者实测，U-SPEC §8 明确记为**假定**；2f57b1f 其后只改四个非测试文件，不构成证明。",
+    "gate": "38/38",
+    "suites": 51,
+    "assertions": 2469,
+    "skipped": 2,
+    "redSuites": [
+      "challenge-gate",
+      "pack-model",
+      "brief",
+      "practice",
+      "parity-registry",
+      "pack-scaffold"
+    ],
+    "exitCode": 1,
+    "usage": "只作为对照留档，**不是判据**；实测不同不判失败，只要求如实登记差异原因。"
+  },
+  "measuredDiff": [
+    "套件数 51 → **56**：套件集合由 `test/_suite-manifest.mjs` 的 `discoverSuites()` 现场发现（顶层 test/*.mjs、排除 `_` 前缀与 5 个入口），基线树里实际有 56 个可执行顶层套件；假定值来自旧实测口径，不成立。",
+    "断言量 2469 → **2883**（run-all 自报）/ **2980 通过 + 36 失败**（逐套摘要相加）；差额原因见 fullGate.assertions.reconciliation。",
+    "课程包闸门 38/38 → **35/38**：3 条失败在包侧 `tools/*.test.mjs`（offline-server / skill-draft-sync / notes-card），本卡不重跑、不修活包、不改测试。",
+    "红套件 6 → **7**：假定六红（challenge-gate / pack-model / brief / practice / parity-registry / pack-scaffold）**全部实测为红**，另加一条 **settings-teaching**（假定里没有）—— 如实登记，不为了吻合假定而改测试/环境/重跑。",
+    "未跟踪计划文件：派发说明写 24，git 实测 **23** 个 `cards/U*.md`（U-BATCHES / U-SESSIONS / U-SPEC + U01–U20）。",
+    "两基线间文件变化：U-SPEC 写 110，git 实测 **108**。"
+  ],
+  "livePack": {
+    "root": "E:\\workplace\\study",
+    "readOnly": true,
+    "actions": "本卡对活包只做了两件事：① 窗口前后各一次逐文件 sha256 清单；② 唯一一次 `node test/all.mjs --pack=… --mode=real`。没有写/构建/迁移/生成，没有第二次采样。",
+    "pre": {
+      "entries": 6762,
+      "files": 5850,
+      "dirs": 912,
+      "links": 0,
+      "bytes": 364776137,
+      "manifestSha256": "a68ee644919e9f28408c14036bbfb0a5e7956aaceeb8d1671e32cdb154331cea"
+    },
+    "post": {
+      "entries": 6762,
+      "files": 5850,
+      "dirs": 912,
+      "links": 0,
+      "bytes": 364776137,
+      "manifestSha256": "fd00efa575c82c8949590c6981e97c81f6bb24b604f32ecb6d4bd71ac944ab3a"
+    },
+    "window": {
+      "fullManifestSame": false,
+      "contentManifestSame": true,
+      "contentRule": "排除 .git/index（git 自己的 stat 缓存控制文件）后重算",
+      "contentPre": "1733b75b83416c9fbf7a20f8bd18936a78da799bfda13e9efe961c3a34826025",
+      "contentPost": "1733b75b83416c9fbf7a20f8bd18936a78da799bfda13e9efe961c3a34826025",
+      "changedPaths": [
+        {
+          "path": ".git/index",
+          "kind": "bytes",
+          "bytesBefore": 39429,
+          "bytesAfter": 39429
+        }
+      ],
+      "onlyPre": 0,
+      "onlyPost": 0,
+      "attribution": {
+        "indexMtimeLocal": "2026-10-20 02:09:10",
+        "runStartLocal": "2026-10-20 02:07:35",
+        "runEndLocal": "2026-10-20 02:12:38",
+        "indexMtimeInsideWindow": true,
+        "gitStatusCallers": [
+          {
+            "file": "test/circle-create.mjs",
+            "line": 42,
+            "text": "return execFileSync('git', ['-C', dir, 'status', '--porcelain'], { encoding: 'utf8' }).trim()"
+          },
+          {
+            "file": "test/circle-delete.mjs",
+            "line": 44,
+            "text": "return execFileSync('git', ['-C', dir, 'status', '--porcelain'], { encoding: 'utf8' }).trim()"
+          },
+          {
+            "file": "test/settings-catalog.mjs",
+            "line": 36,
+            "text": "return execFileSync('git', ['-C', dir, 'status', '--porcelain'], { encoding: 'utf8' }).trim()"
+          }
+        ],
+        "whyIndexNeededRefresh": "00:39:05 的引擎升级替换/新增了 13 个文件（plan.json：replace 7 / add 6），index 里的 stat 数据随之变旧；本窗口内第一次 git status 就会重写 index。"
+      },
+      "conclusion": "唯一差异 = .git/index（git 的 stat 缓存被重写；内容字节数不变、工作树文件无一变化）",
+      "disclaimers": [
+        "本卡不修活包、不重跑：差异只做登记与归因，不做\"再跑一次看还变不变\"。",
+        "全清单口径**不相同**，因此本窗口不能声称\"逐字节全同\"；能声称的是\"内容口径相同 + 差异有归因\"。",
+        "若验收要求把 .git 控制文件也算进冻结内容，则本窗口不满足该条 —— 记作偏差 D1，交主持人/U20 裁决。"
+      ]
+    },
+    "deviation": {
+      "id": "D1",
+      "what": "交接假设「活包自 2026-10-19 19:07:56 起静止」不成立：磁盘事实是 2026-10-20 00:39:05 有一次第三方引擎升级写入了活包。",
+      "evidence": [
+        "E:\\workplace\\study\\.engine-backup-1792427945122\\plan.json（mtime 2026-10-20 00:39:05）",
+        "plan.json 内容：root=E:\\workplace\\study，source=E:\\workplace\\_install-20261020\\plugin-new\\package\\lib\\pack-template，planDigest=857a6ec3cec8c692fb6446b717503bfea039d68252af6449f2c980fd7c9f631a，13 个文件（replace 7 / add 6）",
+        "assets/ 与 tools/ 目录 mtime = 2026-10-20 00:39:05",
+        "全树 mtime 普查（**普查时刻 = 窗口开始前的 02:06:41**，即采集件 capturedAtLocal 2026-10-19T18:06:41.712Z）：**那一刻**没有任何文件晚于 00:39:05 —— 只证明「窗口开始前无晚于此的写」，作为常驻论断已被推翻（窗口内确有同字节重写，见偏差 D5）"
+      ],
+      "consequence": "「静止 ≥1 小时」只能从 00:39:05 起算（至窗口开始约 1h17m），**不得**声称静止自 19:07:56。",
+      "handling": "如实登记，不修活包、不重跑、不隐藏；供 U20 对拍时解释前/后摘要口径。"
+    },
+    "deviations": [
+      {
+        "id": "D5",
+        "what": "窗口内活包被同字节重写（10 文件，mtime 2026-10-20 02:08:03–02:08:04）",
+        "evidence": [
+          {
+            "path": "assets/theme.css",
+            "mtimeLocal": "2026-10-20 02:08:03.305",
+            "bytes": 18949,
+            "sha256": "ace38f5b0ec7a25bab104b7491ea63885fc85d25bb6b166f8eb5cbe458f1fee7",
+            "sameAsPre": true,
+            "sameAsPost": true
+          },
+          {
+            "path": "lesson.config.json",
+            "mtimeLocal": "2026-10-20 02:08:03.322",
+            "bytes": 77,
+            "sha256": "9168d61b2eeaf4d0692800041c12071bd3db4d24e2667072484c21829e586147",
+            "sameAsPre": true,
+            "sameAsPost": true
+          },
+          {
+            "path": "lessons/math/alge/0001-algebra-basics.html",
+            "mtimeLocal": "2026-10-20 02:08:04.294",
+            "bytes": 17285,
+            "sha256": "dd495250fb6337ba955519b3101c63673048671c71c970fbe7d8742092d84d5b",
+            "sameAsPre": true,
+            "sameAsPost": true
+          },
+          {
+            "path": "lessons/programming/spring-boot/0001-spring-boot-hello-world.html",
+            "mtimeLocal": "2026-10-20 02:08:04.297",
+            "bytes": 29474,
+            "sha256": "578f3c9aec78fc0b71c8652c8b76dac6726f3c49f6d9ea5cc04dee4f3afb7d30",
+            "sameAsPre": true,
+            "sameAsPost": true
+          },
+          {
+            "path": "lessons/programming/spring-boot/0002-rest-api-crud.html",
+            "mtimeLocal": "2026-10-20 02:08:04.299",
+            "bytes": 43387,
+            "sha256": "4daa0ee330460e164b6b7a7dc0b215bb8a717efa1f29635db357e0e22055a753",
+            "sameAsPre": true,
+            "sameAsPost": true
+          },
+          {
+            "path": "lessons/programming/spring-boot/0003-jpa-h2-persistence.html",
+            "mtimeLocal": "2026-10-20 02:08:04.302",
+            "bytes": 28641,
+            "sha256": "3b3cf9aae417337e53ce9165e39cb54e5664775f35b6d84b1fc18fbff633bab1",
+            "sameAsPre": true,
+            "sameAsPost": true
+          },
+          {
+            "path": "lessons/programming/vue/1001-vue-render-http-data.html",
+            "mtimeLocal": "2026-10-20 02:08:04.304",
+            "bytes": 28899,
+            "sha256": "ea05da296213f94bcd4a498b39f06759530872c916a99bd88ca75be035316087",
+            "sameAsPre": true,
+            "sameAsPost": true
+          },
+          {
+            "path": "starmap/content.js",
+            "mtimeLocal": "2026-10-20 02:08:04.363",
+            "bytes": 7720,
+            "sha256": "6694f3dad60c062006335a222edc5f533cf77eb49bef6e85711b3247dae6041e",
+            "sameAsPre": true,
+            "sameAsPost": true
+          },
+          {
+            "path": "starmap/static.svg",
+            "mtimeLocal": "2026-10-20 02:08:04.410",
+            "bytes": 3649,
+            "sha256": "010d1d4b9f7d1f73220c6aada86d9baa569c3577fc9ed801771719082312e55b",
+            "sameAsPre": true,
+            "sameAsPost": true
+          },
+          {
+            "path": "starmap/index.html",
+            "mtimeLocal": "2026-10-20 02:08:04.411",
+            "bytes": 27419,
+            "sha256": "292a1ce279e3221a1a49dd606a315b40caec13c32e0ed809a798f221179c4e11",
+            "sameAsPre": true,
+            "sameAsPost": true
+          },
+          "这 10 条的 sha256 与 audit-evidence/U01/live-pack-pre.json 和 live-pack-post.json 的逐文件清单**逐条相同**（10/10，内容口径）；两份清单的 manifestSha256 不同（pre a68ee644919e9f28408c14036bbfb0a5e7956aaceeb8d1671e32cdb154331cea / post fd00efa575c82c8949590c6981e97c81f6bb24b604f32ecb6d4bd71ac944ab3a）只因 .git/index（偏差 D2），与这 10 个文件无关。",
+          "窗口 = 2026-10-20 02:07:35–02:12:38（本卡唯一一次全量）；这 10 个 mtime 全部落在窗口内；.git/index 的重写另在 02:09:10（D2）。",
+          "写入顺序签名（同一次窗口、相邻 1.1 秒）：theme.css 02:08:03.305 → lesson.config.json .322 →（约 0.97s）→ 5 个课程页 .294–.304 → starmap/content.js .363 → static.svg .410 → index.html .411。"
+        ],
+        "attribution": "核实结论（只读源码复核；未跑全量、未写活包）：写者**不是** test/render-parity.mjs 那条 `<pack>/tools/build-lessons.js --check`（该文件第 49 行）。--check 路径**不落盘**：build-lessons.js:864-871 对每页直接 continue，style-adapter.js:137-140 直接 return {drift, wrote:false}，build-starmap.js:420-429 直接 exit（连 tmp 落盘都在 430 行之后）—— 所以那次 --check 一个字节都没写。真实写者是那次全量窗口内**包侧闸门 <pack>/tools/gate.mjs 的第 30、33 项**：① `node tools/preset-switch.test.mjs`（gate.mjs:51）—— probe 切换里反复 `fs.writeFileSync(lesson.config.json, …)`（:83/:94/:104/:111/:123/:131/:138），复位与 finally 再拿**原字节**写回（:150/:159）；同时 `AD.sync({})`（:152）把 theme.css 用原字节写回（style-adapter.js:142-145 只在\"与磁盘不同\"时写，复位时正处\"不同→写回原\"）—— 对上 02:08:03.305/.322 两个 mtime。② `node tools/shape-pipeline.test.mjs`（gate.mjs:54）—— 它在**活包根**以 build 模式跑 `node tools/build-lessons.js`（shape-pipeline.test.mjs:38，{cwd:ROOT}）：build-lessons.js:873 的 writeAtomic 对**每一页**无条件落盘（5 页 .294–.304），:902 再 spawn build-starmap.js（非 --check）→ build-starmap.js:430-435 无条件写 starmap/content.js（.363）→ 再 spawn build-starmap-svg.js → static.svg/index.html（.410/.411）。两项都属\"临时改完再复原/重建同内容产物\"，因此**字节不变、mtime 变新**。",
+        "recheck": "复核方式：活包侧只读 10 个文件的 mtime/bytes/sha256，与采集件 live-pack-pre.json / live-pack-post.json 的逐文件 sha256 对照（10/10 相同，allSameContent=true）；插件侧只读 test/render-parity.mjs 与包侧 tools/{build-lessons.js, style-adapter.js, build-starmap.js, preset-switch.test.mjs, shape-pipeline.test.mjs, gate.mjs} 的源码。边界：run.json 只落逐套/逐项 exitCode，闸门逐项 ms 仅对失败项打印，所以\"哪一项落在 02:08:03/04\"是由**写入集合 + 写入顺序签名 + 「以 build 模式跑活包的只剩 shape-pipeline 这一处」**推出来的，不是时间戳直读。",
+        "consequence": "冻结口径必须用**内容口径**（逐文件 sha256），不能用 mtime；U20 四份对拍同样按内容口径，并须接受同字节重写。",
+        "handling": "不修活包、不重跑、如实登记。"
+      }
+    ],
+    "deviationsNote": "偏差登记表：D1 仍在 livePack.deviation（冻结边界那条，形状不变）；D2/D3/D4 在 docs/unify/receipts/U01.json 的 deviations 里；D5 是同一窗口内的第二处偏差（同字节重写）。",
+    "freezeBoundary": {
+      "handoverAssumption": "2026-10-19T19:07:56+08:00",
+      "handoverAssumptionHolds": false,
+      "lastKnownThirdPartyWriteAt": "2026-10-20 00:39:05",
+      "honestFreezeSince": "2026-10-20 00:39:05（第三方引擎升级之后）",
+      "elapsedBeforeWindow": "约 1h17m（窗口开始时）",
+      "thirdPartyWriteSource": "E:\\workplace\\_install-20261020\\plugin-new\\package\\lib\\pack-template",
+      "thirdPartyWriteKind": "第三方（引擎升级，来源 _install-20261020）",
+      "forbiddenDuringHandover": "本窗口内禁止任何第三方写入活包；U20 对拍四份逐文件摘要（U01 前/后 + U20 前/后）。",
+      "proof": "窗口前后两次逐文件 sha256 清单的内容口径摘要相同；唯一差异是 .git/index（git stat 缓存，mtime 落在窗口内，由本次允许的 git status 触发）。",
+      "limitation": "两次清单相同只能证「两次采样之间内容一致」，不能独立证明期间从未「写了又还原」；冻结责任仍靠交接。",
+      "ifFullManifestRequired": "若验收要求把 .git 控制文件也算进冻结内容，则本窗口不满足该条 —— 记作偏差 D1 的一部分，交主持人/U20 裁决。"
+    }
+  },
+  "mainTreeTEvidence": {
+    "note": "审计主树冻结的 T 证据只读锁：sha256 内容锁 + mtime 预算（没有任何文件晚于本卡窗口开始，证明本卡没往那里写过）。",
+    "mainTree": "E:\\workplace\\dsh-whale-sensei",
+    "windowStartIso": "2026-10-19T17:56:00.000Z",
+    "totals": {
+      "entries": 7268,
+      "files": 6973,
+      "dirs": 295,
+      "bytes": 48225270,
+      "newerThanWindowStart": 0
+    },
+    "detail": "audit-evidence/U01/main-tree-t-evidence-lock.json"
+  },
+  "interfaces": {
+    "file": "docs/unify/interfaces.md",
+    "bytes": 46889,
+    "keyFiles": [
+      "lib/pack-model.js",
+      "lib/ask.js",
+      "lib/ask-io.js",
+      "lib/state.js",
+      "lib/state-scan.js",
+      "lib/fingerprint.js",
+      "lib/glossary.js",
+      "lib/glossary-io.js",
+      "lib/client.js",
+      "package.json",
+      "tools/upgrade-pack.mjs"
+    ],
+    "extraReads": [
+      "lib/adapters/jvm.js",
+      "test/_suite-manifest.mjs",
+      "test/_t26-migrated-pack.mjs",
+      "tools/check-contracts.mjs",
+      "tools/check-distribution.mjs",
+      "lib/pack-template/tools/distribution-license.cjs",
+      "lib/pack-scaffold.js",
+      "lib/pack-template/tools/engine-files.cjs",
+      "lib/pack-template/tools/engine-policy.cjs",
+      "lib/pack-template/tools/path-policy.cjs",
+      "lib/pack-template/tools/ledger-transaction.cjs",
+      "test/audit/harness.mjs",
+      "test/all.mjs",
+      "test/run-all.mjs",
+      "test/_result.mjs",
+      "test/_pack.mjs",
+      "test/audit/release.mjs",
+      "test/audit/release-exit-code.mjs"
+    ],
+    "errorCodes": {
+      "distinct": 86,
+      "occurrences": 224,
+      "seeds": [
+        "IO_ERROR",
+        "CONFIRM_REQUIRED",
+        "PLAN_STALE",
+        "MIGRATION_PLAN_REQUIRED",
+        "ID_NOT_ALLOWED",
+        "ID_REQUIRED",
+        "PLAN_REQUIRED",
+        "STAGE_FAILED",
+        "MIGRATION_NOT_CONFIRMED",
+        "MIGRATION_PLAN_STALE",
+        "MIGRATION_NOTHING",
+        "MIGRATION_DONE",
+        "MIGRATION_FAILED"
+      ],
+      "seedsAllFound": true,
+      "proposedNew": [
+        "ID_AMBIGUOUS",
+        "MIGRATION_REQUIRED",
+        "LEDGER_INVALID",
+        "LOCK_BUSY",
+        "RECOVERY_REQUIRED"
+      ],
+      "proposedCollisions": [],
+      "dupCheckConclusion": "5 个拟新增码在固定基线上都不存在（形状扫描 + 全仓字面搜索），无语义冲突；新增只落在 lib/unify/errors.cjs（†，U03），不许改旧码。"
+    },
+    "templateRegistry": {
+      "source": "lib/pack-scaffold.js",
+      "templateFiles": 126,
+      "scaffoldDirs": 12,
+      "owner": "U19（--write / --check 与 lib/pack-template/tools/unify/ 十四副本的生成只归它）"
+    },
+    "identity": {
+      "pointKey": "lib/pack-model.js:375 —— 既有公开导出 pointKey(circle, point)，签名不变",
+      "lessonKey": "lib/pack-model.js:387 —— 既有公开导出 lessonKey(circle, point, number)，padStart(4) 且**无范围校验**",
+      "secondConstructionSite": "lib/point-ref.js 的 qualified()（内联 `${circle}/${id}`）与 splitQualified()（反解）—— 第二处实现，已登记",
+      "parseApis": "parsePointKey / parseLessonKey 是 U-SPEC §2 的设计†，基线**不存在**",
+      "staging": "U02 只建严格内核（lib/unify/identity.cjs†）并**暂存**双实现，不改 lib/pack-model.js",
+      "convergence": "U09 是**唯一**负责把旧导出（含 point-ref.js 内联构造/拆分）委托到严格内核的卡",
+      "noThirdImplementation": "禁止第三份实现；过渡期双实现必须登记，收敛后改成\"唯一实现\""
+    }
+  },
+  "authorization": {
+    "status": "unresolved",
+    "decidedBy": null,
+    "note": "不代选 A/B；不把\"准备\"解释成\"已授权\"；没有\"长期兼容层\"第三选项。",
+    "conflicts": [
+      {
+        "no": 1,
+        "file": "test/mirror-parity.mjs",
+        "asserted": "a.anchor 与 b.anchor 均为 spring-boot/0001",
+        "ownerOnPathA": "U09",
+        "action": "条件 A 下同卡原子替换（含必要夹具输入），逐条记真实 Δ"
+      },
+      {
+        "no": 2,
+        "file": "test/intake.mjs",
+        "asserted": "read1.latest.vue / read2.latest.vue",
+        "ownerOnPathA": "U10",
+        "action": "条件 A 下独占替换裸 point 预期"
+      }
+    ],
+    "blockedWithoutPathA": [
+      "U09",
+      "U10",
+      "U14"
+    ],
+    "downstreamNotStarted": [
+      "U12",
+      "U13",
+      "U15",
+      "U16",
+      "U18",
+      "U19",
+      "U17",
+      "U20"
+    ],
+    "pathA": "受控测试契约迁移授权：只在 U09/U10/U14 卡内、行为与旧预期同卡原子替换，逐条记 Δ。",
+    "pathB": "继续禁止任何旧断言变更：U09/U10/U14 BLOCKED，下游不实施，不提交\"统一完成\"。"
+  },
+  "tReverify": {
+    "registry": "audit-evidence/U01/t-reverify-registry.json",
+    "cardsWithSource": 28,
+    "autoEntries": 4,
+    "copySafe": 2,
+    "blockedLivePack": 2,
+    "noAutoEntry": 24,
+    "executedInCopy": [
+      {
+        "id": "T13-AUTO",
+        "argv": [
+          "node",
+          "test/audit/T13.mjs",
+          "--automated-only"
+        ],
+        "code": 0,
+        "timedOut": false,
+        "ms": 1171
+      },
+      {
+        "id": "T16-AUTO",
+        "argv": [
+          "node",
+          "test/audit/T16.mjs",
+          "--automated-only"
+        ],
+        "code": 0,
+        "timedOut": false,
+        "ms": 16906
+      }
+    ],
+    "notExecuted": [
+      {
+        "id": "T23",
+        "why": "源码里硬编码活包路径 workplace/study（第 15 行），会读活包 → 不执行，登记阻断"
+      },
+      {
+        "id": "T25",
+        "why": "源码在 1104/1105 行直接用 --pack=E:/workplace/study --mode=real 跑子套件，并依赖 git 对象 → 不执行，登记阻断"
+      }
+    ],
+    "t29": {
+      "entryExists": false,
+      "verdict": "WAIVED",
+      "note": "T29 没有同名入口 —— 不按卡号发明命令；弃权不是 PASS。"
+    },
+    "releaseExitCode": {
+      "entry": "node --test test/audit/release-exit-code.mjs",
+      "design": "release.mjs 恒 exit 2 是设计（私有分发模式 + 未做再分发合规核验）；缺审计材料引起的 open 也 exit 2，不许冒充预期终态。",
+      "isolatedRun": "在 E:\\Temp 仓源副本里跑过：11 条 test 全通过、exit 0（见 audit-evidence/U01/t-reverify-release-exit-code.txt）"
+    },
+    "isolation": "E:\\Temp\\u01-s0-dlane\\tree（仓源副本，无 .git）+ 冻结 T 证据只读复制；证据输出也在副本。主树冻结证据一字节未动。"
+  },
+  "evidence": {
+    "note": "原始证据在 audit-evidence/U01/（已 gitignore，不进仓）。下表是索引与摘要，便于跨会话复核；没有这些本地材料就不得声称可复现。",
+    "root": "audit-evidence/U01/",
+    "excluded": [
+      "evidence-index.json（自指，避免哈希鸡生蛋）",
+      "baseline.json（不进本地目录）",
+      "runs/（本卡验证运行产物）"
+    ],
+    "files": [
+      {
+        "file": "build-baseline.mjs",
+        "bytes": 19518,
+        "sha256": "6c959bdc1008d4b63053455eb594fd2b7536f6fb8b775bb1d680dcc278f1f652"
+      },
+      {
+        "file": "build-interfaces-doc.mjs",
+        "bytes": 25165,
+        "sha256": "76942296d1d1dc535de7315a36dc15aa682c88fce3e3585bb4b0e1963c2d54db"
+      },
+      {
+        "file": "build-suite-baseline.mjs",
+        "bytes": 5723,
+        "sha256": "f65a155dacf69174007b1bc99c00e5a35eb77ff52a8e8ab1789c218da7f8d97e"
+      },
+      {
+        "file": "capture-deviation.mjs",
+        "bytes": 5164,
+        "sha256": "9f1d3a396c074fe7e7ea3cf78eb63fb8911b22a9e0ab77a09a7952349b0e4e38"
+      },
+      {
+        "file": "capture-full-gate.mjs",
+        "bytes": 7140,
+        "sha256": "f14eba18a9a66ecb2f9d5ccd4868bfaeeb13e3aa93d437e3f8a9fe8bdec24026"
+      },
+      {
+        "file": "capture-interfaces.mjs",
+        "bytes": 10387,
+        "sha256": "5b21621e366623adbf97c5fd37b8b4a532d0e8e5919edc7f2fb8722a64373201"
+      },
+      {
+        "file": "capture-manifest.mjs",
+        "bytes": 5952,
+        "sha256": "b16700c6ebfb4223e9891571bd6a56cb585d62e79382c8235a9ad2bfcbb55ee4"
+      },
+      {
+        "file": "capture-t-evidence-lock.mjs",
+        "bytes": 2949,
+        "sha256": "8d37b14071d9a57660d5574c01107ada5d8d92a06e9352530ec541da4f013cee"
+      },
+      {
+        "file": "capture-t-registry.mjs",
+        "bytes": 7509,
+        "sha256": "cf70dd121ec3e60c59ce13ce398a05b0bb40219757ff1fbbfd4059a0dcd61a93"
+      },
+      {
+        "file": "capture-window-delta.mjs",
+        "bytes": 6856,
+        "sha256": "24e820a1c468dc45b0427c01aa593c55a78d48a506fe344414551f6f724e2eb7"
+      },
+      {
+        "file": "full-gate/run-all-result.json",
+        "bytes": 9498,
+        "sha256": "17176bc7c7f746734dd23eca706b8b4979fbf757392541db7a99989c05eda531"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/alien-env.execution.json",
+        "bytes": 2118,
+        "sha256": "3d31bc3b7fbc3b64961ae9ea4c25420b90050120f079f495cd681dff6067c919"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/ask-answer.execution.json",
+        "bytes": 4262,
+        "sha256": "72ac601c11bd8d0a3a8a2bdfa601f9493a52fb1bb93b103085ea14288519db3e"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/ask-route.execution.json",
+        "bytes": 3362,
+        "sha256": "4b8af24443d9f031a1e7f96b643adcc6ff04c33c99f893710de8249dd0a4e0d3"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/ask-watch-job.execution.json",
+        "bytes": 1649,
+        "sha256": "89386dd2e64af90b0e87e33b010e99a49590b00a4cbbcd6a9b9ffee7bf8b1fbe"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/bom-tolerance.execution.json",
+        "bytes": 1392,
+        "sha256": "8c86ae7e31dd27d23da7728b2525e4c31ac1c3ce27b2c7c145da243c76e33bda"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/brief.execution.json",
+        "bytes": 10848,
+        "sha256": "03d2b33ac1b310957ddb3d48a58a53db456b6d6767431ac21dfae9b030495dc3"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/brief.json",
+        "bytes": 17195,
+        "sha256": "909b921d958e7b3e963e7b696e57f91ac322bc890dab96cd5270b679d1191af6"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/build-verify.execution.json",
+        "bytes": 669,
+        "sha256": "f92744911b54e3f0ca20d08ae6705b4fbf6554190f34bf36b6b8c518d0897dd9"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/build-write.execution.json",
+        "bytes": 898,
+        "sha256": "2d3c2c13b357ca5a63cf0842d66498e2c1d60ee4157b3e21fddf1baef296a1b3"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/catalog.execution.json",
+        "bytes": 1668,
+        "sha256": "3acd268a6800cfbdee254fa7417c7e4bf742b617619afc812e14985fe5960c5e"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/challenge-gate.execution.json",
+        "bytes": 6856,
+        "sha256": "e2eec7c393b697cdd699b4696faaef927e1c1eb2d0c913c0743f1c2d63a126c5"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/circle-create.execution.json",
+        "bytes": 34067,
+        "sha256": "1fe0b97a584228b14bf40cbbfa4fc486204a452e347a710ceb34d4c57a7de301"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/circle-create.json",
+        "bytes": 15874,
+        "sha256": "6ae9d3ab92d07dfbf6fbc423763e34d06865d9d3862910f8fe22e3901c67cc9c"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/circle-delete.execution.json",
+        "bytes": 6643,
+        "sha256": "fdc48f2434516605aa910cfd891009474da4da010c387bd54d1d2ca704a80240"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/create-engine-error.execution.json",
+        "bytes": 11681,
+        "sha256": "ca63ad2ae20bce387aa2de0d163fc9ccbeca908f4c156c1bd9350fe0e1a2b71b"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/deadlink-parity.execution.json",
+        "bytes": 2457,
+        "sha256": "97958ab5eb75ab62e32b750492d3b999b41f1cc2e507f79ef3948cfcf2fe429a"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/evidence.execution.json",
+        "bytes": 5962,
+        "sha256": "02bca217750deed29b79da46a36a2de450314839e7cdd1f4ef9b16ba41fa8e52"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/exec-hint.execution.json",
+        "bytes": 1504,
+        "sha256": "04c996795713086c560d1f8451588aea0a34fb63e73bee959eecd29646218c70"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/export-pack.execution.json",
+        "bytes": 2407,
+        "sha256": "bfc8541718188708896bd3d449e4e6b3e299b46e9460bdc22ba58feb79b9c096"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/glossary-edit.execution.json",
+        "bytes": 1975,
+        "sha256": "eb5e343bd2ac2714c2f9b813a90c4eceb752c26f27d5ab3526fd654c2acc24c1"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/glossary-first-term.execution.json",
+        "bytes": 4116,
+        "sha256": "196698de8c6598372b1f0b366f8d46e3c6b8df7841fa8513e87fc2e95cdf0ce1"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/glossary-verify.execution.json",
+        "bytes": 2025,
+        "sha256": "2de2764dccaea2d9ce58eb7e90868eb1f589204410784937e80598f0bc41d1b2"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/goal-tool.execution.json",
+        "bytes": 1699,
+        "sha256": "c8c29ce30c179e343cc6327ff5c3def8c593c772a0ecc3345e42db2188d1ca68"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/goals.execution.json",
+        "bytes": 9208,
+        "sha256": "4780c8ecf6cab9358ccaa77b1d048ba920de43dde79615180ba0a9e909cdd862"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/intake-id-resolve.execution.json",
+        "bytes": 8334,
+        "sha256": "8750a9d36e5fbf438e19276c0984318b86b205b637b8f766766d5c93afdec5b5"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/intake.execution.json",
+        "bytes": 4306,
+        "sha256": "d13011337b6b151beba18d13fc41e4244d007f66970c241ea2f44f32a050f91a"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/judge-parity.execution.json",
+        "bytes": 20229,
+        "sha256": "244711b6c3301ad50ee059aa153caaa36a9fafdff7e7428cdf5803d99dd4a6b6"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/lesson-blocks-parity.execution.json",
+        "bytes": 972,
+        "sha256": "e5303a698fe2c2ec4eff72add203d6f64cd8162b8162e27cdf4949ad29458edd"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/lightup.execution.json",
+        "bytes": 4422,
+        "sha256": "dbe17988e938ada113f190fd81ecd3c22901ae6d18118b5ecbcc9be88b81cc78"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/mirror-parity.execution.json",
+        "bytes": 9620,
+        "sha256": "659491f38717ceccdfca35db74bda3631000030fec5693cc3538e4593499e911"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/mode-parity.execution.json",
+        "bytes": 3787,
+        "sha256": "3f3cd8f0385861d4fc91871916fa7a275445d2cf8bcda6286dbab566a1fa51e0"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/new-course-wizard.execution.json",
+        "bytes": 8044,
+        "sha256": "1b824dd9145bd7bffd580a683220d13a69d4695ac87799d7a4e908766c304161"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/pack-model.execution.json",
+        "bytes": 9218,
+        "sha256": "d40720e1117326e965c25b869563d625bdc866bdf465aa86a2d54106d4959173"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/pack-open.execution.json",
+        "bytes": 2085,
+        "sha256": "c757b5ab050f0632cc2409646110fcff8cb1e5f9da7c794425f0cbcef9ef158b"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/pack-parity.execution.json",
+        "bytes": 743,
+        "sha256": "284d2e30d0ca54249f05ea3399f9d84d9412133358227385142e4afa1af50601"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/pack-scaffold.execution.json",
+        "bytes": 11860,
+        "sha256": "8b91573b7f444c6c1b3d90f0aa3ef6ebd12d600333633833fcf1fd0da98ee76c"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/packroot-overlay.execution.json",
+        "bytes": 14183,
+        "sha256": "1a16acc23eb0882e384782d186173be885c9b8d45dd0b38ec52d55ee8c587e83"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/panel.execution.json",
+        "bytes": 11466,
+        "sha256": "82826d179674d6efd670d23c138584aa96e970e457bb41e01a042816f3c2dfa1"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/parity-registry.execution.json",
+        "bytes": 1288,
+        "sha256": "53d99657ea4de86e717777e46c5ce6ab10bb2ffe9ff22e2aac496372153c99a1"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/parity-registry.json",
+        "bytes": 1654,
+        "sha256": "c64a1db1e4fd71cbfb9cfd89230766172c23169b4e177b01fe61b6c93492dcf7"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/plan-gate.execution.json",
+        "bytes": 3593,
+        "sha256": "b9d220efc081694144b5cf6f484e1a0b84f60f1eb1538a0afa5ae17f98b7ed15"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/practice.execution.json",
+        "bytes": 3112,
+        "sha256": "65b8314104178d07a96e39a5dd955562c042cbbd2ae9e3229e6b5eca1b2cbc15"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/practice.json",
+        "bytes": 4764,
+        "sha256": "7cd71114a3e265618299025fe613149fbc5e1e2053274bfe21fac887dcb12dfc"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/preset.execution.json",
+        "bytes": 6211,
+        "sha256": "b697cb1ee5123a722414796f214d2e73cd3f7b0ae83ce30fc6b206d34c871f39"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/probe-audit.execution.json",
+        "bytes": 3499,
+        "sha256": "35bef487d419e3bd80febb0afcdbafc456ffde35708e4b13f4fdebe37fbaac1e"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/rebuild-job.execution.json",
+        "bytes": 4036,
+        "sha256": "aa7c3d0c55239ebebb32fd98db6824275feb11aba16c6f2f1d70ff8955125ddc"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/rebuild-wiring.execution.json",
+        "bytes": 4646,
+        "sha256": "c45e497a1b6f4338db391c3ceb70b4a552b5c5caf4ecd8113d06b58fd6a5e2b5"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/render-parity.execution.json",
+        "bytes": 3062,
+        "sha256": "ae723036626749d5691a389ea956584c6318b078e1c37acf9b24f6a5326f3190"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/render-parity.json",
+        "bytes": 5866,
+        "sha256": "6c2300a1c1ba7cf7565308d36bebe9409bbb89c910f205e818507f59a43d1b64"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/settings-catalog.execution.json",
+        "bytes": 6757,
+        "sha256": "e20a33f1b3f98e9cda0f0337aeff4e9b68d15d30238b6067db0aee0b6ccfa6e1"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/settings-layout.execution.json",
+        "bytes": 2359,
+        "sha256": "bf37becb90ff5d2a0a11363ad5aa14ba9c8badb4d3b1917699fb2988fe7c6130"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/settings-teaching.execution.json",
+        "bytes": 4968,
+        "sha256": "d7a4ae24f35904594a8e53e05dc8d8c16e1c57b0efcdba6a291d8daf7b0bb794"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/state-probe.execution.json",
+        "bytes": 8294,
+        "sha256": "2ae3d9fe241e75fae23ab1ca11cac6756182ad8b8c61d619e90ed622562c499b"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/style-mode-author.execution.json",
+        "bytes": 2083,
+        "sha256": "d9efcf76d82211987c231f423f4e17c0fc0a10d959d5da77354005ab926e9600"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/teaching-apply.execution.json",
+        "bytes": 3043,
+        "sha256": "c257bf958511d414932682d4deafd85af30300543de446392295164d4a0acbbe"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/teaching-io.execution.json",
+        "bytes": 5670,
+        "sha256": "8af34bba3f078abaa3c890a16159186b6c629c13a97057bd8e648bbd7ff006cf"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/teaching-view.execution.json",
+        "bytes": 4894,
+        "sha256": "738a3a9fd1261353a1d8e58f109ff7c87f177e24e08a2d607d95386daa79f8bf"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/teaching-view.json",
+        "bytes": 10316,
+        "sha256": "dcfedd5f2772cfb3c41840307e2e84c4e4025add221ab1d9b6dd90fc980efc16"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/tool-smoke.execution.json",
+        "bytes": 5888,
+        "sha256": "5351cd468bfd5a99cdd1a9219677fa54295c0a7060a478956533fa4fff4b551f"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/upgrade-entry.execution.json",
+        "bytes": 7602,
+        "sha256": "c48f209a41c99cb083a69b832cb8452a49dd62e6db5b590a343a637a2e632bb8"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/visual.execution.json",
+        "bytes": 2656,
+        "sha256": "a37d16d9ea39ff98cd4330a03e4129c7f93aaf78e161cc44d2eb12ca34bb4498"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/visual.json",
+        "bytes": 4739,
+        "sha256": "3083cb787f8c9bb502a0bb854372420d87d1fc2a3c1a9b8fb9e8290543dfad46"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/wording.execution.json",
+        "bytes": 2112,
+        "sha256": "8063402ef5e0dea205cd8ea1f4a867a390ef127aeca18b3d3b6b60500b58f48e"
+      },
+      {
+        "file": "full-gate/run-all-result.json.children-76nQSk/wording.json",
+        "bytes": 3414,
+        "sha256": "42b8dac5c0daff20f724d3e4185499fb34d3aad77513d5946feadcdcee694d12"
+      },
+      {
+        "file": "full-gate/run.json",
+        "bytes": 12092,
+        "sha256": "a78e0b8f123d6c5213a3f144d730e800cd4835446155f1f4cd601d4846f8833e"
+      },
+      {
+        "file": "full-gate/stderr.txt",
+        "bytes": 98,
+        "sha256": "93d6fd08067da2219af0c3439cd84d01ed19248ceefdbee253b83a5a604ac258"
+      },
+      {
+        "file": "full-gate/stdout.txt",
+        "bytes": 850,
+        "sha256": "8bfa5db01edec79dce45f59cb8ac804b5f311c6b298722f29feab4c895ed1389"
+      },
+      {
+        "file": "full-gate/suite-baseline.json",
+        "bytes": 79612,
+        "sha256": "df46bab64a2a87421872dc45ada4fc777b18bb9b07f8d406a885737176ae8e46"
+      },
+      {
+        "file": "full-gate/suite-baseline.txt",
+        "bytes": 6756,
+        "sha256": "0552d1827581b95402b537bdc491a74d023d90cb3997e8641e8a53cc33867e09"
+      },
+      {
+        "file": "git-state.json",
+        "bytes": 4946,
+        "sha256": "3a322fb5a6b7b72b1d541b3c16ca74328fe2eec22c0444d5b40fbb60019063c7"
+      },
+      {
+        "file": "interface-extract.json",
+        "bytes": 51679,
+        "sha256": "a97c18026a97aee0bd013b475cfe845cd33f496ce8998fa6b42e5ad7ae128b82"
+      },
+      {
+        "file": "live-pack-freeze-deviation.json",
+        "bytes": 2986,
+        "sha256": "fac8f87b1c8fbed75e4becc0a5779dfc4f8504739186647e30c9f24134c6c97d"
+      },
+      {
+        "file": "live-pack-git-status.txt",
+        "bytes": 1092,
+        "sha256": "a1a9402b624cb2a5b5806d4c317cb33ec2a842727a92ea516e83d826de3a906a"
+      },
+      {
+        "file": "live-pack-post.json",
+        "bytes": 1335977,
+        "sha256": "354ca27e93df3fbd10f279b4e91132d91ed7c4f0aa94c933c549b6a85e53c5d3"
+      },
+      {
+        "file": "live-pack-post.total.json",
+        "bytes": 240,
+        "sha256": "ccca623ceef5ea6aecc39755e04f7ff6290e3bc2d9ac0c1be349c4b954e08f7e"
+      },
+      {
+        "file": "live-pack-post.txt",
+        "bytes": 773668,
+        "sha256": "fd00efa575c82c8949590c6981e97c81f6bb24b604f32ecb6d4bd71ac944ab3a"
+      },
+      {
+        "file": "live-pack-pre.json",
+        "bytes": 1335976,
+        "sha256": "85ae554220316abca60452a576af86fbd5ee29463206e7beeb73cb65eb856b4c"
+      },
+      {
+        "file": "live-pack-pre.total.json",
+        "bytes": 240,
+        "sha256": "cb9681eacbbe7c317c744585d79fc0e5aae913efbedcf0e320ab30a342bb44bd"
+      },
+      {
+        "file": "live-pack-pre.txt",
+        "bytes": 773668,
+        "sha256": "a68ee644919e9f28408c14036bbfb0a5e7956aaceeb8d1671e32cdb154331cea"
+      },
+      {
+        "file": "live-pack-window-delta.json",
+        "bytes": 2977,
+        "sha256": "1a63185269721def6e0b64080fb8c9fde62650ba619c51f00b87ae165aa0f377"
+      },
+      {
+        "file": "main-tree-t-evidence-lock.json",
+        "bytes": 1865083,
+        "sha256": "c97335199f51524b8622aca6c72818b6158fd52163b6de1ae1c4d69c19edd4bb"
+      },
+      {
+        "file": "source-lock.json",
+        "bytes": 6989,
+        "sha256": "97b8e238b950bb189b65246d824a98a7f5964ee9108a0815689200957723289b"
+      },
+      {
+        "file": "t-reverify-registry.json",
+        "bytes": 95677,
+        "sha256": "cf60c549c47490f351a8b69f42d98b846ff0e04ca1e6f7b3cb8a770b424e9ce0"
+      },
+      {
+        "file": "t-reverify-runs.json",
+        "bytes": 812,
+        "sha256": "8255143ede7019b482d5708984cef86130a04dbe14aa99f2b2bad131d5819cbe"
+      },
+      {
+        "file": "t-reverify-T13-AUTO-stderr.txt",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "file": "t-reverify-T13-AUTO-stdout.txt",
+        "bytes": 48,
+        "sha256": "5d7507fcc44f5273880dc1f2749ee3209efe18de332a7157c9ec9269453d8a33"
+      },
+      {
+        "file": "t-reverify-T16-AUTO-stderr.txt",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "file": "t-reverify-T16-AUTO-stdout.txt",
+        "bytes": 48,
+        "sha256": "568242df3c30bf493614d9fe86ba53b74c527b0653922e2fa1b6952000e4c9be"
+      },
+      {
+        "file": "template-registry.json",
+        "bytes": 16358,
+        "sha256": "62d08a29cb59444509e13a337caf68ec28c3a44e0e6e9b98169d38fb04dc98a2"
+      },
+      {
+        "file": "verification-runs.txt",
+        "bytes": 321,
+        "sha256": "a6ce93a0ea29b82f2eff0bf6e3e57c509b3fdc99f6fd3eb4dde02edccc0cf633"
+      },
+      {
+        "file": "window-compare.json",
+        "bytes": 1038,
+        "sha256": "1040a85299548f34f727f5ca9f3c6c8730d4c28528e2fee732e4ee79c15d7b54"
+      }
+    ]
+  },
+  "commands": {
+    "capture": [
+      "node audit-evidence/U01/capture-interfaces.mjs",
+      "node audit-evidence/U01/capture-manifest.mjs pre",
+      "node audit-evidence/U01/capture-full-gate.mjs",
+      "node audit-evidence/U01/build-suite-baseline.mjs",
+      "node audit-evidence/U01/capture-window-delta.mjs",
+      "node audit-evidence/U01/capture-deviation.mjs",
+      "node audit-evidence/U01/capture-t-registry.mjs",
+      "node audit-evidence/U01/capture-t-evidence-lock.mjs",
+      "node audit-evidence/U01/build-interfaces-doc.mjs",
+      "node audit-evidence/U01/build-baseline.mjs"
+    ],
+    "verify": [
+      "node test/audit/U01.mjs",
+      "node test/audit/U01.mjs --verify-baseline"
+    ],
+    "noRerun": "采集脚本一次性使用；`test/audit/U01.mjs` 只验证采集材料，不重跑全量、不再访问活包。"
+  },
+  "verdict": {
+    "status": "PASS",
+    "note": "PASS 只表示本卡八项验证通过，**不表示全工程变绿**：全量门槛实测是红的（35/38 · 56 套 · 7 红 · exit 1）。"
+  }
+}

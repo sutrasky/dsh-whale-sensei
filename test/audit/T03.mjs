@@ -543,7 +543,7 @@ h.case('T03-ORDER-hard-checks-before-write', 'pass', () => {
     inspectPack: idx('const insp = inspectPack('),
     checkInput: idx('const schema = checkInput('),
     planGate: idx('planGate(pt.plan'),
-    challengeGate: idx('challengeGate({ root, pack, point: args.point, probe: false })'),
+    challengeGate: idx('challengeGate({ root, pack, point: gatePoint, probe: false })'),
     authorLesson: idx('a = authorLesson({'),
     validateSkeleton: idx('const v = validateSkeleton(a.text)'),
     publishLesson: idx('const pub = publishLesson('),

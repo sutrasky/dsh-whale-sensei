@@ -11,6 +11,13 @@
  * 用法：
  *   node tools/recover-ledgers.mjs <课程包根> --offline --confirm --owner=<令牌>
  *   node tools/recover-ledgers.mjs <课程包根> --check        # 只看有没有待恢复的日志（只读）
+ *   node tools/recover-ledgers.mjs <课程包根> --check --json # 同上，机器可读的一行 JSON
+ *
+ * U06 兼容扩展（只增不改）：`--json` 把同一份回执打成**一行 JSON** 输出，供上层的共同提交
+ * 守卫（`lib/unify/commit.cjs`）与运维对拍消费。它**不改**默认文本回执（PASS / PENDING / OK
+ * 三行一字未动）、**不改**退出码（0 / 1 / 2 语义逐字保持）、**不改** `recoverPack` 的参数与默认值。
+ * JSON 里的 `failure` 由事务件自己的 `failureFor()` 给（七态归它所有）；本文件**不产出码值**
+ * —— `LOCK_BUSY` / `RECOVERY_REQUIRED` 这类新码只许落在 `lib/unify/*`（U03 的码表落点）。
  *
  * 语义（与 `recoverPack` 逐条一致，本文件只是薄壳）：
  *   · `--offline` 与 `--confirm` **两个都要给** —— 恢复会改写台账，缺一个就拒（exit 2）
@@ -52,6 +59,9 @@ const argv = process.argv.slice(2)
 const flags = new Set(argv.filter((a) => a.startsWith('--') && !a.includes('=')))
 const ownerArg = argv.find((a) => a.startsWith('--owner='))
 const root = argv.find((a) => !a.startsWith('--'))
+/** U06 兼容扩展：机器可读输出（默认关闭 —— 默认文本回执与退出码逐字保持） */
+const jsonOut = flags.has('--json')
+const emitJson = (doc) => process.stdout.write(`${JSON.stringify(doc)}\n`)
 
 function usage(why) {
   process.stderr.write(`recover-ledgers：${why}\n`
@@ -75,6 +85,21 @@ if (flags.has('--check')) {
   const pending = T.pendingRecovery(fs, path.resolve(root))
   const all = T.listJournals(fs, path.resolve(root))
   const lock = fs.existsSync(T.txnPaths(root).lock)
+  if (jsonOut) {
+    // 一行 JSON：同一份事实，机器可读（`failure` 只给 kind —— 码值归 lib/unify/*）
+    emitJson({
+      ok: pending.length === 0,
+      mode: 'check',
+      root: path.resolve(root),
+      examined: all.map((j) => ({ id: j.id, state: j.journal ? j.journal.state : null })),
+      pending: pending.map((j) => j.id),
+      lock,
+      failure: pending.length && typeof T.failureFor === 'function'
+        ? T.failureFor({ state: 'recovery-required', error: `还有 ${pending.length} 条待离线恢复的事务日志` })
+        : null,
+    })
+    process.exit(pending.length ? 1 : 0)
+  }
   if (!all.length) {
     process.stdout.write(`OK recover-ledgers：${path.resolve(root)} 没有事务残骸（锁：${lock ? '在' : '无'}）\n`)
     process.exit(0)
@@ -95,13 +120,30 @@ const r = T.recoverPack(path.resolve(root), {
 })
 
 if (r.state === 'rejected' || r.state === 'busy') {
+  if (jsonOut) emitJson({ ok: false, mode: 'recover', root: path.resolve(root), state: r.state, error: r.error, failure: typeof T.failureFor === 'function' ? T.failureFor(r) : null })
   process.stderr.write(`FAIL recover-ledgers：${r.error}\n`)
   process.exit(2)
 }
 const line = `recovered=${r.restored.length} keptCommitted=${r.keptCommitted.length} discarded=${r.discarded.length} swept=${r.swept ? r.swept.length : 0}`
 if (!r.ok) {
+  if (jsonOut) {
+    emitJson({
+      ok: false, mode: 'recover', root: path.resolve(root), state: r.state, error: r.error,
+      examined: r.examined, restored: r.restored, keptCommitted: r.keptCommitted,
+      discarded: r.discarded, swept: r.swept || [], lock: r.lock || null,
+      failure: typeof T.failureFor === 'function' ? T.failureFor(r) : null,
+    })
+  }
   process.stderr.write(`FAIL recover-ledgers：${r.error}\n  ${line}\n`)
   process.exit(1)
+}
+if (jsonOut) {
+  emitJson({
+    ok: true, mode: 'recover', root: path.resolve(root), state: r.state, error: r.error,
+    examined: r.examined, restored: r.restored, keptCommitted: r.keptCommitted,
+    discarded: r.discarded, swept: r.swept || [], lock: r.lock || null, failure: null,
+  })
+  process.exit(0)
 }
 process.stdout.write(`PASS recover-ledgers：${path.resolve(root)} ${line}${r.error ? `（提示：${r.error}）` : ''}\n`)
 process.exit(0)

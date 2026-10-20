@@ -147,6 +147,25 @@ export const FROM_PLUGIN = [
   'tools/http-request.cjs',
   'tools/ledger-transaction.cjs',
   'tools/publish-policy.cjs',
+  // —— 运行内核的随包副本（U19 / 决-9：本清单**只加登记项**，判据强度不变）——
+  //    课程包里**没有**对应原件（它们是 `lib/unify/*.cjs` 的逐字节生成物），
+  //    所以唯一合法的分类桶就是这里：只随插件发、由 `writeScaffold` 铺进新包。
+  //    与 `lib/pack-scaffold.js#TEMPLATE_FILES` 的那 14 行**必须成对**
+  //    （`test/pack-scaffold.mjs` 的「运行时清单与规则清单一致」逐项比 sort 后的并集）。
+  'tools/unify/identity.cjs',
+  'tools/unify/errors.cjs',
+  'tools/unify/ledger-read.cjs',
+  'tools/unify/commit.cjs',
+  'tools/unify/text.cjs',
+  'tools/unify/plan.cjs',
+  'tools/unify/fingerprint.cjs',
+  'tools/unify/render.cjs',
+  'tools/unify/pack.cjs',
+  'tools/unify/stage.cjs',
+  'tools/unify/glossary.cjs',
+  'tools/unify/records.cjs',
+  'tools/unify/content.cjs',
+  'tools/unify/evidence.cjs',
 ]
 
 /**

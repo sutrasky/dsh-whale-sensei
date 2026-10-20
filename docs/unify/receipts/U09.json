@@ -1,0 +1,560 @@
+{
+  "card": "U09",
+  "title": "包读取和课程映射收敛（A lane）",
+  "status": "PASS",
+  "statusHistory": [
+    {
+      "status": "BLOCKED",
+      "when": "2026-10-20 准入",
+      "why": "U-SPEC §12 未裁决时由主持人登记：U09 缺 §12 A 授权，按卡面停止条件在准入即 BLOCKED（未实施、无入口、无运行结果）。"
+    },
+    {
+      "status": "PASS",
+      "when": "2026-10-20 人类 A 授权解除后",
+      "why": "用户以可信消息逐字给出「选A和授权p1和p2」，主持人据 docs/unify/authorization.json 的 scope.A 解除 BLOCKED；本卡按 scope.A 执行，test/audit/U09.mjs 真实 PASS。"
+    },
+    {
+      "status": "PASS",
+      "when": "2026-10-20 两条红按 U09-Δ2 修正后",
+      "why": "A06 的「表里没有 ⇒ UNCLASSIFIED」在 U16 合法改 lib/mods/pack.js 后红，A08 的「除那一行外所有 ok( 逐字不变」在 P2 授权面改写 mirror-parity 的 PROBE_VERSION 断言后红；两条都不是本卡交付物缺陷。改法见 deltas.D10/D11：分类阶段改为「显式表 → §6 运行时归属」，A 面 diff 判据把 scope.P2 授权的那几行排除并单独登记（其余 ok( 仍逐字不变）。修正后 node test/audit/U09.mjs → PASS U09 checks=8 failed=0 skipped=0 / exit 0。"
+    },
+    {
+      "status": "PASS",
+      "when": "2026-10-18（账期 2026-10-18，分支 refactor/unify-20261018）决-7 落地后",
+      "why": "用户按 docs/unify/authorization.json 的 decisions.approvedChanged 逐字「全按推荐」选**收敛（严格拒绝）**：lib/point-ref.js 的 splitQualified 改走 identity.cjs（parseLessonKey → parsePointKey → 否则显式拒绝），blockedBoundaries 那条随之销账（status=resolved，见 deltas.D12）。A06 ⑥ 的判据同时改严（残留必须为 0 + 归类 OWNED-OTHER-CARD/U09 + 不再有 BLOCKED-BOUNDARY + 声明式 Δ 表 + 变异⑤）。复跑 node test/audit/U09.mjs → PASS U09 checks=8 failed=0 skipped=0 / exit 0。"
+    }
+  ],
+  "verdict": {
+    "line": "PASS U09 checks=8 failed=0 skipped=0",
+    "code": 0,
+    "command": "node test/audit/U09.mjs",
+    "note": "本回执写于交付时；测试复跑不重写 tracked 回执（U-SPEC §6）。最终提交 hash 只进忽略证据与对话。"
+  },
+  "authorization": {
+    "section": "U-SPEC §12 · 选项 A（受控测试契约迁移授权）",
+    "quoteVerbatim": "选A和授权p1和p2",
+    "quoteSource": "用户在 dsh 会话（U 系列统筹会话）中的直接消息，原文逐字如上；本文件不转述、不改写、不补全。",
+    "sourceFile": "docs/unify/authorization.json",
+    "statement": "本卡只按 scope.A 执行：只迁移 test/mirror-parity.mjs 中课程身份所需的夹具输入、那一行旧身份预期（a.anchor/b.anchor）与说明；双写者、同计数器、键序、正文、字节上限与状态码等非身份断言一条未动。不把授权扩写成用户没说过的话，不引用 scope.P1/P2 做本卡的事。",
+    "scopeADeclared": "U09 独占 test/mirror-parity.mjs 中课程身份所需的夹具输入、对应旧身份预期行（a.anchor/b.anchor === 'spring-boot/0001'）与说明；保留双写者、同计数器、键序、正文、字节上限与状态码等非身份断言。",
+    "decidedBy": "用户",
+    "previouslyBlocked": {
+      "blockedReceipt": "本文件曾是一份 status=BLOCKED 的占位回执（§12 未裁决时主持人登记），其内容为：U09 未实施、test/audit/U09.mjs 从未创建/运行、blokedReason=「U-SPEC §12 未裁决」。该状态由人类 A 授权解除，现整体改写为真实回执；未实施期间的结论不冒充已验证。"
+    }
+  },
+  "writeSetExpansion": {
+    "file": "lib/point-ref.js",
+    "authorizedBy": "主持人裁决",
+    "basis": [
+      "U-SPEC §2（身份边界与单一实现）",
+      "docs/unify/interfaces.md §2（U09 是唯一负责把 pointKey/lessonKey 与 point-ref.js 的内联构造/拆分委托到严格内核的卡）",
+      "docs/unify/authorization.json 的 derivedConsequences.C4（主持人把该扩张逐字落账；§6 的 U09 行已补登 lib/point-ref.js 与 test/mirror-parity.mjs）"
+    ],
+    "note": "卡面写集遗漏该文件；这是计划不一致的裁决，不是用户逐字授权（scope.A 只覆盖 mirror-parity）。",
+    "minimality": "只改两处内部调用（qualified / splitQualified 的解析路径）；导出面、参数、默认值、返回形状与 code 取值逐字不变。收敛结果：qualified 已委托内核构造（U09）；splitQualified 先按裁决条件 4 回退为基线实现（登记为 blockedBoundaries），后由**决-7** 收敛到严格内核（parseLessonKey → parsePointKey → 显式拒绝），边界销账 —— 见 deltas.D12 与 blockedBoundaries.status=resolved。"
+  },
+  "dependencies": {
+    "required": [
+      "U02",
+      "U03",
+      "U04"
+    ],
+    "status": {
+      "U02": "PASS（主持人亲跑 PASS U02 checks=8 failed=0 skipped=0 / exit 0）—— 提供 lib/unify/identity.cjs 严格内核",
+      "U03": "PASS（主持人亲跑 PASS U03 checks=8 failed=0 skipped=0 / exit 0）—— 提供 errors.cjs / ledger-read.cjs",
+      "U04": "PASS（主持人亲跑 PASS U04 checks=8 failed=0 skipped=0 / exit 0）—— 提供 text.cjs / plan.cjs"
+    },
+    "anchors": {
+      "policy": "不钉「跨卡静止」的 sha256（别的卡会合法改自己的落点）；改为「本卡本次进程未写」+ §6 归属可查，两份证据都在 A08 的写守卫记录与 §6 解析里。",
+      "files": [
+        "lib/unify/identity.cjs（U02）",
+        "lib/unify/errors.cjs（U03）",
+        "lib/unify/ledger-read.cjs（U03）",
+        "lib/unify/text.cjs（U04）",
+        "lib/unify/plan.cjs（U04）"
+      ]
+    }
+  },
+  "interfaceConsumption": {
+    "docs/unify/interfaces.md": "§1 源文件锁（lib/pack-model.js 61085B/d342cc…、lib/pack.js、lib/pack-template/tools/lesson-map.js）、§2 身份边界与两处构造点（含 point-ref.js 内联）、§5 错误码（本卡不新增码值）、§6 写集落点表（U09 行）、§9 无影响",
+    "lib/unify/identity.cjs": "pointKey / lessonKey / parsePointKey / parseLessonKey / IdentityError / REASONS / LESSON_NUMBER_MIN|MAX|WIDTH（本卡只消费，不改）",
+    "lib/unify/migration.cjs": "只在证据与说明里引用其「历史形状清单」，运行态**不 require** 它（A04 有源码级判据）",
+    "test/audit/unify-runner.mjs": "runCard（**真 await** 的异步壳）/ FIXED_IDS / printVerdict / writeRunEvidence / resolveEvidenceRoot / guardTempPath / safeRemoveTree"
+  },
+  "writeSet": [
+    "lib/unify/pack.cjs",
+    "lib/pack-model.js",
+    "lib/pack.js",
+    "lib/pack-template/tools/lesson-map.js",
+    "lib/point-ref.js",
+    "test/mirror-parity.mjs",
+    "test/audit/U09.mjs",
+    "docs/unify/receipts/U09.json",
+    "audit-evidence/U09/ 下本次新建文件"
+  ],
+  "writeOutOfSet": "无。逐文件说明：`lib/unify/pack.cjs`（新建，内核）；`lib/pack-model.js`（原有：点键/课键委托 identity.cjs、映射与锚点委托 pack.cjs、readPack 用规范身份、selftest 跟上身份口径）；`lib/pack.js`（原有：仍是零实现再导出，只补继承链说明）；`lib/pack-template/tools/lesson-map.js`（原有：改薄包装，只 require ./unify/pack.cjs，导出面逐名保持）；`lib/point-ref.js`（主持人裁决的写集扩张，最小改动；§6 的 U09 行已补登）；`test/mirror-parity.mjs`（仅 §12 A 授权面；§6 的 U09 行已补登）；`test/audit/U09.mjs`（新建入口）；`docs/unify/receipts/U09.json`（本回执）；`audit-evidence/U09/**`（本次原始证据）。tracked 改动逐条经 A08 的授权并集判定（§6 139 条 ∪ 三卡 A 面 ∪ 本回执登记的写集扩张），越界 0 条；没有改任何其它既有 test/*.mjs、test/audit/T*.mjs、cards/**、活包、主树、package.json、docs/unify/interfaces.md|baseline.json|authorization.json。",
+  "completion": {
+    "behaviour": [
+      "包模型与课程映射的身份解析收成唯一实现：`lib/unify/pack.cjs`（纯 CJS，只依赖 node:fs/node:path 与同目录 identity.cjs）。宿主 `lib/pack-model.js` 与课程包侧 `lib/pack-template/tools/lesson-map.js` 都委托它；包侧是同一份源码的逐字节副本（U19 生成）。",
+      "课程身份 = 规范 `circle/point/NNNN`（`lessonIndex().byKey` 的键、`readPack().lessons[].id`、进度条目、台账 anchor 全部只认它）；知识点身份 = `circle/point`。跨圈同名点/同课号不再互相覆盖。",
+      "旧导出委托兑现：`pointKey` / `lessonKey` 现在**就是** `identity.cjs` 的严格内核（函数同一性），合法输入返回值与基线逐字节相同；非法组成部分/课号按 U02 锁定的口径拒绝。`lib/point-ref.js` 的 `qualified` 同样委托内核，`splitQualified` 也已在**决-7** 收敛到内核的严格解析（`parseLessonKey` / `parsePointKey`）：本模块**构造与解析都只剩内核一份实现**，全仓再无身份自拆。",
+      "运行态删除显示名/两段课键归一职责：`keyOfAnchor`（写入口）与 `labelOfAnchor`（读点）只收规范身份 + `未归课` 哨兵；显示名、`point/课号`、裸点、点键落课程位一律拒绝，并给出可机器判读的 reason（REF_REASONS）。`labelAnchorId` 仍按其页面领域工作，明确不是课程身份。",
+      "进度映射：`progress.json` 的 `learned` 只认规范键；历史形状逐条点名、不计入已学（不隐式归一）；点键不扩成多门已学课程；`learned` 字段本身仍按原样返回（返回形状不变）。",
+      "目录校验/源-产物关系保持：缺课程源、缺课程产物、EXPECT 声明无页、有页未声明、EXPECT id 形状不对、旧平铺布局兜底，逐条冲突/告警，与基线实现逐类对拍一致。",
+      "EXPECT.json 的 `lessons[].id` 按**声明**处理（`declarationShape: 'point/NNNN'`）：圆圈由 `lessons/<circle>/<point>/` 唯一归属派生；零候选/多候选一律显式拒绝（歧义点名候选），绝不取第一个、不归一。"
+    ],
+    "verdict": "node test/audit/U09.mjs → PASS U09 checks=8 failed=0 skipped=0 / exit 0（真实运行；原始 stdout/证据见 evidenceIndex）"
+  },
+  "deltas": [
+    {
+      "id": "D1",
+      "kind": "identity-cutover",
+      "what": "课次键从两段 `point/NNNN` 改成规范三段 `circle/point/NNNN`",
+      "evidence": "A01：同一夹具上基线实现把 `math/vue/0001` 与 `programming/vue/0001` 合成一个 `vue/0001`（src/page 互相覆盖、byKey 为空或一键），新实现给出两个互不覆盖的键；readPack 基线给出两条**同 id** 课，新实现两条不同 id。",
+      "impact": "跨圈同名点、同课号不再串页；`byKey`/`byNumber`/`readPack().lessons[].id` 的键形状随之变化。"
+    },
+    {
+      "id": "D2",
+      "kind": "progress-mapping",
+      "what": "`progress.json.learned` 从「两段键精确匹配」改成「规范身份解析 + 逐条点名」",
+      "evidence": "A02：基线实现在规范进度夹具上读到 0 门已学 + 2 条幽灵告警；新实现点亮 2 门、0 条告警。历史形状条目（两段课键/裸课号/点键落课程位/显示名）逐条点名且不计入已学。",
+      "impact": "旧包（learned 为两段键）在迁移前不再点亮：这是统一身份的中间态，重算归 U17（见 unverified/regressionsDiscovered）。"
+    },
+    {
+      "id": "D3",
+      "kind": "behaviour-tightening",
+      "what": "写入口/读点不再把显示名与两段课键归一",
+      "evidence": "A03/A04：`keyOfAnchor('第1课')` 与 `keyOfAnchor('spring-boot/0001')` 基线返回键、现在返回 null；`resolveLessonRef` 对这 10 类历史形状逐类给出 reason（bare-point / historical-lesson-key / point-key-in-lesson-slot / display-name / narrow|wide-lesson-number / out-of-range / malformed / untrimmed / empty）。",
+      "impact": "笔记等台账的旧锚点读不回（孤儿锚点会报）；旧台账迁移归 U05，迁移后读取归 U17。"
+    },
+    {
+      "id": "D4",
+      "kind": "behavior-tightening",
+      "what": "`pointKey` / `lessonKey` 由「无校验拼接」变成「严格内核构造」",
+      "evidence": "A08：合法输入（含 1001 轨道号、9999 边界）逐例与基线相同；非法组成部分/越界课号现在抛 IdentityError 而不是拼出畸形 id（U02 回执锁定的口径）。",
+      "impact": "非法输入从静默畸形变成显式拒绝；合法 catalog 构造结果不变（A08 用 `test/catalog.mjs` 的两条构造断言 + 5 组合法用例对拍证明，且该测试逐字节未改）。"
+    },
+    {
+      "id": "D5",
+      "kind": "implementation-collapse",
+      "what": "宿主与包侧从「两份实现 + 对拍」变成「同一份内核」",
+      "evidence": "A06：包侧 `tools/unify/pack.cjs` 与仓内内核 sha256 相同；包侧包装的 `lessonMap/labelOfAnchor/keyOfAnchor/labelAnchorId` 就是（包内那份）内核的函数对象；宿主侧 6 个映射导出与内核函数同一性、`pointKey`/`lessonKey` 与 identity 内核函数同一性；导出面恰好是基线那 23 项；行为在夹具上逐键一致。",
+      "impact": "`lib/pack-model.js --selftest` 里原先的「对拍」节改成「同一份内核」节的措辞与判据；对拍不再能发现漂移是因为已经不存在两份代码。"
+    },
+    {
+      "id": "D6",
+      "kind": "risk-reduction",
+      "what": "`lib/pack-model.js` 的 `prerequisiteGaps` 与 `lib/point-ref.js` 的 `qualified` 不再内联拼 `circle/point`",
+      "evidence": "A08 的身份实现扫描（`lib/**`+`tools/**`，29 个命中点逐条归类）：本卡落点里已无 `${x.circle}/${x.id}` 拼接与 `padStart(4`；剩余命中全部归类为内核 / 迁移 / 非身份 / 他卡待办 / 已登记 BLOCKED 边界。",
+      "impact": "身份构造只剩内核一处；解析也已只剩内核一处 —— 决-7 收掉了 `splitQualified` 的自拆，本回执 blockedBoundaries 那条改标 resolved（详见 D12）。"
+    },
+    {
+      "id": "D7",
+      "kind": "test-contract-migration (A face)",
+      "what": "`test/mirror-parity.mjs` 的 §② 夹具与那一行旧身份预期迁移到规范身份",
+      "evidence": "A08 的 `git diff -U0` 解析：**只有 1 条 `ok(` 断言被替换**（148→150 行 a.anchor/b.anchor），`ok(` 条数不变（前后同数），其余 `ok(` 行逐字相同；7 处 `anchor:` 夹具输入全部改成 `programming/spring-boot/0001`；双写者/同计数器/键序/正文/字节上限/413/同口径拒法/写前拒/灰带已知差异等非身份断言逐条钉住未动。",
+      "impact": "该套件在实测窗口需要包侧工具同样升到规范身份（见 unverified）。"
+    },
+    {
+      "id": "D8",
+      "kind": "criterion-correction (identity attribution)",
+      "what": "A06 的身份实现判据：由「命中点必须被本文件的常量表归类」改为「命中点必须能映射到 interfaces.md §6 里**有主**的卡」",
+      "oldRule": "`test/audit/U09.mjs` 的 A06 ⑦：`scanIdentityImplementations().hits.every(h => h.classification !== 'UNCLASSIFIED')` —— 归类表是写在本文件里的常量 `IDENTITY_SCAN_RULES`（路径→种类），未列出的文件一律 UNCLASSIFIED ⇒ 红。",
+      "whyExpired": "U18 已交付新内核 `lib/unify/evidence.cjs`（`lessonAliases` 里 `${circle}/${point}/${number}`，第 126 行）并改了 `lib/state.js`（台账归属归一化里同一处构造，第 298 行），两处都是 U18 的**合法身份消费**；§6 的 U18 行拥有这两份文件，但本文件的常量表里当时没有它们 ⇒ 判据红的是「表的陈旧」，不是缺陷。",
+      "newRule": "① 每处命中点仍须归类（种类 ∈ {KERNEL, MIGRATION, NON-IDENTITY, OWNED-OTHER-CARD, DEFERRED-OTHER-CARD, BLOCKED-BOUNDARY}）且必须带责任卡；② 责任卡必须是 §6 里**真实存在**的 U 卡；③ §6 里**那张卡必须确实拥有该文件**（归属口径**运行时**解析 §6，不硬编码 路径→卡）；④ §6 无主的文件（`lib/pack-export.js`，R3 待裁决）只能按「文件 + 痕迹」在本回执 `identityAttribution.deferredPins` 里钉住**上限**，同一无主文件多冒一处即红、连钉子都没有也红；⑤ 细分 `OWNED-OTHER-CARD`（别的卡的合法写集，§6 有主）与 `DEFERRED-OTHER-CARD`（§6 真无主）。",
+      "evidence": "A06 ⑦/⑧：`lib/state.js` 与 `lib/unify/evidence.cjs` 的命中点逐条归到 U18（运行时解析 §6 确认 U18 拥有这两份）；反空转三例 —— ① 往 `E:\\Temp` 副本里新增**无主**文件 `lib/whatever.js` 塞 `${circle}/${point}` → 红；② 往 §6 无主的 `lib/pack-export.js` 副本里多塞一处同类拼接（实测 3 > 钉住 2）→ 红；③ 把 `lib/state.js` 的命中点伪造成归 U16（§6 并不拥有它）→ 红；副本未变异时与真仓逐条同绿（156 个文件 / 23 个命中点）。",
+      "strength": "不弱于原判据：原判据「表里没有 ⇒ 红」**原样保留**（`UNCLASSIFIED` 仍红，新文件仍要人工入表）；新增三条原来没有的约束（责任卡必须是真实 U 卡 / 必须真拥有该文件 / 无主文件有可计数的上限），并把「§6 无主」从一句注释升级成能变红的钉子。"
+    },
+    {
+      "id": "D9",
+      "kind": "criterion-correction (A-face contract)",
+      "what": "A08 的 A 面自证：由「`M test/intake.mjs` 不在本卡 A 面 ⇒ 必须 reject」改为「三条同时成立的 A 面契约」，红样本换成 §6 里**确实无主**的既有测试",
+      "oldRule": "`proveScopeBoundary` 里的 `one(' M test/intake.mjs', 'reject', …)`：断言 `test/intake.mjs` 落在授权并集之外 ⇒ 必须被拒。",
+      "whyExpired": "§6 的 U10 行已合法登记 `test/intake.mjs`（带「仅 §12 A 授权面」限定语），`authorization.json` 的 scope.A 也逐字点名它 —— 并集**放行它是正确的**，旧断言（期望 reject）随之失效；继续保留它只能靠把 §6 写错来满足。",
+      "newRule": "A 面契约（`proveAFaceContract`，纯函数）：`test/mirror-parity.mjs` 要算本卡 §12 A 授权面，必须**同时**满足 —— ① §6 里本卡单元格中**点名它的那一段**带限定语「仅 §12 A 授权面」；② authorization.json 的 scope.A 里**本卡自己的条目**逐字点名它；③ `quoteVerbatim` 存在且非空。三条缺一即红。同时 `M test/intake.mjs` 钉成「放行**且**归属 U10」（`allow` + requireOwner=U10），红样本换成 §6 里确实无主的既有测试（`test/pack-template-rules.mjs` + 新增 `test/audit/T26.mjs`），红样本条数不减（7 → 8）。",
+      "evidence": "A08 ①c/①d：三条逐条断言 + 两个红样本对照（契约对 `test/pack-template-rules.mjs` / `test/audit/T26.mjs` 必须恰好缺「限定语 + scope.A 逐字点名」）+ 三个副本变异 —— ② 抹掉 §6 的「仅 §12 A 授权面」（变异锚点恰好 2 处：U09 + U10）→ 只缺 `section6-qualifier`；③ authorization.json 副本删掉 `quoteVerbatim` → 只缺 `quote-verbatim`；④ scope.A 的 U09 条目不再逐字点名 `test/mirror-parity.mjs` → 只缺 `scope-a-verbatim`；正常树三条齐绿、`test/intake.mjs` 归 U10。",
+      "strength": "不弱于原判据：原判据只有一条「这个测试不许被本卡扩用」且用的是过期事实；新契约三条覆盖它想守的东西（本卡 A 面只有 mirror-parity、A 不得扩写），另多两条原来没有的守卫（限定语必须挂在**同一段**、授权原文必须存在），并用红样本对照证明契约能说「不」（不是空转）。红样本 7 → 8 条。"
+    },
+    {
+      "id": "D10",
+      "kind": "criterion-correction (identity attribution, phase 1 of 2)",
+      "what": "A06 的**分类阶段**：由「显式表里没有 ⇒ UNCLASSIFIED」改为「先查显式表；表里没有时按 interfaces.md §6 **运行时**解析该路径有没有主」",
+      "oldRule": "`scanIdentityImplementations()` 只按本文件的常量表 `IDENTITY_SCAN_RULES`（路径→种类）分类；表里没有的文件一律 `UNCLASSIFIED` ⇒ A06 ⑦/⑧ 红。",
+      "whyExpired": "U16 正在自己的写集里改 `lib/mods/pack.js`（§6 的 U16 行拥有该文件），新增了一处身份构造（`padStart(4,'0')`，本轮位于第 236 行）。它是**合法**的并发 lane 改动，红的只是「本文件的表没跟上」，不是缺陷 —— 判据要能归因到文档里真正的主人。",
+      "newRule": "① 先查 `IDENTITY_SCAN_RULES`（人工逐条给\"为什么不是身份\"的少数点）；② 表里没有 ⇒ 按 §6 运行时归属：恰好一个主 ⇒ `OWNED-OTHER-CARD`（记主人）；多个主 ⇒ `OWNED-OTHER-CARD` 但 owner=null（多主等于没主）⇒ 红；§6 无主 ⇒ 仍 `UNCLASSIFIED` ⇒ 红。原 D8 的三条约束**全部保留**：责任卡必须真实存在、§6 里那张卡必须**确实拥有**该文件、§6 真无主的文件按回执 `deferredPins` 钉住上限（多冒一处即红）。",
+      "evidence": "A06 ⑦b：自动归属的每个文件都必须「显式表里仍然没有它」+「§6 恰好一个主」+「每处命中点都归到那个主且过同一套复核」；本轮实得 `lib/mods/pack.js` → U16（§6 U16 行），其余命中点分类不变。反空转四例见 `identityAttribution.antiVacuous`。",
+      "strength": "不弱于原判据：`UNCLASSIFIED` 仍红（新出现的构造点仍要有人认领），且新增两条原来没有的约束（多主 ⇒ 红；自动归属也必须过「§6 真的拥有该文件」复核）。变的是**谁能认领**（从\"本文件的表\"改成\"文档 §6\"），不是\"能不能不认领\"。"
+    },
+    {
+      "id": "D11",
+      "kind": "criterion-correction (A-face diff judgement, P2 face)",
+      "what": "A08 的 A 面 diff 判据：承认 `test/mirror-parity.mjs` 上**两个**授权改动面 —— ① 本卡 §12 A（第 149 行一带那一行旧身份预期）；② **P2 授权面**（446–456 行一带的 PROBE_VERSION 断言）。`test/audit/T26.mjs`（P2 的另一处授权对象）从「逐字节未改」改为「恰好一行、落在 scope.P2 声明窗口内」的定向判据",
+      "oldRule": "`ok(` 逐字比对只允许「除那一行旧身份预期外全部相同」；`test/audit/T26.mjs` 必须逐字节等于 HEAD、且不在任何授权并集里。",
+      "whyExpired": "`docs/unify/authorization.json` 的 `scope.P2`（用户逐字授权「选A和授权p1和p2」里的 p2）明确改写了两处 PROBE_VERSION 断言对象：`test/mirror-parity.mjs` 第 446–456 行一带（删 2 条、增 6 条 `ok(`）与 `test/audit/T26.mjs` 第 63 行的 F01 断言对象（改 1 行）。它们是**已登记的本轮授权面**，不是本卡越界；旧判据把它们算成越界。",
+      "newRule": "① 从 `authorization.json` **现场解析** `scope.P2`（`authorized` 里点名该文件的条目 + 条目里写明的旧行窗口 + 顶层 `quoteVerbatim` 逐字），据此只把这些行从 `ok(` 逐字比对里**排除并单独登记**；② 排除面必须与 scope.P2 的文本对得上（hunk 的旧行区间落在声明窗口 ±8 行「一带」内、且被排除的行里确有 PROBE_VERSION 断言），对不上 ⇒ 红；③ **「其余 `ok(` 必须逐字不变」这条整体保留**（多集差：删/放宽/跳过任何一条或新增任何一条 ⇒ 红）；④ `test/audit/T26.mjs`：1 个 hunk / 删 1 增 1 / 旧行落在声明窗口内 / 内容确是 PROBE_VERSION 断言 / P2 明说\"不动\"的两条 F01 子断言（PROBE_SOURCES 含 jvm、导入闭包一致）仍原样在；⑤ §6 与 scope.P2 **双向**对得上（`test/audit/T26.mjs` 在 §6 的 U01 行带「仅 P1/P2 授权面」限定语，且 scope.P2 逐字点名它）—— 任一侧悬空 ⇒ 红。",
+      "evidence": "A08 ②/②a/②b/②c：现场解析出 scope.P2 窗口 446–456；被排除的 hunk 是 `旧行 444–447（增 6 条）` 与 `旧行 449–454（删 2 条）`，与本卡 A 面那一行（`旧行 148–149`，删 1 增 1）分开登记；其余 98 条 `ok(` 逐字相同（旧 101 − 排除 3 = 98；新 105 − 排除 7 = 98）。反空转：删掉 `scope.P2` ⇒ 排除 0 个 hunk、7 个 hunk 游离、判据红；`scope.P2` 在但 `quoteVerbatim` 缺失 ⇒ 同样红。T26：`旧行 63`，删 1 增 1，两条 mustKeep 断言仍在。",
+      "strength": "不弱于旧判据：旧判据只认 1 条 `ok(` 变化；新判据认 2 个授权面但要求**每一面都可归因**（排除面必须落在文档声明的行窗口里、必须语义对得上、必须两侧文档互相点名），并且**新增**了三条原来没有的守卫（T26 的改动必须恰好一行且在窗口内、P2 明说不动的子断言必须仍在、`scope.P2` 缺失/无授权原文时排除面自动失效）。"
+    },
+    {
+      "id": "D12",
+      "kind": "decision-7-pointref-strict",
+      "what": "`lib/point-ref.js` 的 `splitQualified` 由「在第一个 `/` 处自拆」收敛到 `lib/unify/identity.cjs` 的严格解析（`parseLessonKey` → `parsePointKey` → 带 `/` 却两种形状都对不上就显式拒绝）",
+      "decision": {
+        "id": "决-7",
+        "source": "docs/unify/authorization.json 的 decisions.approvedChanged（用户对本轮的逐字授权）",
+        "quoteVerbatim": "全按推荐",
+        "card": "决-7 执行者（用户已授权的执行者）",
+        "scope": "lib/point-ref.js + test/audit/U09.mjs + 本回执（+ 实测确实红的受影响卡入口与回执）；不碰 lib/unify/**、其它 lib/**、interfaces.md|baseline.json|authorization.json、任何既有 test/*.mjs、cards/**、package.json、活包、主树"
+      },
+      "oldSemantics": "基线 = 在**第一个** `/` 处拆：`a/x/y` → `{circle:'a', id:'x/y'}`（把 `x/y` 当成知识点 id）；`/x`、`x/`、`a//x` 拆不出来 ⇒ 退回「裸 id」分支，把 `/x`、`x/`、`/x` 这类**含斜杠的串**当成知识点 id 收下（`key` 也是这串）。`a/x/0001` 则被拆成 `{circle:'a', id:'x/0001'}`。",
+      "newSemantics": "① `identity.parseLessonKey(ref)` 成功 ⇒ 这是**课次**身份，取它的 `circle` / `point`（`id`/`bare` 只回**知识点** id，不带课号；`key` 仍是调用方写的原串 —— 本函数不做身份**构造**）；② 否则 `identity.parsePointKey(ref)` 成功 ⇒ `{circle, id: point}`；③ 带 `/` 但两者都失败 ⇒ **拒绝**，`code` 取既有体系里最贴切的 `unknown`（**没有新造码值、没有改 errors.cjs**）；④ 不带 `/` 仍是裸 id（老调用方 `intakeStatus(root,'vue')` 逐字照旧）。有课程包目录那一支本来就**不调用** `splitQualified`（它按 `p.id` / 规范 id 逐条核验），所以收敛后两支对「什么形状算合法」口径一致。",
+      "returnContractKept": "导出面（resolvePointRef / describePointRef / listPointRefs）、参数、默认值、`ok:true` 分支的字段（circle/id/key/bare/halo/unverified）与 `code` 的 4 个取值（missing-ref / unknown / ambiguous / halo-mismatch）**逐字未动**；`id` 仍是**知识点** id（lib/intake.js 与 lib/mods/intake.js 都拿它当 `point` 用），课次引用只回它所属的点。",
+      "deltaTable": {
+        "method": "改前/改后逐例对拍（E:\\Temp\\dec7-pointref-20261018）：baseline = `git show HEAD:lib/point-ref.js`；before = 改动前的工作树副本；after = 仓内当前文件。矩阵 = U09 原 90 例（3 个课程包 × 10 引用 × 3 halo）+ 决-7 扩面 72 例（8 个引用 × 3 包 × 3 halo）= 162 例；先证 before 与 baseline 在全部 162 例上**逐例相同**（0 不一致），再量 before→after。",
+        "totals": {
+          "matrix": 162,
+          "changed": 27,
+          "changedInOriginal90": 3,
+          "unchanged": 135,
+          "codesBefore": "ok / unknown（9 例里那 6 例在改动前就是 unknown）",
+          "codesAfter": "ok / unknown（无新码值）"
+        },
+        "u09Recorded9": "U09 当时记「90 例里 9 例不一致」（`a/x/y` × 3 包 × 3 halo）。**实测复核**：现实现里 `splitQualified` 只在「没有课程包目录」那一支被调用，所以真实不一致是 3 例（`pack=[]` × 3 halo）；另外 6 例（`pack=programming` / `pack=a,b` 各自的 3 halo）**旧/新都是 `unknown`**（有目录那一支根本不做拆分，`a/x/y` 对不上任何点）—— 那 6 例是 U09 当年用「把拆分前置到有包分支」的实验版量出来的，不是现实现的路径。逐例原始记录见 evidenceIndex 的 delta.json。",
+        "rows": [
+          {
+            "pack": "[]",
+            "ref": "a/x/y",
+            "halo": "null | programming | a（3 例）",
+            "old": "ok:true, circle:'a', id:'x/y', key:'a/x/y', bare:'x/y', unverified:true",
+            "new": "ok:false, code:'unknown', ref:'a/x/y', halo:<halo>, candidates:[], error:「形状不合法…」",
+            "why": "三段且第三段不是四位课号 ⇒ 既不是知识点键（恰好两段）也不是课次键（circle/point/NNNN）⇒ 拒绝；基线把 `x/y` 当成知识点 id 是在**猜**一个真实课程包里不可能存在的 id（`lib/author.js` 的 validateId 明确禁止斜杠）"
+          },
+          {
+            "pack": "[]",
+            "ref": "a/x/0001",
+            "halo": "null | programming | a（3 例）",
+            "old": "ok:true, circle:'a', id:'x/0001', key:'a/x/0001', bare:'x/0001', unverified:true",
+            "new": "ok:true, circle:'a', id:'x', key:'a/x/0001', bare:'x', unverified:true",
+            "why": "这是**合法课次键** ⇒ 它说的是知识点 `a/x` 的第 1 课；`id`/`bare` 必须是知识点 id（调用方拿它当 point 用），基线把课号一起塞进点 id 是错的。`key` 仍是原串（不做构造）"
+          },
+          {
+            "pack": "[]",
+            "ref": "b/x/0002",
+            "halo": "null | programming | a（3 例）",
+            "old": "ok:true, circle:'b', id:'x/0002', key:'b/x/0002', bare:'x/0002', unverified:true",
+            "new": "ok:true, circle:'b', id:'x', key:'b/x/0002', bare:'x', unverified:true",
+            "why": "同上（合法课次键 ⇒ 知识点 b/x）"
+          },
+          {
+            "pack": "[]",
+            "ref": "a/x/1",
+            "halo": "null | programming | a（3 例）",
+            "old": "ok:true, circle:'a', id:'x/1', bare:'x/1'",
+            "new": "ok:false, code:'unknown'",
+            "why": "课号必须四位（内核 `LESSON_WIDTH=4`）⇒ 既不是点键也不是课次键"
+          },
+          {
+            "pack": "[]",
+            "ref": "a/x/0000",
+            "halo": "null | programming | a（3 例）",
+            "old": "ok:true, circle:'a', id:'x/0000', bare:'x/0000'",
+            "new": "ok:false, code:'unknown'",
+            "why": "课号 0000 越出 1–9999 ⇒ 拒绝（不截断、不取模）"
+          },
+          {
+            "pack": "[]",
+            "ref": "a/x/10000",
+            "halo": "null | programming | a（3 例）",
+            "old": "ok:true, circle:'a', id:'x/10000', bare:'x/10000'",
+            "new": "ok:false, code:'unknown'",
+            "why": "课号 10000 越界且非四位 ⇒ 拒绝"
+          },
+          {
+            "pack": "[]",
+            "ref": "/x",
+            "halo": "null | programming | a（3 例）",
+            "old": "ok:true, circle:<halo>, id:'/x', key:'/x', bare:'/x', unverified:true",
+            "new": "ok:false, code:'unknown'",
+            "why": "圆圈段是空串 ⇒ 不是点键；基线把它当**含斜杠的裸 id** 收下 —— 那不是任何真实知识点的形状"
+          },
+          {
+            "pack": "[]",
+            "ref": "x/",
+            "halo": "null | programming | a（3 例）",
+            "old": "ok:true, circle:<halo>, id:'x/', key:'x/', bare:'x/', unverified:true",
+            "new": "ok:false, code:'unknown'",
+            "why": "知识点段是空串 ⇒ 同上"
+          },
+          {
+            "pack": "[]",
+            "ref": "a//x",
+            "halo": "null | programming | a（3 例）",
+            "old": "ok:true, circle:'a', id:'/x', key:'a//x', bare:'/x', unverified:true",
+            "new": "ok:false, code:'unknown'",
+            "why": "三段但中间段是空串 ⇒ 两种严格形状都不成立"
+          }
+        ],
+        "zeroDelta": "其余 135 例逐例与基线**逐字相同**（含 `pack=programming` / `pack=a,b` 全 108 例，以及 `pack=[]` 上的 `a/x` / `b/x` / `vue` / `nope` / `''` / `programming/vue` / `programming/nope`）。`code` 覆盖仍是 missing-ref / unknown / ambiguous / halo-mismatch + 两种 ok。"
+      },
+      "entrypointImpact": {
+        "callers": "lib/intake.js（规范键 byKey）、lib/brief-io.js、lib/mods/intake.js（`pointId = ref.id`）、lib/mods/goal.js、lib/mods/lessonpack.js、lib/mods/starter.js —— 全部只消费 `key` / `bare` / `circle` / `id`，收敛后字段与语义不变；变严的只有「带 `/` 且形状不合法」的输入：以前在**没有**课程包目录时会被当成点 id 收下，现在明确回 `unknown`（有目录时本来就回 `unknown`）。",
+        "realDataMeasured": "未实测：活包 E:\\workplace\\study 本次不可访问（禁读活包），所以「真实台账 / 真实调用里有没有 3 段引用」没有量过。这是本卡留下的**未验证边界**（见 unverified 的【决-7】条），不是「已确认没有」。"
+      },
+      "criterionChange": {
+        "oldRule": "A06 ⑥：`lib/point-ref.js` 的自拆残留必须**恰好一条**，且归类必须是 `BLOCKED-BOUNDARY`（主持人裁决条件 4 的回退项）。",
+        "newRule": "A06 ⑥ 用同一份纯函数 `judgePointRefResidue` 判三条：① `lib/point-ref.js` 的**身份痕迹必须为 0**；② 该文件的归类必须是 `OWNED-OTHER-CARD/U09`（显式表）；③ 全仓扫描**不再有** `BLOCKED-BOUNDARY`（该种类同时从 `IDENTITY_KINDS` 删除 —— 边界不能再替代主人）。对拍矩阵改成**声明式 Δ 表** `POINT_REF_STRICT`（9 输入 × 3 halo）：表内逐条按新行为断言并证明基线确实不同；表外（含全部有目录的例）必须与基线**逐字相同**，Δ 多一例或条数不符都红。A06 ⑧ 新增**变异⑤**：把基线实现抄回副本 → 同一份判据必须红、还原后必须重新绿。A08 也把「BLOCKED 边界必须登记」换成「全仓不许有该分类 + 那条登记必须 status=resolved 且写清授权出处/Δ/强度」。",
+        "strength": "只升不降：① 原来那条「残留恰好一条 + 必须是 BLOCKED-BOUNDARY」被换成更强的「残留必须为 0」；② 新增「归类必须 OWNED-OTHER-CARD/U09」与「该种类从合法种类集合里删除」，堵掉了「把新实现挂成边界蒙过去」这条路；③ 对拍从「全部逐例相同」升级为「声明式 Δ 表（逐例判新行为 + 证明基线不同）+ 表外逐字相同 + Δ 条数精确」——比原来的「全同」覆盖更多输入（90 → 162 例）且不允许无声改动；④ 变异⑤是新增的反空转（原来没有针对解析侧的变异）；⑤ A08 从「命中点必须登记」升级为「不许有该分类 + 登记必须 resolved 且写清四件事」。",
+        "revertHint": "若主持人要回退决-7：把 lib/point-ref.js 的 splitQualified 改回 indexOf('/') 分支、A06 ⑥ 的 judgePointRefResidue 调用与 POINT_REF_STRICT 表、⑧ 的变异⑤、A08 的 resolved 判据一起回退，并把 blockedBoundaries 改回未销账状态。**实测**：只把 splitQualified 改回基线自拆（其余不动）时 A06 会红（变异⑤同款，见 audit-evidence/U09 的 anti-vacuous 原始输出）。"
+      }
+    },
+    {
+      "id": "D13",
+      "kind": "criterion-correction (identity attribution, decision-3 pack-export ownership)",
+      "what": "`lib/pack-export.js` 的归类与钉子口径：从 `DEFERRED-OTHER-CARD`（§6 无主 + deferredPins 上限 template-circle-point=2 / padstart4=1）改为由 §6 的 U16 行**运行时自动归属** `OWNED-OTHER-CARD/U16`；`deferredPins` 清空为 0 条",
+      "oldRule": "① 显式表里把 `lib/pack-export.js` 钉成 `DEFERRED-OTHER-CARD`（owner=null），回执 `identityAttribution.deferredPins` 记两条上限（2 / 1）；② A06 ⑦ 要求 `attr.pinRows.length > 0`（\"无主文件必须被钉住\"）；③ A06 ⑧ 的变异②往该文件里再塞一处拼接，靠\"3 > 钉住 2\"证明上限会红；④ A08 ⑧ 断言仓内 `lib/pack-export.js` 与基线**逐字节相同**（\"本卡不碰\"）。",
+      "whyExpired": "用户按 `docs/unify/authorization.json` 的 `decisions.approvedChanged` 逐字「全按推荐」把 `lib/pack-export.js` 收编给 U16（§6 的 U16 行已 +1 项 `lib/pack-export.js`），U16 已在自己卡内把那 5 处内联身份改走 `lib/unify/identity.cjs`（`pointKey` ×2、`parsePointKey` ×1、路径段 ×1，`padStart(4)` 作为**文件名**保留）。于是\"§6 无主\"不再是事实，上面四条里 ① 的两条钉子、② 的\"至少一条钉子\"、③ 的靶子、④ 的\"与基线逐字节相同\"都成了**过期判据**：它们会把正确的收编判成红。",
+      "newRule": "① 显式表里**删掉** `lib/pack-export.js`（表里故意没有它）⇒ 归因只能来自 §6 的运行时自动归属 `OWNED-OTHER-CARD/U16`，并保留\"表里仍然没有它\"的反空转断言；② 钉子账从\"至少一条\"改为\"**逐条等于**扫描里 §6 无主的命中点\"，并新增两条：不许再钉 `lib/pack-export.js`、§6 的 U16 行必须点名它；③ ④ 的\"逐字节相同\"换成三条更准确的判据（不在本卡写集 / 本进程没写它 / 改动可归属到 §6 的 U16），\"卡外被改仍红\"由 A08 ⑥ 的授权并集判据兜住（§6 里没有它时 tracked 改动照样越界）；④ 反空转改强：变异②改成\"撤掉 §6 的收编令牌 ⇒ 同一批字节必须重新判 UNCLASSIFIED 并红\"，并新增变异②b\"§6 真无主靶子 + 钉住上限 2 ⇒ 3 处必红、上限放到 3 ⇒ 不再红\"，钉子上限机制不再是靠 `pack-export` 一条实例撑着的。",
+      "evidence": "A06 ⑦c（钉子 0 条 = 无主命中 0 条；pack-export 的 §6 主 = U16；自动归属清单含 `lib/pack-export.js`）、A06 ⑧ 变异②/②b、A08 ④b（钉子逐条对账 + `lib/pack-export.js` 每处痕迹 = OWNED-OTHER-CARD/U16[section6-auto]）、`proveScopeBoundary` 新增 2 行（`M lib/pack-export.js` 放行且归属 U16；撤掉落点 ⇒ 必须 reject）、`proveWriteScope` 新增 1 行（本卡写它仍越界）。本轮实测：扫描 157 个文件 / 21 处命中 / 自动归属 2 个文件（`lib/mods/pack.js`、`lib/pack-export.js`）/ `lib/pack-export.js` 只剩第 267 行 `padstart4` 一处。",
+      "strength": "只升不降：① 原来\"无主文件至少有一个钉子\"这条**空转友好**的判据被换成双向对账（少钉 ⇒ 红，多钉/钉有主文件 ⇒ 红）；② 新增\"撤掉落点必须重新红\"的变异，收编的合法性必须落在文档上；③ 钉子上限从\"靠一条实例\"改成\"独立纯函数证明\"，机制不再依赖某个具体文件；④ 本卡对该文件的边界从\"逐字节静止\"（在收编之后已不可能成立）改成\"写集/进程写/归属\"三条，判据更精确且仍能抓住\"卡外被改\"；⑤ 顺带把 `lib/pack-export.js` 从\"全仓还剩几处内联身份\"的待办里销掉（收编已由 U16 交付），U09 的 `regressionsDiscovered` 只留其余文件的既知事实。"
+    }
+  ],
+  "selfAttestation": {
+    "note": "本回执登记自己这条链上交付物的**盘上字节与 sha256**，由 A08 ⑪ 当场复算比对（失配即红）。回执**自身**不记自身哈希（自指哈希是固定点方程，写入即变）：本回执的字节/sha256 由本次运行的 `detail.json` 的 `artifacts` 字段在运行结束时记录。",
+    "files": [
+      {
+        "path": "test/audit/U09.mjs",
+        "role": "本卡验收入口（自指：判据在它里面，回执指着它的字节）",
+        "bytes": 209139,
+        "sha256": "ad8b31f075a17d2e7a62179e316a1aa4c3aef304c48057b546a265d0d8ddb28f"
+      },
+      {
+        "path": "lib/unify/pack.cjs",
+        "role": "权威内核（新建）",
+        "bytes": 33337,
+        "sha256": "b7391e110ec37047859d7258696da24bc27b39525f3369d0edf6353df2292380"
+      },
+      {
+        "path": "lib/pack-model.js",
+        "role": "宿主适配层",
+        "bytes": 57840,
+        "sha256": "c7bbbd98999bd7a314c75316785351835ffffbc2fb6af06109328aabba48a124"
+      },
+      {
+        "path": "lib/pack.js",
+        "role": "零实现再导出",
+        "bytes": 1658,
+        "sha256": "700d7419086a062e5e4f4069da214477ba22a2ad93dc87fab74ef9c174a44365"
+      },
+      {
+        "path": "lib/pack-template/tools/lesson-map.js",
+        "role": "包侧包装（只 require 内核）",
+        "bytes": 3699,
+        "sha256": "cba73280545ea791f2a251541d18145cf755dd63eabb5d93d898e2d36c1df6ce"
+      },
+      {
+        "path": "lib/point-ref.js",
+        "role": "写集扩张 C4（最小改动）+ 决-7 的解析收敛（构造与解析都只剩内核一份）",
+        "bytes": 12787,
+        "sha256": "8924ff7434ee6810fde89cad452c8b1eb39e108db693fa421fd60151b02bdbfe"
+      },
+      {
+        "path": "test/mirror-parity.mjs",
+        "role": "§12 A 授权面（另有 P2 授权面，见 p2AuthorizationFace）",
+        "bytes": 51321,
+        "sha256": "2abea3eb75d545f91fe1654e9ac084b378b5452d3dfd3b6afe1089341dc19ff2"
+      }
+    ],
+    "scope": "只登记本卡写集里的交付物（不含回执自身，见 note）；这三个 lib 落点与两个测试的字节变化本身另有 tracked diff 与内容锁作证。"
+  },
+  "p2AuthorizationFace": {
+    "owner": "P1/P2 批次（主持人登记），**不是本卡**",
+    "source": "docs/unify/authorization.json 的 scope.P2（用户逐字授权「选A和授权p1和p2」里的 p2）",
+    "whyItIsHere": "`test/mirror-parity.mjs` 有两个授权改动面：本卡 §12 A（第 149 行一带那一行旧身份预期）与 P2（446–456 行一带的 PROBE_VERSION 断言）。A08 的 `ok(` 逐字比对必须只排除 P2 授权的那几行并**单独登记**，否则「其余 ok( 逐字不变」这条判据会把已登记的授权面算成本卡越界；把整条判据删掉才是削弱，故不那样做。",
+    "excluded": {
+      "removed": 2,
+      "added": 6,
+      "hunks": [
+        "旧行 444–447（新 450–479）：增 6 条 PROBE_VERSION 断言（内核唯一字面量 / 宿主与包侧不再持有字面量 / 宿主委托 / 包侧纯委托 / 导出同值 / 镜像已生成时运行时同值）",
+        "旧行 449–454：删 2 条旧断言（包侧导出值与插件逐字相同 / 三份源码里字面量逐字相同）"
+      ],
+      "registeredBy": "A08 ②b 的 `record('A08.p2Face', …)`（detail.json 里逐条可核）"
+    },
+    "howItIsBounded": [
+      "从 `authorization.json` **现场解析** `scope.P2`：`authorized` 里点名该文件的条目 + 该条目写明的旧行窗口（446–456）+ 顶层 `quoteVerbatim` 逐字；缺任何一项 ⇒ P2 面不成立 ⇒ 排除面为空 ⇒ 判据红（反空转已实测）",
+      "被排除的 hunk 必须落在声明窗口 ±8 行（\"一带\"）内，且被排除的行里必须确有 PROBE_VERSION 断言 —— 与 scope.P2 的文本对不上就红",
+      "`test/audit/T26.mjs`（P2 的另一处授权对象）：只许 1 个 hunk / 删 1 增 1 / 旧行落在声明窗口（第 63 行）/ 内容确是 PROBE_VERSION 断言 / P2 明说\"不动\"的两条 F01 子断言仍在",
+      "§6 与 scope.P2 双向对得上：T26 在 §6 的 U01 行带「仅 P1/P2 授权面」限定语，且 scope.P2 逐字点名它"
+    ],
+    "notClaimed": "本卡不执行 P1/P2 的任何改动：不重算 PROBE_VERSION、不同步三份 fingerprint、不改 T26 与 mirror-parity 的 P2 行；只**读**这些文档来判定哪些行不属本卡 A 面。"
+  },
+  "assertions": {
+    "A01": "跨圈同名点、同课号互不覆盖：夹具里 `math/vue/0001` 与 `programming/vue/0001` 各自独立成键、各自指向本圈的 src/page、显示名不撞车、进度只点亮目标课程；并用基线 oracle 证明「合成一个页」确实存在（否则 A01 是空转）。",
+    "A02": "进度只影响目标课程：规范条目点亮自己那门、跨圈同号不被连带点亮、`learned` 字段原样返回、4 类历史形状逐条点名且不计入、点键不扩成多门、规范但不存在按幽灵条目点名、歧义点名候选。",
+    "A03": "未知和歧义引用明确拒绝：`ambiguous`（两段课键/裸点/裸课号，跨圈两候选）与 `unknown`（不存在的规范键、未知知识点）分别给出 reason 与候选；被拒引用**不得**被归一成任何键（keyOfAnchor/labelOfAnchor 均为 null）；EXPECT 两段声明在多候选时显式「归属歧义」并点名两个候选、零候选显式「都没有 NNNN 的页面」、唯一归属时照旧对位成功。",
+    "A04": "运行态拒绝历史形状：14 类历史/畸形形状逐类断言 reason，且不得被归一；规范夹具上整链可读（4 课、规范 id、进度点亮 2 门、fileBase=1000 的轨道显示号折算成 1）；内核与适配层源码里**没有** migration.cjs 引用（不伪称跑过 U05），历史夹具不会被隐式迁移。",
+    "A05": "源与产物关系及目录校验保持：冲突类别与条数跟基线实现逐类相同（缺源/缺产物/未声明/声明无页/坏 id，每类都真的出现）；完整课的 src 在 lessons/src/、page 在 lessons/、expect 指回声明文件；旧平铺布局课数与基线一致且照旧告警；非课程包目录仍明确告警。",
+    "A06": "宿主与独立包侧映射一致、只有一份解析实现：包侧副本与内核逐字节相同；函数同一性（宿主 6 个映射导出 + pointKey/lessonKey 与 identity 内核；包侧 4 个锚点/映射导出）；`lib/pack-model.js` 的导出面恰好是基线 23 项（不新增同义 API）；行为在夹具上逐键/逐探针一致；包侧包装只 require ./unify/pack.cjs 一次；宿主/包侧都不再含映射实现痕迹与课号拼接；身份构造是 identity.cjs 本人；`lib/point-ref.js` 的**构造与解析都已收敛**（决-7）：身份痕迹必须为 0、归类必须是 OWNED-OTHER-CARD/U09、全仓不再有 BLOCKED-BOUNDARY，对拍矩阵带**声明式 Δ 表**（9 输入 × 3 halo 逐例判新行为并证明基线不同；表外 135 例逐字与基线相同，Δ 多一例或条数不符都红）；全仓扫描（156 个文件，命中点逐条见 detail.json）**逐条归到 interfaces.md §6 里有主的卡**（显式表 → §6 运行时归属两阶段；U16 的 `lib/mods/pack.js` 走自动归属，U18 的 `lib/state.js` / `lib/unify/evidence.cjs` 在表内；§6 真无主的 `lib/pack-export.js` 按回执钉子计上限），另有五个副本变异证明「无法归因 / 多冒一处 / 归错卡 / §6 无主的新命中 / 把基线自拆抄回来」都会红。",
+    "A07": "临时恢复裸点索引后判据必须红：把内核里规范键的构造改成 `point/NNNN`（变异锚点唯一，occurrences=1 否则直接失败），用**同一份**判据函数在 E:\\Temp 副本上跑 → 跨圈判据与进度判据都变红；仓内核与宿主适配层 sha256 不变；仓内 `lib/pack-template/tools/unify/` 仍不存在（不越界）。",
+    "A08": "§12 A 授权与同卡测试差异逐项对应：authorization.json 与回执的 quoteVerbatim/quoteSource 逐字相同、且写明「本卡只按 scope.A 执行」；**A 面契约三条同时成立**（§6 同一段带「仅 §12 A 授权面」限定语 + scope.A 里本卡条目逐字点名 `test/mirror-parity.mjs` + quoteVerbatim 存在），缺一即红，并用既有测试做红样本对照证明契约能说「不」；`test/intake.mjs` 放行**且**归属 U10；mirror-parity 的 `ok(` 差异必须**恰好**落在两个授权面上（本卡 §12 A 那一行旧身份预期 + scope.P2 授权的 PROBE_VERSION 断言，后者从 authorization.json 现场解析、按声明行窗口排除并单独登记，排除面与文本对不上即红），**其余 `ok(` 逐字不变**；`test/audit/T26.mjs` 的 P2 改动必须恰好一行且在声明窗口内、P2 明说不动的 F01 子断言仍在；catalog 合法构造结果与基线一致且 test/catalog.mjs 逐字节未改；依赖「本进程未写 + §6 归属」；写守卫 + 探针写自证 + 授权并集（§6 ∪ A 面 ∪ P2 授权面 ∪ 回执登记的写集扩张）+ 内容锁 + 既有测试/接口文档逐字节未改 + 证据根与临时目录守卫 + 回执字段/越界/Δ/未验证边界/自指字节与 sha256 逐项核对。"
+  },
+  "evidenceIndex": {
+    "entry": "node test/audit/U09.mjs",
+    "defaultEvidenceRoot": "audit-evidence/U09/runs/U09-<pid>/（本次运行目录；result.json / cases.jsonl / errors.txt / detail.json）",
+    "readOnlyEvidenceRoot": "audit-evidence/U09/（读取材料的根恒定，不受 --evidence-root 影响）",
+    "detailContains": "A01–A08 的逐条断言、oracle（基线实现）实测值、身份实现扫描的每个命中点与归类/归属（含 section6-auto 自动归属）、mirror-parity 的 diff 解析与 P2 授权面的排除面登记、写守卫记录与探针写自证、授权并集与 §6 归属、内容锁、收口复核",
+    "tempRoot": "E:\\Temp\\u09-<pid>-<rand>（本次唯一；递归清理前核对绝对路径与归属）"
+  },
+  "unverified": [
+    "【U19】仓内 `lib/pack-template/tools/unify/` 十四副本只由 U19 生成；本卡只在**自建临时包**里逐字节复制 pack.cjs/identity.cjs 验证包侧路径，不铺模板、不碰生成目录、不宣称随包闭包完整（已登记 R1）。",
+    "【U17】真实旧包「迁移后读取」未做、也不伪称做过：本卡只用明确给出的规范夹具验证新映射；旧形状到规范身份的解码在 U05，迁移后产品读回（含 progress.json / notes / glossary / questions 派生产物重建）归 U17。",
+    "【实测窗口】`test/mirror-parity.mjs` 的 A 面改动只做了**静态/纯函数核对**（diff 逐行解析 + 夹具契约 + 非身份断言逐字比对）：该套件要真跑得起来，需要包侧 `tools/lesson-map.js`（受活包/随包升级影响）与 `tools/unify/*.cjs` 同时到位，本轮不访问活包、不铺模板，故其实测由 U20 在合适窗口执行（本卡不宣称已绿）。",
+    "【决-7】`lib/point-ref.js` 的 `splitQualified` 已收敛到严格内核（blockedBoundaries 那条改标 resolved，见 deltas.D12）；**未实测**的是真实面：本次禁读活包 E:\\workplace\\study，所以「真实课程包 / 真实 intake 台账 / 真实工具调用里有没有 3 段点引用（`a/x/y` 这类）」没有量过。收敛后的表现是**明确拒绝**（`code:'unknown'`），不是静默归一 —— 若线上真有这种写法，入口会报「知识点引用形状不合法」而不是悄悄把它当成 `x/y` 这个不存在的点。",
+    "【他卡/无主】身份构造仍有 7 处内联在非本卡写集里（build-lessons / build-starmap / render.cjs / mods/catalog / mods/author / mods/goal / offline-server / pack-export），逐条见 regressionsDiscovered；本卡不越界修改，也不伪称全仓已唯一。",
+    "【validateBoxes】旧箱台账（glossary-data / questions-data 的 `lesson` 仍是显示名）的自检仍保留 `byLabel` 那一半：U05 已把这两类整类标为 blocked-rebuild-missing，收紧到「只认规范身份」是 U17 迁移后验收的事；本卡不把已知中间态说成 62 条硬错误。",
+    "【依赖口径】依赖锚点不再钉「跨卡静止 sha256」（U02 已同步改口径）：只证「本卡本次进程未写」+「§6 归属可查」。",
+    "【P2 依赖】A08 的 mirror-parity / T26 判据现在认 `docs/unify/authorization.json` 的 `scope.P2`：缺 `scope.P2` 或缺 `quoteVerbatim` 时，排除面自动失效、这些行不再被排除、判据变红（反空转已实测两例）。P2 的授权主人是主持人登记的 P1/P2 批次，**不是本卡**；本卡只**读**它来判定「哪些行不属本卡 §12 A 面」，不执行 P1/P2 的任何改动（PROBE 值重算与三份 fingerprint 同步归 P1）。",
+    "【Δ2 未覆盖】`test/mirror-parity.mjs` 与 `test/audit/T26.mjs` 的 P2 改动只做了**静态**核对（零上下文 diff + 声明的行窗口 + 语义/子断言保留）：这两个文件要真跑起来仍受活包/随包镜像与 P1 的值重算影响，本轮不访问活包、不由本卡执行，实测窗口归 U20。"
+  ],
+  "blockedBoundaries": [
+    {
+      "file": "lib/point-ref.js",
+      "location": "splitQualified(ref)",
+      "status": "resolved",
+      "resolvedBy": "决-7（用户已授权的执行者）",
+      "authorization": {
+        "doc": "docs/unify/authorization.json",
+        "path": "decisions.approvedChanged",
+        "quoteVerbatim": "全按推荐",
+        "what": "lib/point-ref.js::splitQualified 收敛到严格内核（parseLessonKey → parsePointKey → 否则显式拒绝），9/90 例不一致逐条记 Δ"
+      },
+      "was": "U09 按主持人裁决条件 4 把 splitQualified **回退**为基线实现（在第一个 `/` 处自拆），理由：那是**语义**差异而不只是健壮性差异 —— 基线把 `a/x/y` 解成 `{circle:'a', id:'x/y'}`，严格内核只认恰好两段、`a/x/y` 整体拒绝。",
+      "what": "无法在「不改变返回语义」的前提下收敛到 `identity.parsePointKey`；由决-7 裁定**改变该语义**（收敛＝严格拒绝），故本边界解除。",
+      "oldSemantics": "第一个 `/` 处拆：`a/x/y` → `{circle:'a', id:'x/y'}`；`/x`、`x/`、`a//x` 退回裸 id 分支（把含斜杠的串当点 id 收下）；`a/x/0001` → `{circle:'a', id:'x/0001'}`。",
+      "newSemantics": "`parseLessonKey`（课次键 ⇒ 取所属知识点）→ `parsePointKey`（点键）→ 带 `/` 且两者都失败则**拒绝**为 `unknown`（既有码值，未新造）；不带 `/` 仍是裸 id。导出面/参数/返回形状/`code` 取值逐字未变。",
+      "delta": {
+        "cases": 27,
+        "inOriginal90": 3,
+        "method": "改前/改后 162 例逐例对拍（U09 原 90 例 + 决-7 扩面 72 例）；先证改前工作树与 git HEAD 基线在 162 例上逐例相同",
+        "byInput": [
+          "a/x/y → 拒绝 unknown（3 halo；90 例矩阵内唯一真实不一致）",
+          "a/x/0001、b/x/0002 → 合法课次键，id/bare 由 `x/0001` 改为 `x`（各 3 halo）",
+          "a/x/1、a/x/0000、a/x/10000、/x、x/、a//x → 拒绝 unknown（各 3 halo）",
+          "其余 135 例（含全部有课程包目录的例）逐字与基线相同"
+        ],
+        "fullTable": "本回执 deltas[D12].deltaTable.rows 逐例列出（输入 / 旧 / 新 / 为什么新的是对的），原始逐例 JSON 见 audit-evidence/U09 与 E:\\Temp\\dec7-pointref-20261018\\delta.json"
+      },
+      "strength": "只升不降：A06 ⑥ 从「残留恰好一条且必须归类为 BLOCKED-BOUNDARY」改成「残留必须为 0 + 归类必须是 OWNED-OTHER-CARD/U09 + 全仓不许再有 BLOCKED-BOUNDARY（该种类已从 IDENTITY_KINDS 删除）」；对拍从「全部逐例相同」升级为「声明式 Δ 表（9×3 逐例判新行为并证明基线不同）+ 表外逐字相同 + Δ 条数精确 + 矩阵 90→162 例」；A06 ⑧ 新增变异⑤（把基线自拆抄回副本必须红、还原必须绿）；A08 从「边界必须登记」升级为「不许有该分类 + 登记必须 resolved 且写清授权出处/Δ/强度」。",
+      "minimalUnblock": "已解除（无需后续动作）。若将来要回退：见 deltas[D12].criterionChange.revertHint。",
+      "guard": "A06 ⑥ 的 `judgePointRefResidue`（残留 0 / 归类 OWNED-OTHER-CARD-U09 / 无 BLOCKED-BOUNDARY）+ A06 ⑧ 变异⑤ + A08 的 resolved 三连（status / 授权出处 / Δ 与强度）—— 谁把自拆抄回来、或把某处身份挂成边界，都会红。",
+      "unverified": "真实课程包 / 真实台账里是否存在「3 段点引用」未实测（本次禁读活包 E:\\workplace\\study）：收敛后这类输入在有目录的分支本来就回 unknown，无目录的分支以前会当成点 id 收下、现在也回 unknown —— 若线上真有这种写法，表现为**明确拒绝**而不是静默归一（见 unverified 的【决-7】条）。"
+    }
+  ],
+  "identityAttribution": {
+    "criterion": "A06 ⑦/⑧（D8 + D10）：每处身份构造/解析命中点必须归到 interfaces.md §6 里**有主**的卡；分类阶段先查显式表、表里没有时按 §6 **运行时**自动归属，归属口径运行时解析具体文档，不硬编码 路径→卡",
+    "caliber": "section6 + section6-auto",
+    "caliberNote": "两阶段：① 显式表 `IDENTITY_SCAN_RULES`（人工逐条写\"为什么不是身份\"的少数点）；② 表里没有 ⇒ 运行时解析 docs/unify/interfaces.md §6 的 U01–U20 行判「该路径有没有主」。**退化口径 kernel-family 未被使用**：§6 的 U18 行同时点名了 `lib/state.js` 与 `lib/unify/evidence.cjs`（后者标 † 新建），所以不需要按「lib/unify/<模块>.cjs 由负责该内核的卡拥有」的命名约定兜底。若将来 §6 把这两行删掉，代码会退到 `KERNEL_FAMILY_FALLBACK`（显式清单 U18）并在明细里把口径记成 kernel-family —— 但判据仍会红，因为「§6 里查不到主」本身就是要暴露的事实。",
+    "u16": {
+      "card": "U16",
+      "caliber": "section6-auto",
+      "files": [
+        {
+          "file": "lib/mods/pack.js",
+          "kind": "OWNED-OTHER-CARD",
+          "hit": "`padStart(4,'0')` 课号格式化（本轮位于第 236 行）",
+          "why": "U16 在自己的写集里新增的身份构造（§6 的 U16 行拥有 `lib/mods/pack.js`）。显式表里**没有**它 —— 归属只能来自 §6 的运行时解析，这正是 D10 要证明的那一支。",
+          "oldAttribution": "分类阶段先查显式表 ⇒ 表里没有 ⇒ `UNCLASSIFIED` ⇒ A06 ⑦/⑧ 红（红的是表的陈旧，不是缺陷）。"
+        }
+      ]
+    },
+    "u18": {
+      "card": "U18",
+      "files": [
+        {
+          "file": "lib/state.js",
+          "kind": "OWNED-OTHER-CARD",
+          "hit": "第 298 行 `${circle}/${point}/${number}`",
+          "why": "台账归属归一化（先按项目目录收紧、收不紧就 fail-closed 不猜）之后的正规写法 —— U18 的状态内核消费严格身份；该文件在 §6 里归 U18。"
+        },
+        {
+          "file": "lib/unify/evidence.cjs",
+          "kind": "OWNED-OTHER-CARD",
+          "hit": "第 126 行 `${circle}/${point}/${number}`（lessonAliases 的规范形状别名）",
+          "why": "证据内核列同一门课的可接受台账键（规范形状在前、两段写法按 bareUnique 才收）—— U18 新交付内核的合法身份消费；§6 的 U18 行点名该文件。"
+        }
+      ],
+      "oldAttribution": "原常量表里没有 U18 这两份 → 两处命中点 UNCLASSIFIED ⇒ A06 红（`lib/state.js:298`、`lib/unify/evidence.cjs:126`）。这不是缺陷，是表的陈旧（见 deltas.D8.whyExpired）。"
+    },
+    "deferredPins": [],
+    "pinsAreUpperBounds": "钉子只约束**上限**：收敛（命中变少）不红，多冒一处即红；按 文件+痕迹 计数而不是行号，避免无关行位移造成假红。无主文件里连钉子都没有的命中点同样红。**决-3 之后仓内的钉子应为 0 条**（`lib/pack-export.js` 收编给 U16 ⇒ §6 有主 ⇒ 不再按无主文件钉）；「上限」这一机制本身仍由 A06 ⑧ 的变异②b 证明：拿一个 §6 真无主的靶子塞 3 处同形拼接，钉住 2 ⇒ 必红、放到 3 ⇒ 不再红。",
+    "runtimeAssertions": [
+      "§6 的 U18 行必须点名 `lib/state.js` 与 `lib/unify/evidence.cjs`（查不到 ⇒ 红；退化口径不可能把「§6 无主」洗成绿）",
+      "每处 KERNEL / MIGRATION / NON-IDENTITY / OWNED-OTHER-CARD / BLOCKED-BOUNDARY 命中点的责任卡必须在 §6 里**拥有该文件**（「我认为归谁」与「文档记着归谁」对不上 ⇒ 红）",
+      "每一处自动归属的命中点，其文件必须在显式表里**仍然没有条目**（不许靠往表里补条目来\"修好\"），且 §6 里**恰好一个**主（多主 ⇒ 红）",
+      "每处 DEFERRED-OTHER-CARD 的文件在 §6 里必须真的无主，且必须被 deferredPins 逐条对应（否则 ⇒ 红）；反过来，deferredPins 里的每一条也必须对应一个**真的无主**的命中点 —— 钉有主文件即红。决-3 之后仓内应为 **0 条**（`lib/pack-export.js` 已归 U16）",
+      "责任卡必须是 §6 里真实存在的 U 卡（U01–U20），不许是「待定」或别的卡号"
+    ],
+    "antiVacuous": "A06 ⑧ 先把 lib/ + tools/ **一次读进快照**（避免并发 lane 在两次扫描之间落盘造成假红），用同一批字节铺副本，在副本上跑同一份扫描与归属判定：副本未变异时逐条与真仓相同；① 新增无主文件 `lib/whatever.js` 塞一处 `${circle}/${point}` → 红；② **决-3**：拿仓内 §6 文本的副本**删掉 U16 行里的 `lib/pack-export.js` 令牌**，重新解析归属 ⇒ 同一批字节必须重新判 UNCLASSIFIED 并红（证明\"有主\"来自 §6 那一行，不是本文件的表）；②b **钉子上限仍咬人**：拿 §6 真无主的 `lib/pack-server.js` 在副本里塞 3 处同形拼接、按无主文件记账 —— 上限 2 ⇒ 按「上限」红，上限放到 3 ⇒ 不再红；③ 把 `lib/state.js` 的命中点伪造成归 U16 → 红（§6 并不拥有它）；④ 往 §6 无主、且显式表里也没有的既有文件（`lib/pack-server.js`）塞一处身份构造 → 必须仍判 UNCLASSIFIED 并红（证明「表里没有就按 §6 自动归属」没有变成「一律放行」）；⑤ 决-7：把基线（`indexOf('/')` 自拆）抄回 `lib/point-ref.js` 的副本 → 残留判据必红。",
+    "packExportOwnership": {
+      "decision": "决-3（用户逐字授权「全按推荐」）",
+      "before": {
+        "kind": "DEFERRED-OTHER-CARD",
+        "owner": null,
+        "attribution": "explicit-table",
+        "pins": [
+          "template-circle-point ≤ 2",
+          "padstart4 ≤ 1"
+        ]
+      },
+      "after": {
+        "kind": "OWNED-OTHER-CARD",
+        "owner": "U16",
+        "attribution": "section6-auto",
+        "pins": []
+      },
+      "why": "§6 的 U16 行现在点名 `lib/pack-export.js`（决-3 收编：导出链路的身份构造/解析归 U16）。本文件**故意**不再在显式表 `IDENTITY_SCAN_RULES` 里登记它 —— 归因只能来自 §6 的运行时解析，A06 ⑦b 会逐条断言\"表里仍然没有它\"。",
+      "observed": "本轮扫描：`lib/pack-export.js` 只剩 1 处痕迹（第 267 行 `padstart4`，zip 同名加课号的**文件名**，不是身份；已加注释保留）。收编前是 3 处（106/221 两处 `${circle}/${point}` + 248 的 padStart），全部由 U16 卡内改走 `lib/unify/identity.cjs`。",
+      "section6Owners": [
+        "U16"
+      ]
+    }
+  },
+  "regressionsDiscovered": [
+    {
+      "id": "R-U09-1",
+      "what": "EXPECT.json 的 `lessons[].id` 仍是**两段旧形状** `point/NNNN`",
+      "evidence": "test/_fixture.mjs:379/397 手写 `spring-boot/0001` / `vue/0001`；U05 的迁移清单（WRITABLE_FILES）不含 EXPECT.json；任何 U 卡的写集也都没有它（它在学生工作区里手写）。",
+      "whyItMatters": "它不是运行态身份引用，而是**声明**：本卡按 `declarationShape: 'point/NNNN'` 单列解析（圆圈由目录唯一归属派生，零/多候选显式拒绝）。若要统一成三段，等于让某张卡去重写学生手写内容。",
+      "minimalUnblock": "新增授权（建议归 U17 的活包升级或单独一卡）：把 EXPECT.json 的 `lessons[].id` 升成 `circle/point/NNNN` 或另加 `circle` 字段，并在升级工具里带冲突检测；在此之前本卡**不**把它写成规范双读或长期别名。",
+      "assertedIn": "A03（两段声明：唯一归属对位成功 / 多候选显式归属歧义并点名候选 / 零候选显式无页）、A05（与基线逐类对拍）"
+    },
+    {
+      "id": "R-U09-2",
+      "what": "身份构造/解析仍内联在非本卡写集的 8 个文件里",
+      "evidence": "A08 的身份实现扫描（lib/**+tools/**，29 个命中点逐条归类）：pack-template/tools/build-lessons.js:291 与 build-starmap.js:237、lib/unify/render.cjs:420 仍产出**两段**课次键 `point/NNNN`（U07/U15）；lib/mods/catalog.js:74、lib/mods/goal.js:32 内联构造规范课次/知识点键（U16）；lib/mods/author.js:115（U13）；lib/pack-template/tools/offline-server.js:422（U12）；lib/pack-export.js:106/221 内联构造知识点键且**该文件不在任何 U 卡写集**。",
+      "whyItMatters": "这些点在别的卡的写集里（或无人认领），本卡越界修改会破坏 lane 隔离；但它们确实还是第二/第三处构造，所以「全仓只剩一份」目前只在**运行态入口**成立。",
+      "minimalUnblock": "各自责任卡在自己的写集内改成 `identity.cjs` 的 pointKey/lessonKey / `unify/pack.cjs` 的映射；`lib/pack-export.js` 需要一次归属裁决（§6 补登记）后才能收敛。",
+      "assertedIn": "A06（扫描无未归类、内核命中>0、本卡落点不在待办清单）、A08（扫描明细进证据）"
+    },
+    {
+      "id": "R-U09-3",
+      "what": "旧包 `progress.json` / `notes/notes.jsonl` 的旧形状条目在规范运行态下读不回",
+      "evidence": "A02（两段课键/裸课号/点键落课程位/显示名逐条点名、不计入已学）、A04（不隐式迁移）；U05 回执明确把 progress.json 留在扫描集外，notes 整类 blocked-rebuild-missing。",
+      "whyItMatters": "这是统一身份的**已知中间态**：迁移前活包会少点亮/笔记不再挂课，且 U05 已经把派生产物重建整类阻断。",
+      "minimalUnblock": "U17 用受信重建链重算 progress.json 与 notes 派生产物（U19 生成随包闭包后），并在 U17 的 A02/A03 里实证迁移后读回。",
+      "assertedIn": "A02 / A04 / 本回执 unverified"
+    },
+    {
+      "id": "R-U09-4",
+      "what": "旧箱台账（assets/glossary-data.js / questions-data.js）的 `lesson` 仍是显示名",
+      "evidence": "U05 的 BLOCKED_FILES 把这两类整类阻断（改它们必须重建 GLOSSARY.md 与 NOTES.html）；本卡 `validateBoxes` 因此保留 `byLabel` 那一半。",
+      "whyItMatters": "若在这里收紧成「只认规范身份」，`whale_state` 会对一份**已知的**中间态报 62 条硬错误，把真问题淹掉。",
+      "minimalUnblock": "U17 迁移后重建 GLOSSARY.md / NOTES.html，然后由 U18 把 validateBoxes 收紧到只认规范身份并补判据。",
+      "assertedIn": "本回执 unverified（明确「未收紧」）"
+    }
+  ],
+  "interfacesConsumed": {
+    "lib/pack-model.js": "23 个导出逐名保持（NOTES_REL / EVIDENCE_REL / lessonLabel / displayNumberOf / normPractice / lessonIndex / labelOfAnchor / keyOfAnchor / labelAnchorId / scanTermsInPage / scanTerms / pointKey / lessonKey / nextNumber / remainingLessons / checkTermsReport / loadBoxes / validateBoxes / normGroups / readPack / prerequisiteGaps / describeGaps / packSummary）；其中 8 个改为委托（`export const X = core.X` 绑定，函数同一性成立），readPack 的返回形状与 warnings 语义逐字保持。",
+    "lib/pack-template/tools/lesson-map.js": "7 个导出逐名保持（lessonMap / labelOfAnchor / keyOfAnchor / labelAnchorId / lessonLabel / displayNumberOf / pointMeta）",
+    "lib/point-ref.js": "3 个导出逐名保持（resolvePointRef / describePointRef / listPointRefs）；code 取值 missing-ref / unknown / ambiguous / halo-mismatch 与返回字段逐字保持；构造（qualified → pointKey）与解析（splitQualified → parseLessonKey/parsePointKey，决-7）都只委托 lib/unify/identity.cjs；对拍：162 例里 135 例与基线逐字相同、27 例是**声明过**的 Δ（见 deltas.D12 / blockedBoundaries.resolved）。"
+  }
+}

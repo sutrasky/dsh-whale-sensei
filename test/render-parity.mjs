@@ -212,8 +212,11 @@ export function checkTermListDead(sources) {
   // 剥多了会让上面那条**假绿** —— 钉住"活代码还在"
   ok(/export function renderPage/.test(stripJsComments(sources['插件侧 lib/render.js'])),
     '剥注释：插件侧 render.js 的活代码（renderPage）还在（没被剥多）')
-  ok(/function parseSource/.test(stripJsComments(sources['包侧 tools/build-lessons.js'])),
-    '剥注释：包侧 build-lessons.js 的活代码（parseSource）还在（没被剥多）')
+  // 包侧样本换成 `renderOne`：U07 之后 `parseSource` 已经**不在**包侧文件里了
+  // （渲染解析统一委托 `./unify/render.cjs`），拿一个已经被删掉的符号当"活代码还在"的
+  // 反空转样本是自相矛盾的；`renderOne` 是包侧仍然真实存在的函数，射程不变。
+  ok(/function renderOne/.test(stripJsComments(sources['包侧 tools/build-lessons.js'])),
+    '剥注释：包侧 build-lessons.js 的活代码（renderOne）还在（没被剥多）')
 
   // 反空转：把每个已删符号塞回去 → 判据必须报出来，否则上面那条是空转
   const back = checkTermListDead({ '伪造·清单函数回来了': 'export function renderTermList(terms, gi, file) { return "" }' })

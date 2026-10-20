@@ -140,7 +140,7 @@ try {
   const progPath = path.join(tmpPack, 'progress.json')
   const prog0 = JSON.parse(fs.readFileSync(progPath, 'utf8'))
   const learnedBefore = Array.isArray(prog0.learned) ? prog0.learned.slice() : []
-  prog0.learned = learnedBefore.concat(['algebra/0001'])
+  prog0.learned = learnedBefore.concat(['victim/algebra/0001'])
   // 「新增字段也保留」用例（2026-09-24 ①复核第二写者）：progress.json 将来会加字段，
   // 圆圈删除只许清 learned，别的键（含没见过的）一个都不许丢
   prog0.futureField = { _: '将来加的字段，圆圈删除不许丢' }
@@ -181,13 +181,13 @@ try {
     ok(treeHash(tmpPack) === hashBefore, '[2] dryRun 后整棵树哈希与之前相同（没写盘）')
     const plan = d.plan
     ok(plan?.id === 'victim' && plan?.name === '待删圈', `[2] 清单里 id/显示名正确（${plan?.id} / ${plan?.name}）`)
-    ok(plan?.lessons === 1 && plan.lessonIds?.[0] === 'algebra/0001', `[2] 清单说 1 门课：${JSON.stringify(plan?.lessonIds)}`)
+    ok(plan?.lessons === 1 && plan.lessonIds?.[0] === 'victim/algebra/0001', `[2] 清单说 1 门课：${JSON.stringify(plan?.lessonIds)}`)
     const main = plan?.dirs?.find((x) => x.path === 'lessons/victim')
     const srcEntry = plan?.dirs?.find((x) => x.path === 'lessons/src/victim')
     ok(main?.files === 3, `[2] 目录 lessons/victim 实有 3 个文件（halo.json + point.json + 课页；实得 ${main?.files}）`)
     ok(srcEntry?.files === 1, `[2] 目录 lessons/src/victim 实有 1 个文件（实得 ${srcEntry?.files}）`)
     ok(plan.files === 4, `[2] 清单合计文件数 = 目录实有数之和（实得 ${plan.files}，期望 3+1）`)
-    ok(plan.progressIds.length === 1 && plan.progressIds[0] === 'algebra/0001', `[2] 清单列出要清的进度条目：${JSON.stringify(plan.progressIds)}`)
+    ok(plan.progressIds.length === 1 && plan.progressIds[0] === 'victim/algebra/0001', `[2] 清单列出要清的进度条目：${JSON.stringify(plan.progressIds)}`)
     ok(plan.codeDirs.includes('code/victim/algebra'), `[2] 清单列出学生代码目录（只报不删）：${JSON.stringify(plan.codeDirs)}`)
   }
 
@@ -256,7 +256,7 @@ try {
     ok(ad.ok === false && /找不到圆圈/.test(ad.error || ''), `[7] 再删一次 → 拒绝（${ad.error}）`)
 
     const prog = JSON.parse(fs.readFileSync(progPath, 'utf8'))
-    ok(!prog.learned.includes('algebra/0001'), `[8] progress.json 里清掉了 algebra/0001（learned=${JSON.stringify(prog.learned)}）`)
+    ok(!prog.learned.includes('victim/algebra/0001'), `[8] progress.json 里清掉了 algebra/0001（learned=${JSON.stringify(prog.learned)}）`)
     ok(learnedBefore.every((x) => prog.learned.includes(x)),
       `[8] 别的圆圈的进度**一条都没动**（原 ${JSON.stringify(learnedBefore)}）`)
     ok(d.progressCleaned === 1, `[8] 响应说清了 1 条（实得 ${d.progressCleaned}）`)

@@ -80,7 +80,7 @@ try {
   // 造一条待答疑问（学号 0004）
   const MARK = 'ASK-ANSWER-MARK-0004'
   fs.appendFileSync(PENDING, JSON.stringify({
-    id: '0004', at: '2026-01-01T00:00:00.000Z', lesson: '第2课', page: 'lessons/programming/spring-boot/0002-rest-api-crud.html',
+    id: '0004', at: '2026-01-01T00:00:00.000Z', lesson: 'programming/spring-boot/0002', page: 'lessons/programming/spring-boot/0002-rest-api-crud.html',
     title: '第二课', question: '为什么 @RequestBody 要配合 @Valid 才生效？', status: 'pending',
   }) + '\n', 'utf8')
   const pendingLines = () => fs.readFileSync(PENDING, 'utf8').split('\n').filter((l) => l.trim()).length
@@ -233,11 +233,19 @@ try {
     )
     ok(hashOf(L3) + '|' + hashOf(P3) === h0, '拒写时台账与队列**一字未动**')
 
-    // ② 给星图课次键（point/NNNN）→ 归一成显示名落盘（两种写法收敛成一种，别在台账里留两种写法）
-    const keyed = await answer(tmp3, { raw: bodyOf('0007', 'spring-boot/0002'), now: CLOCK, rebuild: false })
+    // ② 给**规范课次键**（circle/point/NNNN）→ 归一成显示名落盘（两种写法收敛成一种，别在台账里留两种写法）
+    //    ⚠️ 身份形状口径（U02/U09 收严后）：运行态只认三段规范键，故这里的输入必须是三段。
+    const keyed = await answer(tmp3, { raw: bodyOf('0007', 'programming/spring-boot/0002'), now: CLOCK, rebuild: false })
     ok(
       keyed.status === 200 && loadLedger(tmp3)['0007']?.lesson === '第2课',
-      `给 point/NNNN → 落盘归一成显示名（${loadLedger(tmp3)['0007']?.lesson}）`
+      `给规范课次键 → 落盘归一成显示名（${loadLedger(tmp3)['0007']?.lesson}）`
+    )
+
+    // ②-b 两段课键（point/NNNN）是**历史形状**：运行态必须明确拒绝，不许隐式双读（U-SPEC §2）
+    const twoSeg = await answer(tmp3, { raw: bodyOf('0009', 'spring-boot/0002'), now: CLOCK, rebuild: false })
+    ok(
+      twoSeg.status === 400 && /课次对不上/.test(twoSeg.body.error || '') && loadLedger(tmp3)['0009'] === undefined,
+      `给两段课键（point/NNNN）→ ${twoSeg.status} 拒写（${twoSeg.body.error || ''}）`
     )
 
     // ③ 没注入解析器 + 非空 lesson → 拒写（不许"判不了就放过去"）

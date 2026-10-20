@@ -1,0 +1,379 @@
+{
+  "schema": "whale-unify-receipt/1",
+  "card": "U05",
+  "title": "唯一身份迁移实现（lib/unify/migration.cjs + tools/migrate-pack.mjs + test/audit/U05.mjs）",
+  "status": "PASS",
+  "scope": "unresolved",
+  "scopeNote": "U-SPEC §12 的 A/B 选择仍未裁决。本卡**不依赖**该裁决：只做「一次性显式迁移工具 + 八项判据」，不改任何既有 test/*.mjs / test/audit/T*.mjs 断言、不动旧导出、不接运行态读取路径。真实迁移后的产品读取闭环（宿主 + 包两条路径）只由 U17 实证，本卡不伪造。",
+  "completion": {
+    "summary": "在固定基线 2f57b1f 上交付：① 新建 `lib/unify/migration.cjs`（纯 CJS）—— 全仓**唯一**的历史身份解码落点，三个入口 planIdentityMigration / applyIdentityMigration / rollbackIdentityMigration，全部历史形状只在 3 个受控写入口 `learning-records/{intake,goals,evidence,adjustments}.jsonl` 上归一，其余身份槽（派生数据文件 / 自带派生产物的台账）一律**识别 + 整次阻断**；② 新建 `tools/migrate-pack.mjs`（仓根 CLI、参数数组调用、plan/apply/rollback 三模式、stdout 一行契约、退出码 0/1/2）；③ 新建 `test/audit/U05.mjs`（U01 的异步壳 runCard，固定 A01–A08 全真断言）。plan 对目标**零写**（不建目录/日志/锁/备份），apply 走 U06 的三闸 + 既有包事务（包锁 + whale-txn/1，不造第二套），回滚材料落该次 `.backup/<planDigest 前 16 位>/`，回滚按**当前产物摘要**拒绝覆盖后续修改。",
+    "deliverables": [
+      "lib/unify/migration.cjs（90061 bytes；见 deltas.newFiles 的实际字节/sha256）",
+      "tools/migrate-pack.mjs（CLI：--plan / --apply --confirm --plan-digest= / --rollback --confirm --plan-digest= --backup=，可选 --json）",
+      "test/audit/U05.mjs（固定 A01–A08，八项全真断言，无 skip / 无恒真 / 不吞错）",
+      "docs/unify/receipts/U05.json（本回执）",
+      "audit-evidence/U05/ 下本次新建证据（runs/U05-37836 权威运行 + runs/U05-flag-1500 显式证据根运行 + fail-proof 变异原始留痕）"
+    ],
+    "verdict": "PASS U05 checks=8 failed=0 skipped=0 / exit 0（权威运行 audit-evidence/U05/runs/U05-24432，ms=5275；逐项 A01:pass A02:pass A03:pass A04:pass A05:pass A06:pass A07:pass A08:pass）。同入口连续多次、以及 `--evidence-root=<本卡允许的绝对目录>` 下同样 PASS；越界证据根 `--evidence-root=E:\\workplace\\not-allowed` → `BLOCKED U05 --evidence-root 越界：…` / exit 2 且**不留临时目录**。",
+    "notA": "本卡不做：运行态隐式双读 / 长期兼容层 / 执行目标 JS 数据 / 执行旧包脚本补齐重建 / 修改旧导出与既有断言 / 触碰活包 / 全量门槛 / git 写。"
+  },
+  "dependencies": {
+    "upstream": [
+      {
+        "card": "U02",
+        "artifact": "lib/unify/identity.cjs",
+        "receipt": "docs/unify/receipts/U02.json",
+        "receiptBytes": 22783,
+        "receiptSha256": "9533d0a0edacabe423eb734b8554250556020e5ee4f3cfdc63ef6f5fc10b5a25",
+        "verdictAtConsumption": "PASS U02 checks=8 failed=0 skipped=0（主持人亲跑回执登记）"
+      },
+      {
+        "card": "U03",
+        "artifact": "lib/unify/errors.cjs + lib/unify/ledger-read.cjs",
+        "receipt": "docs/unify/receipts/U03.json",
+        "receiptBytes": 30579,
+        "receiptSha256": "eef75dd70ce54e175b324203e8616ae9e22e5e3e1e1ef6f152404033c12102a0",
+        "verdictAtConsumption": "PASS U03 checks=8 failed=0 skipped=0（主持人亲跑回执登记）"
+      },
+      {
+        "card": "U06",
+        "artifact": "lib/unify/commit.cjs",
+        "receipt": "docs/unify/receipts/U06.json",
+        "receiptBytes": 34443,
+        "receiptSha256": "81a0e7b3ddc0a3d2954b0e12b641eeaa76f60a5791af9917beca0ba973cba8d7",
+        "verdictAtConsumption": "PASS U06 checks=8 failed=0 skipped=0（主持人亲跑回执登记）"
+      }
+    ],
+    "consumedAnchors": {
+      "lib/unify/identity.cjs": {
+        "bytes": 11584,
+        "sha256": "9746554fd4f03db49bc1b09ffdc0c5be3967b9a0e90471018591fe1e086301d7"
+      },
+      "lib/unify/errors.cjs": {
+        "bytes": 6701,
+        "sha256": "4e18e7183b5e9a124eb7094bfc5aefe281c507a6bd4f5871199591cc08664b12"
+      },
+      "lib/unify/ledger-read.cjs": {
+        "bytes": 12165,
+        "sha256": "820fa52c2d029a20d1c2011344adb4fabae5462b47ad634e21e582cded3db508"
+      },
+      "lib/unify/commit.cjs": {
+        "bytes": 33453,
+        "sha256": "8061e8f6f6553408e6f19aa44a560491c4b8d2307d9f93340e4677e5a1cf70b6"
+      },
+      "lib/pack-template/tools/ledger-transaction.cjs": {
+        "bytes": 38268,
+        "sha256": "e338abf02dfb5125b3a407185e00921937b0263776df59ddab9d5efad7726614"
+      }
+    },
+    "downstreamBoundary": "U10/U14 可用本卡的 plan/apply/rollback 与 CLI 做真迁移断言；U17 独占「迁移后产品两条读取路径」的全链路实证与派生数据重建；U19 独占 lib/unify/ 十四副本生成（本卡不建 lib/pack-template/tools/unify/）。"
+  },
+  "interfaceConsumption": {
+    "lock": "docs/unify/interfaces.md",
+    "lockBytes": 46889,
+    "lockSha256": "35acebe7bc1fd4560f59e244ea5a89730c1b11435d27da75ff5fdfa19ab92658",
+    "baseline": "docs/unify/baseline.json",
+    "baselineBytesObserved": 60232,
+    "baselineSha256Observed": "cf53c0c41d5b55b090ed6503fda59ffc2f52372f7629f8924f8e97efd35f36e1",
+    "baselineNote": "已按 U01 合法更新后的 60232 B 读取；本卡只读，不锚定字节数（会话期间它由 U01 侧更新过一版）。",
+    "baseSha": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "branch": "refactor/unify-20261018",
+    "head": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "consumedSignatures": {
+      "identity.pointKey": "pointKey(circle, point) → `circle/point`；本卡只用它**构造**规范知识点键（严格校验组成部分）",
+      "identity.lessonKey": "lessonKey(circle, point, number) → `circle/point/NNNN`（课号 1–9999 四位，严格校验）",
+      "identity.parsePointKey": "parsePointKey(value) → {ok:true,value:{circle,point}} | {ok:false,failure}；运行态形状判定用它，历史形状由本卡自己的分类器处理",
+      "identity.parseLessonKey": "parseLessonKey(value) → 同上（含 number）；本卡只在「是否已是规范课次键」处用它",
+      "identity.IdentityError": "构造失败时抛（名字与 .failure 都用到，错误文案带出来源规则）",
+      "identity.REASONS / LESSON_NUMBER_MIN / LESSON_NUMBER_MAX": "只在错误文案里引用（不复制常量值：上限/下界一律从 identity.cjs 取）",
+      "errors.makeFailure": "本卡所有 failure 都走这个工厂（kind ∈ input/confirmation/conflict/io/recovery；code/error 非空）",
+      "ledger-read.readLedger": "只读核验台账 `learning-records/teaching.jsonl` 用它（五态 missing/empty/ok/invalid/io-error）；invalid / io-error → 阻断整次 apply。**不复用**它的 records：本卡要按字节改字面量，需要 span",
+      "commit.planCommit": "把「目标文件新字节 + 备份文件 + 备份清单」变成 whale-commit/1 计划（排序去重、写前摘要、planDigest）",
+      "commit.applyCommit": "三闸 + 既有包事务；本卡不拿锁、不写日志、不做第二套恢复",
+      "runner.runCard": "U01 的异步壳：真的 await；缺/多/重复/空用例/异常/截断都不许 PASS"
+    },
+    "consumedBytes": {
+      "test/audit/unify-runner.mjs": {
+        "bytes": 14600,
+        "sha256": "d094dec4dae021c1889fd5817d95f45a1d90c4a3dcccc6b51c7a40f626e716c4",
+        "role": "只 import，不改"
+      },
+      "lib/pack-template/tools/ledger-transaction.cjs": {
+        "bytes": 38268,
+        "sha256": "e338abf02dfb5125b3a407185e00921937b0263776df59ddab9d5efad7726614",
+        "role": "commit.cjs 的默认事务件；本卡只经它提交（A06 观测到 .whale-txn 与锁的既有行为）"
+      }
+    }
+  },
+  "writeSet": [
+    "lib/unify/migration.cjs（新建，唯一历史解码落点）",
+    "tools/migrate-pack.mjs（新建，CLI）",
+    "test/audit/U05.mjs（新建，八项判据）",
+    "docs/unify/receipts/U05.json（新建，本回执）",
+    "audit-evidence/U05/ 下本次新建文件（runs/U05-37836、runs/U05-flag-1500、fail-proof/；忽略的原始证据）"
+  ],
+  "writeSetIgnored": {
+    "root": "audit-evidence/U05/",
+    "contents": [
+      "runs/U05-37836/（权威运行：result.json / cases.jsonl / a01-shapes.json / a02-tree.json / a03-gates.json / a04-blocks.json / a05-closure.json / a06-faults.json / a07-mutation.json / a08-safety.json / temp-cleanup.json）",
+      "runs/U05-flag-1500/（显式 --evidence-root 运行，同样 PASS）",
+      "fail-proof/（A07 的原始留痕：clean-child-run.json / mutated-child-run.json / summary.json；变异只发生在 E:\\Temp 副本）"
+    ]
+  },
+  "outOfScope": [],
+  "outOfScopeNote": "无越界写。同一工作树里别的 lane 正在写自己的写集（U04/U07 已改的 lib/*.js 与三个包侧工具、U01/U02/U03/U06 的 lib/unify/* 与 docs/unify/*、各卡 test/audit/U*.mjs）；本卡一个字节都没改它们 —— A08 的依赖锚点逐字节证明本卡消费的五个文件在判据前后完全相同。",
+  "identityContract": {
+    "pointKey": "circle/point（知识点身份）",
+    "lessonKey": "circle/point/NNNN（课次身份；1–9999，四位十进制）",
+    "displayVsIdentity": "显示文字（「第1课」「Vue 第1课」）与页面内部锚点（q0001）都**不是**身份：本卡不改显示文字、不把锚点当身份（U-SPEC §2）",
+    "noRuntimeAliasing": "本模块**只**被显式迁移命令调用；运行态任何读取路径都没有 import 它，按环境/调用栈/测试目录改规则的入口一个都没有",
+    "noLessonExpansion": "点键**不许**扩展成多门已学课程：两段点键落在课程位且该点有 ≥2 门课时一律阻断（A01 ⑬ / A04 实测候选列出全部门次）"
+  },
+  "shapeCoverage": {
+    "classesSeenInTests": [
+      "bare-point（归一）",
+      "point-lesson（归一，补圆圈）",
+      "point-in-lesson-slot（归一：唯一课程才映射，多门课阻断）",
+      "narrow-lesson-number（1–5 位课号归一）",
+      "wide-lesson-number（1–5 位课号归一）",
+      "bare-lesson-number（识别；practice-data v1 键，派生文件故阻断）",
+      "display-name（识别并阻断：派生重建缺失）",
+      "legacy-flat-path（识别并阻断：派生文件 + 旧平铺归属）",
+      "canonical-point / canonical-lesson / sentinel（不动、逐字节保留）",
+      "ambiguous-point / ambiguous-lesson（阻断）",
+      "orphan-lesson（阻断，且不删孤儿）",
+      "out-of-range-lesson（阻断，不截断/不取模/不自动减 fileBase）",
+      "js-shape-unsafe（阻断：信封里出现白名单外标识符 / 字面量里出现表达式）",
+      "unparsable-ledger（阻断：U03 五态报 invalid）",
+      "version-chain-collision（阻断：两条不可证明同源的版本链归一后撞在同一个 (point, v)）"
+    ],
+    "normalizedFiles": [
+      "learning-records/intake.jsonl：point（裸点→circle/point）",
+      "learning-records/goals.jsonl：point / pointPath（同一知识点两条版本线 v1→v2(replaces:1) 保持原样、不合并）",
+      "learning-records/evidence.jsonl：lesson（point/NNNN、窄/宽课号、点键落课程位→circle/point/NNNN）",
+      "learning-records/adjustments.jsonl：lesson（同上；学生原话 adjust 与 ts 逐字保留）"
+    ],
+    "readOnlyVerifiedFiles": [
+      "learning-records/teaching.jsonl：身份只有单段 circle（U03 readLedger 五态核验；坏行→阻断），零可迁移形状"
+    ],
+    "blockedFiles": [
+      "assets/glossary-data.js：lesson 是**显示名** ⇒ blocked-rebuild-missing（GLOSSARY.md「首次出现」列会陈旧）",
+      "assets/questions-data.js：lesson 是**显示名** ⇒ blocked-rebuild-missing（NOTES.html 分组 + 课程页答疑计数）",
+      "assets/practice-data.js：纯派生产物（lessons 键 / byFile 键/值）⇒ blocked-rebuild-missing（须 U17 重新生成）",
+      "notes/notes.jsonl：anchor 是星图课次键 ⇒ blocked-rebuild-missing（NOTES.html + 课程页笔记计数）"
+    ]
+  },
+  "blockedClassPolicy": {
+    "why": "四类阻断的判据不是「做不到」，而是「改写必然让**派生产物**陈旧，而本基线没有可注入的纯重建入口」；卡的硬约束是「若某类迁移必需的重建能力在本基线不存在，apply 返回阻断而不是猜」。",
+    "effect": "计划里出现任何一条阻断 ⇒ apply **整次**拒绝（rejected），一个字节都不落位；变更仍逐条列出（人工可见「若要归一，目标是什么」）。"
+  },
+  "rebuildEntries": {
+    "verifiedReadOnly": [
+      "包侧 tools/build-lessons.js:56 require('./unify/render.cjs') — 本基线 lib/pack-template/tools/unify/ 尚未生成（U19）⇒ MODULE_NOT_FOUND（已登记回归 R1，主持人已知）",
+      "包侧 tools/build-notes.js:33 require('./pack-text.js')，而 pack-text.js 已被 U04 改成委托 ./unify/text.cjs ⇒ 同因 MODULE_NOT_FOUND（R1）",
+      "包侧 assets/build-glossary.js：只 require 数据模块本身（可跑），但它会**执行目标数据文件**，与本卡 A08「JS 数据不执行」冲突，且属「旧包脚本」，卡面明令不许用它补齐",
+      "宿主 lib/glossary-io.js#expectedGlossaryMarkdown / writeGlossary：真实可用，但按**磁盘上的旧台账**合成（没有「传入新字节」的入参），且需 createRequire 执行数据模块 ⇒ 无法在迁移事务内对内联新字节做纯重建",
+      "宿主 lib/state-scan.js#writeState、lib/practice.js#renderPracticeDataModule：存在，但产出的是**快照/派生物**，不是本卡要在一次事务里原子落位的东西"
+    ],
+    "conclusion": "本卡不调用任何重建入口（不执行目标模块、不跑旧包脚本）；四类派生相关身份槽一律阻断，产品读回与重建接线归 U17。这一条是**结论**，不是待办。"
+  },
+  "planContract": {
+    "shape": "{schema:'whale-migration/1', root, operation:'identity-migration', indexDigest, index{circles,points,lessons}, inputs[{file,bytes,digest}], changes[{file,location,from,to}], blocks[{file,location,from,candidates,error}], classes[{id,verdict,occurrences,files}], backup{dir,files[{file,digest,bytes}]}, manifest{file,bytes,digest}, outputs[{file,bytes,digest}], jsUnsafe[], planDigest}",
+    "zeroWrite": "plan 阶段只有 readFileSync/readdirSync/statSync/existsSync 四类调用；不建目录、不写日志、不加锁、不备份（A02 用整树逐字节清单 + 写守卫双证：33 文件 / 13 目录的 digest 前后相同，写调用 0 次）",
+    "planDigest": "sha256(canonical JSON {schema, root, operation, indexDigest, inputs, changes, blocks, backup{dir,files}, outputs=目标新字节+备份副本})；备份清单由这些字段派生，故**不进摘要**（避免自指）",
+    "determinism": "同一输入两次计划 ≠ 随机：同摘要（A02 断言）；无时钟、无随机、无 env；备份目录名 = 计划核心摘要前 16 位",
+    "bytePreservation": "改写是**字节级字面量替换**（只换身份字符串那一段），JSONL 行尾（含 CRLF）与其余字节原样；文件非法 UTF-8 ⇒ 阻断（无法逐字节保留地改）"
+  },
+  "applyContract": {
+    "gates": [
+      "闸一：重新造计划（PLAN_REQUIRED）+ 计划里有阻断 ⇒ 整次拒绝（有 ambiguous 用新增码 ID_AMBIGUOUS，其余用既有码 MIGRATION_FAILED）",
+      "闸二：必须显式 confirm:true（CONFIRM_REQUIRED）；必须回引 planDigest，缺摘要 PLAN_REQUIRED、摘要不符 PLAN_STALE（三个码互不相同，A03 断言）",
+      "闸三（锁内）：交给 U06 planCommit/applyCommit —— 锁内逐个目标读当前真实字节与 beforeDigest 比、并用同一份写前字节重算输出与计划摘要比（PLAN_STALE），全部不符才提交"
+    ],
+    "inLockRebuild": "build 回调只用事务给的**写前字节**重算（重新扫形状 → 重分类 → 与 plan.changes 三元组逐条比 → 生成新内容），不一致即抛 ⇒ 由提交层拒写；build 拿到的 fs 是只读视图（写能力一调就抛）",
+    "backup": "该次 `.backup/<planDigest[:16]>/` 下：每个目标的写前字节 + manifest.json（schema:'whale-migration-backup/1'，root/backupDir/planDigest/indexDigest/inputs/changes/blocks/files[{file,beforeDigest,bytes,afterDigest}]）；**确定性、无时间戳**",
+    "noFakeSuccess": "成功只在事务 committed 时返回 ok:true；暂存/备份/提交失败一律 ok:false 且既有产物不替换（A06 实测：备份写失败 state=rolled-back / code=IO_ERROR，目标字节不变；构建故障 state=rejected / code=PLAN_REQUIRED，字节不变）",
+    "nothing": "无可迁移形状时拒绝并给 MIGRATION_NOTHING（这不是成功、不写任何字节；A05 幂等断言用到）"
+  },
+  "rollbackContract": {
+    "inputs": "confirm:true + planDigest（这次迁移计划的摘要）+ backupDir（该次专属备份目录，必须是包根内绝对/相对路径）",
+    "checks": [
+      "清单存在 / 是合法 JSON / schema=whale-migration-backup/1",
+      "清单 root 与本次包根一致（不同 ⇒ PLAN_STALE）",
+      "清单 planDigest 与调用方回引一致（不同 ⇒ PLAN_STALE）",
+      "**当前产物摘要**必须仍等于清单里记录的 afterDigest（迁移后被改过 ⇒ PLAN_STALE 拒绝，A06 实测：追加一条后被拒且文件保持被改后的内容）",
+      "备份字节摘要必须等于 beforeDigest（备份损坏 ⇒ RECOVERY_REQUIRED，不还原）"
+    ],
+    "commit": "还原本身也走 planCommit + applyCommit（同一把锁、同一份日志、同一套回滚），不是另一条写路径",
+    "postState": "备份目录保留（可追溯；不删孤儿、不留时间戳）"
+  },
+  "codesConsumed": {
+    "existing": [
+      "PLAN_REQUIRED",
+      "CONFIRM_REQUIRED",
+      "PLAN_STALE",
+      "IO_ERROR",
+      "MIGRATION_NOTHING",
+      "MIGRATION_FAILED",
+      "LEDGER_INVALID（经 U03 的 failure 透出）"
+    ],
+    "newFromU03": [
+      "ID_AMBIGUOUS（歧义阻断的拒绝码）",
+      "RECOVERY_REQUIRED（备份损坏/待恢复）",
+      "LOCK_BUSY（由 U06 映射，本卡只透传）"
+    ],
+    "notRedefined": "所有旧码语义一个都没改；本卡不新增第六个新码，也不给旧码起别名。"
+  },
+  "scanTargets": {
+    "enumerated": "写入口 4 个 jsonl + 阻断文件 4 个（2 js 数据 + 1 派生产物 js + 1 笔记台账）+ 只读核验 1 个 jsonl；归属依据是 lessons/ 目录结构（lessons/<circle>/<point>/point.json + NNNN-*.html）与 code/**/EXPECT.json 的 lessons[].id（与 lesson-map.js 同一口径）",
+    "notScanned": "learning-records/state.json、starmap/content.js、progress.json、questions/{pending,processed}.jsonl、learning-records/visual.jsonl 未进扫描集：它们是**快照/派生物**或与身份无关（见 unverified 边界）；本卡不删不改它们",
+    "unknownFilesPolicy": "扫描集之外的文件一律不碰（不删、不改、不猜）；这也意味着「不删孤儿」在文件层面同样成立"
+  },
+  "verdict": {
+    "entry": "node test/audit/U05.mjs",
+    "expected": "PASS U05 checks=8 failed=0 skipped=0",
+    "exitCode": 0,
+    "authoritativeRun": "audit-evidence/U05/runs/U05-24432",
+    "authoritativeMs": 5275,
+    "caseStatus": [
+      "A01:pass",
+      "A02:pass",
+      "A03:pass",
+      "A04:pass",
+      "A05:pass",
+      "A06:pass",
+      "A07:pass",
+      "A08:pass"
+    ],
+    "flaggedEvidenceRootRun": "audit-evidence/U05/runs/U05-flag-2（--evidence-root=<本卡允许的绝对目录>；PASS / exit 0）",
+    "blockedPath": "node test/audit/U05.mjs --evidence-root=E:\\workplace\\not-allowed → `BLOCKED U05 --evidence-root 越界：…` / exit 2，且不留空临时目录（证据根先解析、后建临时目录）",
+    "mutationProof": "audit-evidence/U05/fail-proof/：干净副本 `PASS U05 checks=8 failed=0 skipped=0` / exit 0；把 migration.cjs 的摘要核对 `if (givenDigest !== plan.planDigest) {` 改成 `if (false) {`（命中 1 处）后 → `FAIL U05 checks=8 failed=2 skipped=0 :: A03: 抛异常：过期 planDigest 却提交了` / exit 1",
+    "meaning": "PASS 只表示本卡八项（历史形状归一/阻断 + plan 零写 + 三闸 + 整次阻断 + 闭包与逐字保留 + 故障隔离与回滚防覆盖 + 变异有效性 + JS 不执行与写集可归因）通过；**不代表**迁移后产品读回已实证（归 U17），也不代表全工程变绿。"
+  },
+  "deltas": {
+    "assertions": {
+      "newCaseIds": [
+        "A01",
+        "A02",
+        "A03",
+        "A04",
+        "A05",
+        "A06",
+        "A07",
+        "A08"
+      ],
+      "increment": 8,
+      "caseIndex": {
+        "A01": "历史形状逐类识别：裸点 / point-课号 / 窄-宽课号 / 点键落课程位 / 显示名 / 旧平铺路径 / 裸课号 / 哨兵 / 规范键；另加歧义、孤儿、越界、点键多课程、notes.anchor、questions.lesson、坏 teaching 台账、**版本链相撞**共八条阻断断言；并断言变更/阻断两列的键集与排序去重",
+        "A02": "plan 对夹具逐字节零修改：整树 manifest digest 前后相同、目录数相同、无 .backup/.whale-txn/锁、窗口内写调用 0 次、同输入两次计划同摘要",
+        "A03": "三闸互不相同：缺确认 CONFIRM_REQUIRED / 缺摘要 PLAN_REQUIRED / 过期摘要 PLAN_STALE，各自 0 写且字节不动；三条齐了才提交（正例）；再 CLI 端到端（plan/apply/rollback 三模式 + 缺摘要 exit 2 + 过期摘要 exit 1）",
+        "A04": "歧义 / 孤儿 / 越界各挡整次 apply：计划里有变更但 apply rejected，码分别为 ID_AMBIGUOUS / MIGRATION_FAILED / MIGRATION_FAILED，整树字节不变、写调用 0",
+        "A05": "引用闭包完整（迁移后每条 point/pointPath/lesson 都能被 identity 解析，且重跑计划 0 变更 0 阻断）+ 学生原话/日期/ts/顺序/键集逐字保留 + 版本链 v1→v2(replaces:1) 不合并 + 备份清单无时间戳字段 + 二次 apply 被拒",
+        "A06": "备份写失败（注入 EACCES）→ state=rolled-back / ok=false，文件字节不变、无 journal/锁残骸（仅容忍备份目录与 .whale-txn 空目录）；注入受信重建 build 抛错 → rejected，字节不变；成功 apply 后修改目标 → 回滚 PLAN_STALE 拒绝且不覆盖；未改动时回滚成功并逐字节回到写前",
+        "A07": "E:\\Temp 副本：干净副本 PASS / exit 0；移除摘要核对后 FAIL / exit 1 且点名 A03（变异有效性）；主树文件未被变异；子进程模式只复演摘要闸，不递归变异",
+        "A08": "JS 数据不执行：UMD 信封里的 require/writeFileSync 副作用 → js-shape-unsafe 阻断且没有副作用文件落盘；数据字面量里的 IIFE → 同判；同信封的干净数据正常静态读（对照）；写守卫 1648 次写全部可归因（仓内 7 次全部是本卡证据写，⊆ §6 并集 158 条）；依赖锚点五个文件前后逐字节相同；临时目录清理守卫拒绝仓内删除、证据根越界拒绝；本次临时根删前核对绝对路径与父目录"
+      },
+      "note": "只新增 U 系列专项 8 条；未改任何既有 test/*.mjs、test/audit/T*.mjs、harness、release 检查器的一个断言。"
+    },
+    "suites": {
+      "topLevelSuitesBefore": 56,
+      "topLevelSuitesAfter": 56,
+      "note": "test/audit/U*.mjs 不在 test/_suite-manifest.mjs 的发现范围（只发现顶层 test/*.mjs 并排除 _ 前缀与 5 个入口），套件数不变；本卡专项不能替代旧套件。"
+    },
+    "skipped": {
+      "baselineFrozen": 2,
+      "added": 0,
+      "note": "本卡入口不允许 skip（runner 里 skip 不计 pass）；基线原有 2 条 skip 未被触碰。"
+    },
+    "fullGate": {
+      "ran": false,
+      "note": "全量门槛只属 U01/U20；本卡不跑 test/all.mjs、不访问活包 E:\\workplace\\study、不跑任何读活包的套件、不跑 T 卡入口（T23/T25 硬编码活包）、不写主树、不操作 git index/提交/分支。"
+    },
+    "newFiles": {
+      "lib/unify/migration.cjs": {
+        "bytes": 90061,
+        "sha256": "aaaa27769bdcb5c9cd9bc25859fa0a023fb65541fd8100658a2c781c6cc97722"
+      },
+      "tools/migrate-pack.mjs": {
+        "bytes": 7045,
+        "sha256": "3c43a364e4a98d88abc7754ce25639b9540590e26fe12b7ba50ec20cf73fb615"
+      },
+      "test/audit/U05.mjs": {
+        "bytes": 75866,
+        "sha256": "f4f839da51dffe0438b60afbb908d542ec19dc7e0b5fad094e504bf970f0c3c0"
+      }
+    }
+  },
+  "evidenceIndex": {
+    "root": "audit-evidence/U05/",
+    "authoritativeRun": "audit-evidence/U05/runs/U05-24432/",
+    "authoritativeFiles": [
+      "result.json（判词/逐项状态/耗时）",
+      "cases.jsonl（逐条用例原始记录）",
+      "a01-shapes.json（形状类清单与处置、若干阻断明细）",
+      "a02-tree.json（plan 前后整树摘要）",
+      "a03-gates.json（三闸拒绝码 + 正例 + CLI 三模式契约行）",
+      "a04-blocks.json（三类阻断的码与计划变更数）",
+      "a05-closure.json（真迁移的变更表 + 闭包结果 + 备份目录）",
+      "a06-faults.json（备份/构建故障与回滚双态）",
+      "a07-mutation.json（干净/变异副本判词）",
+      "a08-safety.json（探针、写守卫统计、§6 并集条数、依赖锚点）",
+      "temp-cleanup.json（临时根绝对路径与清理结果）"
+    ],
+    "extraRuns": [
+      "audit-evidence/U05/runs/U05-flag-2/（--evidence-root 运行）",
+      "audit-evidence/U05/runs/U05-{32376}/（同入口的额外 PASS 运行，`PASS U05 checks=8 failed=0 skipped=0`；保留不删）",
+      "audit-evidence/U05/fail-proof/（clean-child-run.json / mutated-child-run.json / summary.json）"
+    ],
+    "reproduce": "node test/audit/U05.mjs（默认证据根 audit-evidence/U05/runs/U05-<pid>；--evidence-root=<本卡允许的绝对新目录> 只换落点）"
+  },
+  "commands": {
+    "verify": [
+      "node test/audit/U05.mjs  → PASS U05 checks=8 failed=0 skipped=0 / exit 0（runs/U05-37836）",
+      "node test/audit/U05.mjs --evidence-root=E:\\workplace\\dsh-whale-sensei-unify\\audit-evidence\\U05\\runs\\U05-flag-1500 → PASS / exit 0",
+      "node test/audit/U05.mjs --evidence-root=E:\\workplace\\not-allowed → BLOCKED U05 --evidence-root 越界：… / exit 2"
+    ],
+    "cli": [
+      "node tools/migrate-pack.mjs --root=<夹具> --plan → `PLAN ok=true digest=<hex> files=<n> changes=<n> blocks=<n>` / exit 0",
+      "node tools/migrate-pack.mjs --root=<夹具> --apply --confirm --plan-digest=<hex> → `APPLY ok=true digest=<hex> replaced=<n> backup=<dir>` / exit 0",
+      "node tools/migrate-pack.mjs --root=<夹具> --rollback --confirm --plan-digest=<hex> --backup=<dir> → `ROLLBACK ok=true digest=<hex> restored=<n> backup=<dir>` / exit 0",
+      "缺 --confirm / 缺 --plan-digest / 不认识的参数 → `FAIL …` / exit 2；过期摘要 → `FAIL … / PLAN_STALE` / exit 1"
+    ],
+    "mutationReproduce": "node（临时脚本，已删除）：把仓源 10 个文件只读复制到 E:\\Temp\\u05-proof-<唯一>，先跑干净副本（PASS/0），再把 `if (givenDigest !== plan.planDigest) {` 改成 `if (false) {`（命中 1 处）后重跑（FAIL/1，点名 A03）；跑完按绝对路径核对后递归删除该目录。原始 stdout 见 fail-proof/。",
+    "selfChecks": [
+      "node -e \"require('./docs/unify/receipts/U05.json')\"（回执必须能被 require，即合法 JSON）",
+      "node --check lib/unify/migration.cjs / tools/migrate-pack.mjs（语法）"
+    ]
+  },
+  "deviations": [
+    "实现期真实踩到并修掉的问题（都留了机器判据）：① 计划/重算的映射顺序必须显式按 file+location 排序后才比较（否则 plan 与锁内重算永远「不一致」）；② 去重闸不能在遍历 blocks 的同时往 blocks 里 push（那会死循环吃满堆内存 —— 开发期真出现过，A01/A04 的重复位置断言现在盯这一条）；③ practice-data 的「路径键」与「课次值」必须用不同 location 名（否则同一位置长出两条处置，被去重闸误判）；④ copyFileSync/renameSync 的 args[0] 是**源**，写守卫只记 args[0] 会造出假越界（A07 从仓里拷源码时踩到，已按 API 指定目标参数下标）。",
+    "分类落点：`narrow/wide-lesson-number` 只对**三段**课次键（circle/point/1、/00001）生效；两段的 `point/2` 归 `point-lesson`（同一形状族，处置相同）。这是实现期的口径收敛，不是漏测。",
+    "JS 数据文件的**改写**分支在本基线不可达（四类 JS 身份槽全部阻断）：buildFileContent 只处理 jsonl，遇到 JS 目标直接抛（设计外）。JS 侧交付的是**安全静态读取 + 分类 + 阻断**，A08 两条探针覆盖。",
+    "本卡先用自己写的字节级扫描（token span）而不是 U03 的 readLedger 处理可写台账：readLedger 不返回 span，无法做「只换身份字面量、其余字节不动」的改写。U03 的五态读法仍被消费在只读核验台账（teaching.jsonl）上；failure 工厂全量复用。",
+    "A06 的备份写失败会留下该次备份目录下的**空目录**与事务件自己的空 `.whale-txn` 父目录（既有事务件只清 txn 子目录）：判据明确容忍这两类空目录、但断言文件字节/新文件/journal/锁零残留 —— 这不是伪成功，属既有事务件行为，已写进断言注释。",
+    "版本链同源判定：goals.jsonl 里两条**原始 point 不同**的记录归一后若撞在同一个 (point, v) 上，按「不可证明同源不许合并」整次阻断（version-chain-collision）；同一原始 point 的重复 v 不在此列（属台账自身历史问题，本卡不擅自\"修\"）。"
+  ],
+  "unverified": [
+    "迁移后的**产品读回**：宿主读取路径（lib/intake.js、lib/goal-io.js、lib/evidence-io.js、lib/adjust-io.js 等仍按历史写法匹配）与包内读取路径都没在本卡改动或实证 —— 只由 U17 实证；本卡不伪造。",
+    "派生数据与页面的重建：GLOSSARY.md、reference/NOTES.html、课程页答疑/笔记计数、assets/practice-data.js 的重建与再生成都留给 U17；本卡只做「阻断 + 记录重建入口的只读核实结论」。",
+    "`learning-records/state.json`、`starmap/content.js`、`progress.json`、`visual.jsonl` 未进扫描集：它们是快照/派生物或与身份无关，迁移后需要由各自生成器重算（U17 / 各自责任卡），本卡不删不改不猜。",
+    "旧平铺布局（`lessons/NNNN-*.html`）的**归属**规则本卡只用作读依据（LEGACY_HALO/LEGACY_POINT 与 lesson-map.js 同值），没有在真实活包上验证过这类布局的归属是否唯一；夹具里覆盖了「唯一 / 缺归属 / 多候选」三种分支。",
+    "MIGRATION_NOTHING / MIGRATION_FAILED / ID_AMBIGUOUS 的码值与旧式 `lib/pack-template/tools/offline-server.js` 里的同名字面量没有运行时联动验证（那属 U12 的接线，本卡只在 lib/unify/* 里用）。",
+    "本卡没有在真实课程包（活包）上跑过任何 apply/rollback：活动包全程只读且只属 U01/U20 窗口；所有真实迁移行为都在 E:\\Temp 自建夹具上验证。"
+  ],
+  "regressionsDiscovered": [
+    "R1（既存、非本卡引入、主持人已登记）：lib/pack-template/tools/{pack-text,fingerprint,plan-map,build-lessons}.js 已委托 ./unify/*.cjs，而 lib/pack-template/tools/unify/ 只有 U19 才生成 ⇒ 任何从模板/夹具加载包侧工具的路径现在 MODULE_NOT_FOUND。本卡没有去修它，也没有通过它来验证迁移（夹具全部自建）。",
+    "本卡未新增回归：没有改任何既有文件；A08 的依赖锚点证明本卡消费的五个文件逐字节未变。"
+  ],
+  "handoff": {
+    "to": "S3 的 U10 / U14（可用本卡做真迁移断言）、U17（迁移后产品全链路 + 派生重建）、U19（十四副本生成）、U20（对账）",
+    "consumers": {
+      "U10": "把 `planIdentityMigration/applyIdentityMigration/rollbackIdentityMigration` 用在 intake 裸 point / latest 预期的迁移断言上；CLI 也可直接驱动（参数数组）。",
+      "U14": "同理用于问答/笔记台账的拒绝与迁移断言（注意：notes 台账本身被本卡阻断，等 U17 接线后才是可写目标）。",
+      "U17": "要接的三处：① 四类派生身份槽的**纯重建入口**（能对内存新字节合成，不 require 目标模块）；② 迁移后宿主/包两条读取路径改按 circle/point[/NNNN] 读；③ 重新生成 state.json / practice-data / NOTES.html / 课程页。",
+      "U19": "lib/unify/migration.cjs 进最终包清单的生成由本卡负责吗？否 —— 只归 U19；本卡只在 lib/unify/ 放手工源码，不建 lib/pack-template/tools/unify/。"
+    },
+    "reverify": "node test/audit/U05.mjs",
+    "noRerun": "不跑全量门槛、不访问活包、不写主树、不操作 git index/提交/分支、不改模板登记/package.json、不跑 T 卡入口。"
+  }
+}

@@ -1,0 +1,312 @@
+{
+  "card": "U14",
+  "title": "答疑、笔记和调整记录（B lane · 共同记录构建与共同提交）",
+  "status": "PASS",
+  "baseline": {
+    "repo": "E:\\workplace\\dsh-whale-sensei-unify",
+    "branch": "refactor/unify-20261018",
+    "base": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "head": "2f57b1f2cec02e4128b69497e3b6819d36aa707b（本卡不做任何 git 写；无提交）"
+  },
+  "verdict": {
+    "command": "node test/audit/U14.mjs",
+    "line": "PASS U14 checks=8 failed=0 skipped=0",
+    "exitCode": 0,
+    "runner": "test/audit/unify-runner.mjs（异步壳 runCard；固定 A01–A08，不许 skip）",
+    "note": "判词只有一行；逐用例明细与耗时落 audit-evidence/U14/runs/U14-<pid>/（被 gitignore，不进仓）。"
+  },
+  "completion": [
+    "新建 lib/unify/records.cjs：四类记录（答疑队列 / 笔记台账 / 课后调整台账 / 已答台账）的**唯一**构建 + 序号分配 + 写后自检 + 归档判定 + 坏账本前置拒绝。",
+    "记录与序号**一起提交**：一律走 U06 的 planCommit/applyCommit（三闸）；计划里同时含台账与 seq 两个落点，第二件失败 ⇒ 事务回滚到写前字节（不再有分散回滚）。",
+    "五个落点改适配/委托而**导出面、参数、默认值、返回形状逐字不变**：lib/ask.js（serializeRecord / serializeLedgerEntry / insertLedgerEntry / LEDGER_ANCHOR / LEDGER_MARKER / emptyLedgerSource 委托内核）、lib/ask-io.js（handleAsk / handleAnswer 的写入路径委托 appendAskRecord / appendAnswerEntry）、lib/notes-io.js（appendNote 委托 appendNoteRecord）、lib/adjust-io.js（readAdjustments 委托 readRecordLedger + normalizeAdjustmentRecord）、lib/pack-template/tools/drain-questions.js（drainPending 委托 archiveAnswered，事务件由包侧显式注入）。",
+    "课程身份与页面锚点**严格分开**：qNNNN 一类页面定位值只能进 anchor 槽位；当课程键一律拒（LEDGER_INVALID / reason=page-anchor）；课程引用/笔记锚点经 lib/unify/identity.cjs 严格解析，旧形状（裸点 / 两段课键 / 1–5 位课号 / 显示名）运行态拒绝并点名迁移工具，跨圈歧义给 ID_AMBIGUOUS + 候选；未归课哨兵桶保留。",
+    "归档只搬**确实已答**记录（台账里有这条且 status==='answered'）：未答 / 未登记 / 解析不了的行原样留在队列里，正文与键序一个字节都不重排；没有可归档的行时零写。",
+    "损坏账本（invalid / io-error / recovery-required）上的后续普通写入**在碰任何事务之前**拒绝（事务调用次数 = 0），台账字节不动。",
+    "新增 test/audit/U14.mjs：A01–A08 真断言；A07 的两处变异只在 E:\\Temp 副本（干净副本对照必须绿）；A08 含写守卫/授权并集/内容锁/回执五项 + A 授权面本体（旧形状拒绝、歧义拒绝、U05 真 CLI 迁移后回读与追加）+「未改 test/mirror-parity.mjs」的机器证明。"
+  ],
+  "authorization": {
+    "section": "U-SPEC §12 · 选项 A（人类裁决）",
+    "option": "A",
+    "quoteVerbatim": "选A和授权p1和p2",
+    "quoteSource": "用户在 dsh 会话（U 系列统筹会话）中的直接消息，原文逐字如上；本文件不转述、不改写、不补全。",
+    "sourceFile": "docs/unify/authorization.json（字段 quoteVerbatim / quoteSource 逐字拷贝）",
+    "statement": "本卡只按 scope.A 执行；未改 test/mirror-parity.mjs（该行及其配套输入唯一归 U09，本卡不写它）。本卡的旧形状拒绝、歧义拒绝与 U05 迁移后写入断言只写入 test/audit/U14.mjs，不额外取得任何既有测试文件的写权限。",
+    "scope": "U-SPEC §12 A 的 U14 条款：不修改 test/mirror-parity.mjs 那一行（唯一归 U09）；旧形状拒绝、歧义拒绝、迁移断言只写入 test/audit/U14.mjs；逐条记录真实 Δ。P1/P2 属集成修正，不是本卡范围（本卡不改 fingerprint / PROBE_VERSION）。",
+    "evidenceOfWorkBoundary": {
+      "mirror-parity": {
+        "file": "test/mirror-parity.mjs",
+        "writesByThisProcess": 0,
+        "sha256UnchangedDuringRun": true,
+        "inU14WriteSet": false,
+        "owner": "U09（authorization.scope.A.authorized + interfaces.md §6）"
+      },
+      "existingTestsModified": [],
+      "note": "A08 的写守卫逐条记录本进程的写目标；`test/mirror-parity.mjs` 的 sha256 在进程开始与收口时相同，且它不在本卡写集里。"
+    }
+  },
+  "blockedHistory": {
+    "priorStatus": "BLOCKED",
+    "priorPlaceholder": "docs/unify/receipts/U14.json 在本卡启动前是 status=BLOCKED 占位回执（§12 未裁决 + 依赖 U10 亦 BLOCKED）。",
+    "releasedBy": "选A和授权p1和p2",
+    "releasedBySource": "docs/unify/authorization.json 的 quoteVerbatim（用户逐字消息）；依赖 U02/U03/U06/U05/U10 在此之后全部真实 PASS。",
+    "trace": "本回执保留该追溯：曾因 §12 未裁决与 U10 BLOCKED 而不能实施；现由人类 A 授权解除，且 U10 已在同一授权下 PASS 后才启动本卡。"
+  },
+  "dependencies": {
+    "required": ["U02", "U03", "U06", "U10", "U05"],
+    "status": {
+      "U02": "PASS —— lib/unify/identity.cjs（pointKey/lessonKey/parsePointKey/parseLessonKey 严格内核）；本卡只调用，不重写身份实现。",
+      "U03": "PASS —— lib/unify/errors.cjs + ledger-read.cjs（failure 工厂与五态）；本卡的全部失败面与台账读取都走它们。",
+      "U06": "PASS —— lib/unify/commit.cjs（planCommit/applyCommit 三闸、七态、待恢复拒绝）；本卡的每一次写入都经它。",
+      "U10": "PASS —— lib/unify/stage.cjs 及其三台账；本卡与它同构但**不调用**它（intake/goals/teaching 归它，answer/note/adjust 归本卡，两域各自收口到 U06，没有第二份提交协议）。",
+      "U05": "PASS —— lib/unify/migration.cjs + tools/migrate-pack.mjs；A08 用真 CLI（--plan → --apply）迁移调整台账的旧形状 lesson，然后回读 + 追加。"
+    },
+    "notConsumedByDesign": [
+      "lib/unify/migration.cjs 不进运行态内核（records.cjs 不 require 它；历史解码仍只在迁移工具里）。",
+      "lib/unify/stage.cjs 不调用（避免把 U10 的域适配器当通用底座）。"
+    ]
+  },
+  "interfaceConsumption": {
+    "kernelExportsAdded": [
+      "RECORD_KINDS / LEDGERS / ARCHIVE / SEQ_WIDTH / ledgerOf / ledgerFile / seqFile / formatId / seqFromText / nextSeq / readSequence",
+      "PAGE_ANCHOR_RE / isPageAnchor / pageAnchorOf / parsePageAnchor / UNROUTED_ANCHOR / REF_REASONS / REF_CODES / buildCatalogue / classifyCourseRef / classifyNoteAnchor",
+      "buildAskQueueRecord / buildNoteRecord / normalizeAdjustmentRecord / buildAnswerEntry",
+      "LEDGER_ANCHOR / LEDGER_MARKER / emptyLedgerSource / serializeLedgerEntry / insertEntry / loadLedgerSource / verifyLedgerSource",
+      "readRecordLedger / readAnswerLedger / answeredIds",
+      "planRecordAppend / applyRecordAppend / appendRecord / countingTransaction / recoveryResidue / receiptOf / RETRY_CODES / DEFAULT_RETRIES",
+      "appendAskRecord / appendNoteRecord / appendAdjustRecord / appendAnswerEntry",
+      "queueLines / splitAnswered / archiveAnswered / COMMIT_STATES"
+    ],
+    "dependsOn": {
+      "lib/unify/identity.cjs": "pointKey / lessonKey / parsePointKey / parseLessonKey / IdentityError（严格构造与解析，本卡不自己拼身份串）",
+      "lib/unify/errors.cjs": "makeFailure（唯一失败工厂）",
+      "lib/unify/ledger-read.cjs": "readLedger（jsonl 三台账的五态读取）",
+      "lib/unify/commit.cjs": "planCommit / applyCommit / COMMIT_STATES（三闸提交与七态）",
+      "lib/pack-template/tools/ledger-transaction.cjs": "withPackTransaction / assertNoRecoveryRequired / failureFor / txnPaths / pendingRecovery（默认按两种随包布局解析，可显式注入）"
+    },
+    "exportSurfacePreserved": {
+      "lib/ask.js": "14 个导出，与 HEAD 逐字相同（A08 用正则逐条对拍）",
+      "lib/ask-io.js": "19 个导出，与 HEAD 逐字相同",
+      "lib/notes-io.js": "5 个导出（NOTES_REL / NOTE_MAX_BYTES / SEQ_REL / appendNote / readNotes），与 HEAD 逐字相同",
+      "lib/adjust-io.js": "2 个导出（adjustmentsPath / readAdjustments），与 HEAD 逐字相同",
+      "lib/pack-template/tools/drain-questions.js": "module.exports 仍是 { drainPending, PENDING_REL, PROCESSED_REL }"
+    }
+  },
+  "writeSet": [
+    "lib/unify/records.cjs",
+    "lib/ask.js",
+    "lib/ask-io.js",
+    "lib/notes-io.js",
+    "lib/adjust-io.js",
+    "lib/pack-template/tools/drain-questions.js",
+    "test/audit/U14.mjs",
+    "docs/unify/receipts/U14.json"
+  ],
+  "writeSetEvidenceDirs": ["audit-evidence/U14/ 下本次新建文件（被 gitignore 的原始证据，不覆盖旧证据）"],
+  "writeOutOfSet": "无。本卡未改：test/mirror-parity.mjs（U09 的 A 面）、test/intake.mjs（U10 的 A 面）、任何其它既有 test/*.mjs 与 test/audit/T*.mjs、其它 lib/unify/*.cjs、lib/pack-model.js|pack.js|point-ref.js|intake.js|goal-io.js|teaching-io.js|author.js|rebuild-job.js|mods/*、已交付模板工具、lib/pack-scaffold.js、package.json、docs/unify/interfaces.md|baseline.json|authorization.json、cards/**、活包 E:\\workplace\\study、主树。",
+  "deltas": [
+    {
+      "kind": "delegation",
+      "what": "五个落点的记录构建/提交从各自实现收口到 lib/unify/records.cjs（记录形状、序号分配、写后自检、提交、归档判定只有一处）。",
+      "why": "卡面：答疑/笔记/调整记录的记录构建必须唯一，且与序号一起提交、不保留分散回滚。",
+      "evidence": "A08 的源码级判据：五个落点都 require 了 records 内核；不再有 appendFileSync/ftruncateSync 绕过提交边界的写；不再自己 writeFileSync 权威目标或自己开事务。"
+    },
+    {
+      "kind": "behavior-tightening",
+      "what": "归档（drain）只搬 status==='answered' 的记录；旧口径是「登记过就搬」（只看桶里有没有这个 id）。",
+      "why": "A05：归档只处理确实已答记录。登记了但还没答完的记录留在队列里，不被当成已处理搬走。",
+      "evidence": "A05 的夹具：0001 answered（搬走）/ 0002 登记但 pending（留下）/ 0003 未登记（留下）/ 坏行（留下）；drained=1 kept=3。"
+    },
+    {
+      "kind": "behavior-tightening",
+      "what": "坏账本（invalid / io-error）上的普通写入**在碰任何事务之前**拒绝：答疑队列与笔记台账此前即使有坏行也照写，现在一律 LEDGER_INVALID / IO_ERROR。",
+      "why": "A06 + U-SPEC §3：坏账本上不分配版本、不加记录。",
+      "evidence": "A06 的四类坏账本夹具：拒绝码逐条断言，事务调用次数 = 0，台账字节未变。"
+    },
+    {
+      "kind": "behavior-tightening",
+      "what": "序号文件读不动（EISDIR / EACCES 等）时拒绝写入；此前 readSeq 把读故障折成空串 ⇒ 下一次写会从 0001 重新发号。",
+      "why": "A03：读取故障不当空队列或空台账（编号撞车是学生数据事故）。",
+      "evidence": "A03 ⑤：notes/seq.txt 变成目录后追加被拒（IO_ERROR）、零事务、台账不变。"
+    },
+    {
+      "kind": "behavior-tightening",
+      "what": "lib/adjust-io.js 的读端把读取故障报进 problems（旧实现 catch 后返回「空台账、零 problems」）。",
+      "why": "A03：读取故障不得伪装成「没有台账」。",
+      "evidence": "A03 ⑥：adjustments.jsonl 是目录时 problems 含「台账读不动（EISDIR）…」；文件不存在仍是零 problems 的正常空态。"
+    },
+    {
+      "kind": "behavior-tightening",
+      "what": "归档在没有可归档行时**零写**；空队列不进事务（旧实现会原地重写一次 pending，且空跑一次事务）。",
+      "why": "A05 的保留语义 + 少写少错（正文与键序原样）。",
+      "evidence": "A05：第二次归档 pending 逐字节未变；空队列 empty=true、pending 文件不被创建；与 HEAD 旧实现对拍的三个场景产物逐字节相同。"
+    },
+    {
+      "kind": "identity-separation",
+      "what": "页面锚点（qNNNN）与课程身份彻底分开：只能进 anchor 槽位，当课程键/笔记锚点/写入槽位一律拒（LEDGER_INVALID / reason=page-anchor）；课程引用与笔记锚点经 identity.cjs 严格解析，旧形状拒 MIGRATION_REQUIRED、跨圈歧义拒 ID_AMBIGUOUS 并列候选。",
+      "why": "卡面硬约束：课程身份与页面锚点严格分开，课程引用单独严格验证。",
+      "evidence": "A04 全部断言；A08 ③ 的旧形状五行 + 歧义两候选 + 严格面零事务。"
+    },
+    {
+      "kind": "additive-fields",
+      "what": "records 的失败回执新增 buildErrorStatus / selfCheckFailure / refusedBeforeCommit / retryable 等机器字段；ask-io 的坏账本拒绝回执新增 code。",
+      "why": "上层要能原样保住既有错误文案与状态码（409 撞键 / 500 自检），同时让判据可机器判读。",
+      "evidence": "A02/A06 的回执断言；A08 的导出面与 HEAD 对拍（既有字段一个没少、语义没变）。"
+    },
+    {
+      "kind": "boundary",
+      "what": "包侧 tools/drain-questions.js 改为 require('./unify/records.cjs')（U-SPEC §5 的随包布局），但仓内 lib/pack-template/tools/unify/ 的副本只由 U19 生成。",
+      "why": "不为躲 R1 保留第二份归档计算。",
+      "evidence": "R1 登记见 unverified；本卡的 drain 用例在**自建临时包**里逐字复制内核模块后跑（U-SPEC §5 允许的验证方式），仓内模板副本零改动。"
+    },
+    {
+      "id": "single-source-codes",
+      "kind": "single-source-codes",
+      "what": "lib/unify/records.cjs 的本地别名码表 REF_CODES **不再重写一遍码值字面量**：INVALID / AMBIGUOUS / MIGRATION 三个值改为引用 lib/unify/errors.cjs 的 NEW_CODES（NEW_CODES.LEDGER_INVALID / NEW_CODES.ID_AMBIGUOUS / NEW_CODES.MIGRATION_REQUIRED）。赋出来的字符串与改前逐字相同。",
+      "defect": {
+        "trigger": "test/audit/U03.mjs 的 A04（码表归属）在**改前**的真实工作树上抛，判词逐字为：[真实工作树] 拟新增码出现了第二份定义（重名/语义冲突必须阻断；只许 lib/unify/errors.cjs 一份）：lib/unify/records.cjs:801 LOCK_BUSY（object-key） | lib/unify/stage.cjs:102 ID_AMBIGUOUS（object-key） | lib/unify/stage.cjs:103 LEDGER_INVALID（object-key） | lib/unify/stage.cjs:97 LOCK_BUSY（object-key） | lib/unify/stage.cjs:101 MIGRATION_REQUIRED（object-key）：actual=5 expected=0。",
+        "whyItIsADefect": "U-SPEC §3 要求五个拟新增码**只有一份定义**（查重名与语义冲突）。records.cjs 的 REF_CODES 把 LEDGER_INVALID / ID_AMBIGUOUS / MIGRATION_REQUIRED 三个码值各写了一遍字面量（改前 246–248 行），等于同一码值在仓里有两处真值来源：errors.cjs 改一处、records.cjs 漏改一处，产出的 code 就漂移，而 errors.cjs 才是唯一登记处 —— 这是**漂移源**，不是「同义码」，必须收口。",
+        "notAnAlias": "REF_CODES 的键（INVALID / AMBIGUOUS / MIGRATION）是本层三个拒绝**理由**的语义名，不是码名；它不新增码、不改旧码语义，只给本层 reason 起名字。",
+        "a04DidNotSeeIt": "必须写清（否则会误以为这条已被 A04 守住）：判词点到的 records.cjs:801 是 RETRY_CODES 的**成员集**，**不是**别名码表。A04 的 object-key 定义式只在码名**当键**时成立（{ LOCK_BUSY: … }）；别名码表里码值出现在**值位**（INVALID: 'LEDGER_INVALID'），分类器判为 mapped-value / 使用，所以 246–248 从来没被 A04 抓到。复刻同一批正则复现：改前那三行 hits=1 / definitions=0（全判为 use）；改后同样是 definitions=0。⇒ 别名码表这条缺陷只能靠读源码发现（主持人就是这么发现的），A04 报的是成员集。",
+        "coverageGap": "判据缺口（不在本卡写集）：A04 需要补一条「值位字面量与 errors.cjs 的 NEW_CODES 同值且不在 errors.cjs」的判据，否则这一类第二份定义永远不被发现。已登记给主持人 / U03。"
+      },
+      "fourOccurrences": [
+        { "where": "lib/unify/records.cjs REF_CODES.INVALID", "before": "INVALID: 'LEDGER_INVALID'", "after": "INVALID: NEW_CODES.LEDGER_INVALID", "class": "别名码表（已修）" },
+        { "where": "lib/unify/records.cjs REF_CODES.AMBIGUOUS", "before": "AMBIGUOUS: 'ID_AMBIGUOUS'", "after": "AMBIGUOUS: NEW_CODES.ID_AMBIGUOUS", "class": "别名码表（已修）" },
+        { "where": "lib/unify/records.cjs REF_CODES.MIGRATION", "before": "MIGRATION: 'MIGRATION_REQUIRED'", "after": "MIGRATION: NEW_CODES.MIGRATION_REQUIRED", "class": "别名码表（已修）" },
+        { "where": "lib/unify/records.cjs RETRY_CODES（第 810 行）", "before": "Object.freeze({ PLAN_STALE: true, LOCK_BUSY: true })", "after": "原样不动", "class": "成员集（未修，且不应修）" }
+      ],
+      "how": "① require 行从 errors.cjs 多取一个导出：const { makeFailure, NEW_CODES } = require('./errors.cjs')（先读真实导出形状：errors.cjs 的 module.exports 里确有 NEW_CODES，且它正是那五个码的**唯一落点**）；② REF_CODES 的三个值改成 NEW_CODES.*，键与对外形状（Object.freeze + 三个键）不变；③ RETRY_CODES 一个字节不动。",
+      "memberSetNotTouched": {
+        "what": "records.cjs:810 的 RETRY_CODES 是**成员集**（「哪些码要重读重算再提交」的集合），键是码名、值是布尔 true，既不绑定新码值、也不产生码值：它是「这个码属不属于重试集」的判定表，不是码的定义。",
+        "whyKept": "改成引用会改变它的语义（它问的是成员资格，不是码值）；真正要修的是 U03 的分类器：object-key 形态对「键=码名、值=布尔」的成员集应豁免，那是 U03 那边的活，不在本卡写集。",
+        "note": "同样形态在 lib/unify/stage.cjs:97 也有一份（U10 的文件，不在本卡写集）。"
+      },
+      "behaviorUnchanged": {
+        "claim": "所有产出的 code 与改动前**完全相同**；RETRY_CODES 语义与内容不变。",
+        "proof": "① 逐条对拍（可移植、可复跑）：68 条探针（REF_CODES/RETRY_CODES 两表取值 + classifyCourseRef 33 条覆盖 INVALID/AMBIGUOUS/MIGRATION 每一条出口 + classifyNoteAnchor 8 条 + 四类台账 missing/empty/ok/invalid/io-error 五态与 failure.code + 坏账本计划前置拒绝 + receiptOf/recoveryResidue）。改前那一版**不是靠 git**（records.cjs 是新建件、HEAD 里没有），而是在 E:\\Temp 造一棵内核副本树、把 REF_CODES 三个值**逐字还原成改前字面量**（还原处逐条断言行数），再用**同一个 fixtureBase** 对「副本树的改前版」与「仓内现值」各跑一次：两份快照逐字节相同（各 25120 字节，sha256 均为 9a2db9a6522aa068793a5937eadc32c792d980785e13bb6ade33d4d48e3a45c3），实际出现过的码值集合恒为 ID_AMBIGUOUS, IO_ERROR, LEDGER_INVALID, LOCK_BUSY, MIGRATION_REQUIRED。② node test/audit/U14.mjs → PASS U14 checks=8 failed=0 skipped=0（exit 0），A01–A08 全绿。③ 探针、对拍驱动与判据复现、改前改后两份快照、对拍报告都随本回执留在 audit-evidence/U14/bugfix-a04-codes/（probe-codes.cjs / verify.cjs / codes-before.json / codes-after.json / verify-report.json / repro-classifier.cjs / README.md；原始证据，被 gitignore，README 里写了复跑命令）；脚本只读仓源码、只在 E:\\Temp 本次唯一临时目录里造夹具（已清理）。",
+        "scope": "只有 REF_CODES 三个值的**来源**变了（字面量 → NEW_CODES 引用），类型仍是 string、仍是同一个冻结对象的同样三个键，导出面与键序不变。"
+      },
+      "residual": {
+        "U03Timeline": "改前：U03 的 A04 红，判词并列 5 条（lib/unify/records.cjs:801 LOCK_BUSY 成员集 + lib/unify/stage.cjs:97/101/102/103）。本卡改完时（约 12:24）A04 仍红且命中数不变（records.cjs 那条因注释多了 9 行移到 810）—— 因为那 5 条一条都不涉及本卡修掉的别名码表（别名码表在 A04 眼里是 use）。此后**并发 lane** 在约 12:25 把 lib/unify/stage.cjs 的 STAGE_CODES 也收口到 NEW_CODES（`[NEW_CODES.MIGRATION_REQUIRED]: NEW_CODES.MIGRATION_REQUIRED` 这类计算键写法），并更新了 test/audit/U03.mjs 的分类器（成员集豁免）；本卡复跑 `node test/audit/U03.mjs` → PASS U03 checks=8 failed=0 skipped=0（exit 0）。这两处都**不是本卡改的**，也不在本卡写集里。",
+        "attribution": "本卡只改 lib/unify/records.cjs 的 REF_CODES 三个值来源 + docs/unify/receipts/U14.json 的这条 Δ。lib/unify/stage.cjs 与 test/audit/U03.mjs 的改动归并发 lane（U10 / U03），本卡一个字节都没碰。",
+        "coverageGapForU03": "值位重复仍然不被 A04 看见（见本 Δ 的 defect.a04DidNotSeeIt）：若将来有人在别处再写一遍 'LEDGER_INVALID' 这类**值位**字面量，A04 依旧不会红。建议 U03 侧补一条「值位字面量与 NEW_CODES 同值且不在 errors.cjs」的判据 —— 这是本卡修掉的那个缺陷唯一还能防住的缺口。",
+        "notFixedHere": "test/audit/U03.mjs、lib/unify/errors.cjs、lib/unify/stage.cjs 都不在本卡写集，本卡一个字节都没碰（U03 现绿是并发 lane 的成果，不是本卡的）。"
+      },
+      "evidence": "U14 回执验证：node test/audit/U14.mjs → PASS checks=8 failed=0（exit 0）；码值对拍两份快照逐字节相同（25120 字节 / sha256 9a2db9a6522aa068793a5937eadc32c792d980785e13bb6ade33d4d48e3a45c3，可复跑：audit-evidence/U14/bugfix-a04-codes/README.md）；node -e \"require('./docs/unify/receipts/U14.json')\" exit 0；node test/audit/U03.mjs → PASS（并发 lane 修完 stage.cjs 与分类器之后实测）。"
+    },
+    {
+    "what": "audit-evidence 第一层白名单从硬编码「U 卡目录 + T23」改为「U 卡目录 + T23 + 真实存在的 T 卡」。决-1/决-2/决-5/决-6/决-9/P2 之后，T 卡（T01/T03/T10/T12/T26…）由别的 lane 合法运行并把证据目录留在仓内，旧硬编码口径会把**别人的合法产物**算成本卡越界（结构性假红）。",
+    "rule": "isRealT(d) = /^T\\d{2}$/.test(d) && fs.existsSync(test/audit/<d>.mjs) —— 只有盘上真有入口的 T 卡才放行。",
+    "antiVacuity": "同处追加反空转自证：unexpectedOf([U01, T23, T01, TXX-nobody]) === [TXX-nobody]（真实存在的 T 卡放行；没有入口的 TXX-nobody 仍必须被判出来，任何非 T 非 U 目录仍红）。",
+    "strength": "判据只增不减：原放行面 {U\\d\\d, T23}，新放行面 {U\\d\\d, T23, 真实存在的 T\\d\\d}，同时新增 TXX-nobody 反空转断言。不是「T 一律放行」。",
+    "outOfSet": "无。只改本卡自己的入口 test/audit/U14.mjs 与本卡 tracked 回执 docs/unify/receipts/U14.json。",
+    "movedOutOfRepo": "E:\\Temp\\stray-T01-T03-evidence\\ —— T01 25 件/18623 B、T03 41 件/49068 B，**移出仓但保留、不删**（处置前后逐文件数/字节数一致）。",
+    "evidence": "移出 + 白名单修改后本卡复验：PASS checks=8 failed=0 skipped=0（exit 0）。",
+    "source": "E:\\Temp\\HANDOFF-U-SERIES-20261020.md §3 根因 / §4 决-A1（状态：已确认）。",
+    "kind": "stray-t-evidence-allowlist"
+    }
+  ],
+  "assertions": {
+    "A01": "记录和序号一起提交：ask/note 的计划里同时含台账与 seq 两个落点（whale-commit/1 + sha256 摘要），每次追加恰好进一次事务（计数事务 = 2），两次追加得 0001/0002，seq 原始字节 \"2\" 与 \"2\\n\" 各自保留，记录键序 id,at,lesson,page,title,question,status 未变；adjust（单文件）仍走同一协议且只含一个落点。",
+    "A02": "第二个文件写入失败不留下半提交：在**第二次 rename** 的目标（seq）注入 EIO（第一个目标已落位），ask 与 note 各跑一次 —— 回执 ok=false / state=rolled-back、台账与 seq 都逐字节回到写前、注入计数 ≥1、台账目录没有 .tmp-txn-* 残骸、.whale-txn 与包锁都收干净。",
+    "A03": "读取故障不当空队列或空台账：ask/note/adjust/answer 四类台账 × missing/empty/ok/invalid/io-error 五态逐类实跑（invalid → LEDGER_INVALID；io-error → IO_ERROR + errorCode EISDIR；missing 只认真 ENOENT；五态互不相同）；序号文件读不动时拒绝写入且零事务（不从 0001 重新发号）；adjust-io 读端把故障报进 problems，文件不存在仍是正常空态。",
+    "A04": "课程身份与页面锚点不混淆：isPageAnchor/pageAnchorOf/parsePageAnchor 形状；q0001 当课程键 → LEDGER_INVALID/reason=page-anchor 且理由点明「页面锚点」；规范 circle/point/NNNN 原样通过（shape=lesson）；跨圈裸点 x → ID_AMBIGUOUS + ['a/x','b/x']，给 halo 才解；未归课哨兵保留；显示名与两段课键 → MIGRATION_REQUIRED；已答条目的 anchor=q0004 与 lesson='第1课' 是**两个槽位**（把页面锚点塞进 lesson 直接抛错），落盘后两个槽位各在其位。",
+    "A05": "归档只处理确实已答记录：0001（answered）搬走、0002（登记但 pending）/0003（未登记）/坏行原样留下；processed = 原内容 + 原始队列行（逐字节，含换行转义与 emoji）；留下的三行原样原序；seq 不动；再归档零进展零写；空队列 empty=true 且不创建 pending；与 HEAD 版旧实现在 all-answered / mixed / nothing-answered 三个场景产物逐字节相同。",
+    "A06": "拒绝损坏账本上的后续普通写入：ask 坏 JSONL / note 坏 JSONL / note 台账路径是目录 / answer 台账源码语法坏 —— 四种坏账本一律拒绝（LEDGER_INVALID 或 IO_ERROR），且**事务调用次数 = 0**、台账字节未变；另在 .whale-txn 下造一份 state=recovery-required 的日志残骸，普通写入回 state=recovery-required / code=RECOVERY_REQUIRED 且零事务、队列文件不被创建。",
+    "A07": "变异有效性（只在 E:\\Temp 副本）：干净副本（12 个文件逐字复制，两种随包布局）上 A01/A02/A05 判据 0 违规；变异 ①（归档口径放宽成「每一行都算已答」）→ A05 判据 5 条红；变异 ②（绕过事务、恢复两段直接写）→ A01 判据 3 条红 + A02 判据 10 条红；变异只落在副本（仓内内核 sha256 与进程开始时相同，干净副本与仓内逐字节相同）。",
+    "A08": "证据及范围守卫有效：五个落点都委托 records（源码级判据 + 反空转 token 检查）；导出面与 HEAD 逐条相同；纯函数层与 HEAD 逐字对拍（serializeRecord / serializeLedgerEntry / LEDGER_ANCHOR / LEDGER_MARKER / emptyLedgerSource / insertLedgerEntry 含两条拒绝文案）；进程内 fs 写守卫（探针写自证 + ops 覆盖 mkdir/write/copy/rm/rename + 0 越界）；§6 ∪ §12 A 授权并集现场解析（20 张卡，tracked 改动 0 越界；授权面自证含「抽掉 extras 必须红」）；交付物内容锁当场复核；临时目录归属与清理守卫；tracked 回执五项 + 授权逐字引用 + 曾 BLOCKED 追溯；未改 test/mirror-parity.mjs 的机器证明（本进程 0 次写它、其 sha256 运行期间未变、不在本卡写集、A 面授权只归 U09）。",
+    "A08Note": "A08 的 A 授权面本体（旧形状拒绝 / 跨圈歧义拒绝 / U05 真 CLI 迁移后回读与追加）不写在 test/mirror-parity.mjs 里：迁移夹具用自建包（EXPECT 按 point/NNNN 声明形状），迁移后逆替换逐字节回到迁移前，再追加一条规范身份记录。"
+  },
+  "unverified": [
+    {
+      "id": "R1",
+      "severity": "登记（已知中间态，非本卡缺陷）",
+      "what": "包侧 tools/drain-questions.js 已委托 ./unify/records.cjs（U-SPEC §5 的随包布局），而仓内 lib/pack-template/tools/unify/ 的十四副本只由 U19 生成 —— 所以在**仓内**直接跑该模板脚本会 MODULE_NOT_FOUND；铺模板/夹具的既有套件（例如 T11 的 makePack、mirror-parity 的模板对拍）在 U19 生成副本前会命中同一条。",
+      "whyNotFixedHere": "卡面：不得为躲 R1 保留第二份计算；模板登记与副本生成只归 U19。",
+      "verification": "本卡的 drain 用例在自建临时包里逐字复制已交付内核后跑（记录在 evidenceIndex 的副本清单里）；仓内模板目录零改动。",
+      "unblock": "U19 生成 lib/pack-template/tools/unify/*.cjs 后解除。"
+    },
+    {
+      "id": "R2",
+      "severity": "新发现的既有测试冲突（本卡无权修改，登记）",
+      "what": "test/audit/T10.mjs 的 T10-source-wired（1038–1054 行）做的是**源码级**断言：lib/notes-io.js 与 lib/ask-io.js 的源码里必须字面出现 `withPackTransaction(` 与 `pack-template/tools/ledger-transaction.cjs`。本卡把提交边界收口到 records 之后，这两个字面量只出现在 lib/unify/records.cjs 与事务件里，宿主只剩「把包级事务件作为能力注入」的那行 require。",
+      "impact": "T10-source-wired 的第 1 条（withPackTransaction 字面量）在 U14 之后不再成立；其余断言（入口函数名、无 appendFileSync/ftruncateSync）仍成立。",
+      "whyNotFixedHere": "U14 写集不含 test/audit/T10.mjs，也没有既有测试文件的写权限；A 面只在 test/audit/U14.mjs 里体现。",
+      "suggestedResolution": "按 §12 的「新发现冲突带实测差异裁决」流程：要么在后续授权里把该源码级断言改为「宿主把事务件作为能力注入 records / 提交边界在 records.cjs」，要么接受 T10 这一条转红并由 U20 对账（本卡不擅自改）。"
+    },
+    {
+      "id": "U18",
+      "what": "包侧 ask-server 与本模块的共同记录接线归 U18；两侧最终对拍（包侧 /ask /note /progress 与插件侧同源）没有在本卡发生，也没有提前冒充完成。",
+      "impact": "test/mirror-parity.mjs 等两侧对拍套件本卡一律未跑（卡面禁止），因此「两侧同源」这条结论不被本卡声称。"
+    },
+    {
+      "id": "U17",
+      "what": "迁移后产品全链路（NOTES.html 分组、课程页答疑计数、questions-data.js / notes 的历史形状归一）仍需 U17；本卡只证明 records 层在迁移后的调整台账上可读可追加。",
+      "impact": "assets/questions-data.js 的 lesson 仍是显示名、notes 的历史锚点不在运行态归一 —— 这两条是 U05 的 BLOCKED_FILES（blocked-rebuild-missing）与 U17 的范围，本卡不擅自改语义。"
+    },
+    {
+      "id": "mirror-parity",
+      "what": "test/mirror-parity.mjs 本卡**未运行**（卡面：不跑读活包/对拍既有套件）。它是否在 U14 之后仍绿，需 U20 的全量对账。",
+      "impact": "本卡只证明「未改它」与「导出面/纯函数层与 HEAD 等价」，不证明该套件通过。"
+    },
+    {
+      "id": "T11",
+      "what": "T11（drain 的并发/故障/崩溃恢复用例）本卡未运行；它的 makePack 从模板整树复制，U19 前会命中 R1。归档口径收紧（只搬 answered）对 T11 现有夹具无影响（其 registered 条目都是 status:'answered'），但这一判断基于读源码，不是实跑。",
+      "impact": "按卡面：T 卡入口一律不跑；留给 U20。"
+    },
+    {
+      "id": "R3",
+      "severity": "跨 lane 观察（非本卡缺陷，本卡不修）",
+      "what": "U09 收敛后 lib/unify/pack.cjs 的 keyOfAnchor 只认规范身份（circle/point/NNNN）与哨兵「未归课」，显示名（`第N课`）不再归一。因此 lib/mods/note.js 用显示名当 anchor 的调用点（以及它自带的 selftest 期望 `pt/0001` 的那条）在 U17 迁移历史台账之前会被拒成「孤儿锚点」。",
+      "attribution": "这是 U09 的收敛结果（test/pack-model.mjs 明确断言 keyOfAnchor 不再归一显示名），不是 U14 的改动；本卡只把提交边界收口，没有改锚点解析规则。",
+      "impact": "本卡的 notes 用例用规范锚点（programming/vue/0001）与哨兵；生产页面若仍传「第N课」，需要 U17 的显式迁移与前端口径对齐。",
+      "handling": "登记给主持人/U17，不在本卡改（mods/* 与 pack-model.js 都不在本卡写集）。"
+    },
+    {
+      "id": "全量",
+      "what": "本卡的 PASS 只证明 U14 范围（A01–A08）。全量基线（38/38 套）与随包闭环不在本卡，不伪称全工程已绿。",
+      "impact": "U20 才做全量收口与提交。"
+    }
+  ],
+  "evidenceIndex": {
+    "entry": "test/audit/U14.mjs（唯一验收入口；判词一行）",
+    "runner": "test/audit/unify-runner.mjs",
+    "raw": "audit-evidence/U14/runs/U14-<pid>/（result.json / cases.jsonl / detail.json；被 gitignore，不覆盖旧证据）",
+    "deliveryRun": {
+      "dir": "audit-evidence/U14/runs/U14-<pid>/（每次运行一个新目录；交付前连续多次复跑均为 PASS/exit 0，目录名随 pid 变化）",
+      "line": "PASS U14 checks=8 failed=0 skipped=0",
+      "exitCode": 0,
+      "note": "交付时的最后一批运行目录见对话回执（本回执不钉死 pid —— 复验会新建 U14-<新pid> 目录，不覆盖任何旧证据）。"
+    },
+    "deliveryRunFacts": {
+      "A02": "ask / note 两次注入（rename 目标 = seq）都 fired=1、state=rolled-back、台账与 seq 逐字节回到写前、暂存残骸 0、事务日志 0、锁未残留",
+      "A05Parity": "all-answered / mixed / nothing-answered 三场景与 HEAD 旧实现产物逐字节相同（same=true ×3）",
+      "A07": "副本各 12 文件（两种随包布局）；干净副本 0/0/0 违规；变异① A05 红 5 条；变异② A01 红 3 条 + A02 红 10 条",
+      "A08Migration": "PLAN ok=true … changes=2 blocks=0 → APPLY ok=true replaced=2 backup=.backup/<hex>；迁移后 3 行、新行 lesson=programming/vue/0001",
+      "U09Face": "test/mirror-parity.mjs sha16=587ac8afdddd7435（进程开始与收口相同）、本进程写它 0 次",
+      "writeGuard": "patched=34 个写入口、writeCount≈2100、ops 覆盖 copy/mkdir/open/rename/rm/unlink/write、violations=0、探针写自证通过",
+      "authorizedUnion": "§6 20 张卡 / 并集 140 条路径 / tracked 改动 40 条 / 越界 0",
+      "closing": "closing.ok=true、内容锁复核 0 不符、依赖自锚 0 变化、临时目录已按归属守卫清理"
+    },
+    "detailSections": [
+      "A01 计划落点/txn 次数/编号/键序",
+      "A02 注入计数/回执 state/写前写后字节/残骸与锁",
+      "A03 四类台账五态观测 + 序号读故障 + adjust 宿主读端",
+      "A04 目录/页面锚点/规范身份/歧义/哨兵/两槽位落盘",
+      "A05 归档前后队列与 processed 字节、第二次归档、空队列、与 HEAD 旧实现三场景对拍",
+      "A06 四种坏账本 + 待恢复残骸：拒绝码/事务次数/字节",
+      "A07 副本清单（12 文件 × 两种布局）+ 两处变异 + 干净副本绿 + 仓内内核 sha256",
+      "A08 写守卫（探针/计数/ops/0 越界）、授权并集（20 卡、tracked 归属、红路径自证）、内容锁、receipt 摘要、U09 A 面证明、U05 迁移实录"
+    ],
+    "baselineCapture": "本卡不依赖改前采集材料（没有 audit-evidence/U14/pre-change.json）：既有行为用 git HEAD 版本在 E:\\Temp 副本里对拍（纯函数层逐字节 + drain 三场景产物逐字节）。"
+  },
+  "receiptSelfCheck": {
+    "command": "node -e \"require('./docs/unify/receipts/U14.json')\"",
+    "note": "本文件是合法 JSON 且可被 require；A08 会现场 require 它并逐项核对字段。"
+  },
+  "notes": [
+    "本卡不升版、不发布、不 push、不做任何 git 写（含 add/commit）；分支与 HEAD 保持基线。",
+    "本卡没有访问活包 E:\\workplace\\study，也没有跑任何 T 卡入口或读活包的套件。",
+    "A07 的两处变异只发生在 E:\\Temp 下的本次唯一临时目录，跑完即删（detail.json 的 tempCleaned 记录）。"
+  ]
+}

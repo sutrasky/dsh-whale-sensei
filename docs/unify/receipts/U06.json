@@ -1,0 +1,403 @@
+{
+  "card": "U06",
+  "title": "共同提交守卫（B lane · S2：planCommit/applyCommit 三闸 + 七态复用，复用既有包锁与 whale-txn/1 日志）",
+  "status": "PASS",
+  "scope": "unresolved",
+  "scopeNote": "U-SPEC §12 的 A/B 范围选择仍未裁决。本卡**不依赖**该裁决（U-BATCHES：U06 只消费 U01/U03 与仓内事务件），此处沿用 unresolved 只为跨卡字段一致，不代表 U06 取得了任何 §12 授权。",
+
+  "completion": {
+    "summary": "在固定基线 2f57b1f 上交付共同提交守卫并只做必要接线：① 新建 `lib/unify/commit.cjs`（纯 CJS）—— `planCommit(root, build, {fs})` 产出 `whale-commit/1` 计划（root/operation/files/planDigest，files 按 rel 排序去重、只记内容摘要与写前摘要，不落正文；build 拿的是**只读 fs 视图**，写盘一调就抛）；`applyCommit(root, plan, {confirm, planDigest, build, transaction, fs})` 按**固定三闸**（有效计划/目标/操作 → 显式确认 → 当前输入/目标真实字节摘要，**锁内**复核）提交，七态复用事务件既有词，待恢复拒绝普通写，恢复失败如实报 recovery-required；② `lib/pack-template/tools/ledger-transaction.cjs` 只**插入** `failureFor()`（七态 → 失败面 kind，码值不越权）；③ `tools/recover-ledgers.mjs` 只**插入** `--json`（默认文本回执与退出码逐字保持）；④ 新建 `test/audit/U06.mjs`（U01 的**异步**壳 runCard + printVerdict + writeRunEvidence，A01–A08 全真断言，A07 在 E:\\Temp 副本上做两个变异）；⑤ 本回执。权威判词 `PASS U06 checks=8 failed=0 skipped=0` / exit 0（运行目录 U06-14428；同一入口连续三次同判词）。",
+    "planSchema": {
+      "schema": "whale-commit/1",
+      "keys": ["schema", "root", "operation", "files", "planDigest"],
+      "fileKeys": ["rel", "remove", "digest", "bytes", "beforeDigest"],
+      "rule": "planDigest = sha256(canonical({schema,root,operation,files:[[rel,remove,digest,bytes,beforeDigest],…]}))；无时间戳、无随机、无正文 ⇒ 同一输入永远同一摘要（A03/A08 复算）",
+      "dedupe": "files 按 rel 升序、同 rel 只留一条（后一条覆盖前一条）；build 两次给出的 rel 集不一致 ⇒ 直接拒（不确定的 build 不能出计划）",
+      "emptyPlan": "允许空 files（= no-op）；与事务件既有 `() => []` 形状一致"
+    },
+    "gates": {
+      "order": ["plan", "confirm", "bytes"],
+      "plan": "PLAN_REQUIRED（kind=input）：schema/root/operation/rel 包内/排序去重/未知键/计划自身 planDigest 不自洽 —— 逐项各拒一次，前置 ⇒ 事务调用 0 次",
+      "confirm": "CONFIRM_REQUIRED（kind=confirmation）：`confirm !== true`（'yes'/1 都不算）；调用方回引的 `planDigest` 与计划不符 ⇒ PLAN_STALE（kind=conflict）—— 二者都在前置，事务调用 0 次",
+      "bytes": "PLAN_STALE（kind=conflict）：**锁内**（事务件的 build 回调里）逐个目标读当前**真实字节**与 beforeDigest 比，再用同一份写前字节重建计划内容与 digest 比；不符即抛错，事务件在任何备份/暂存/rename 之前拒绝 ⇒ 一个字节都没落位，旧计划不覆盖新内容（A04 用锁探针证明读目标时锁已持有）",
+      "codesProvenance": "三个码都是 U01 锁定的**既有**码值（interfaces.md §5.1 命中）；`LOCK_BUSY`/`RECOVERY_REQUIRED` 是 U-SPEC 拟新增码（U03 在 errors.cjs 落地），只用于 busy/待恢复"
+    },
+    "sevenStates": {
+      "words": ["building", "prepared", "committed", "rejected", "busy", "rolled-back", "recovery-required"],
+      "observedLive": "building = 事务件 build 回调里拿到的 state.state（两次调用都是 building）；prepared/committed = journal 真实落盘序列 [prepared, committed]；其余四态由回执观测（committed / rejected / busy / rolled-back / recovery-required 各一次）",
+      "journalSchema": "whale-txn/1 逐字：prepared 键集 [schema,txnId,root,startedAt,state,files]；committed 多 committedAt；files 记录键集 [rel,target,remove,backup,existed,before]；journal 里**不含新内容**（只记写前字节的落点）",
+      "recoveryBlock": "待恢复时普通写被拒：applyCommit 先用事务件自己的 `assertNoRecoveryRequired()` 挡一次（进事务前），事务件拿锁后再挡一次 —— 同一个守卫、同一份日志，不造第二套；此时 build 调用 0 次、提交调用 0 次、目标字节不动（A05）"
+    },
+    "honestRecovery": "回滚失败 ⇒ `{ok:false, state:'recovery-required', code:'RECOVERY_REQUIRED', failure:{kind:'recovery'} , rollbackError, journal}`；日志 + 备份 + 锁全部保留（A06 断言 journal.state=recovery-required、backup-0.bin 在盘上、锁仍在、目标未改）。事务实现自己抛错时同样如实报：有残骸 ⇒ recovery-required（材料路径进回执），无残骸 ⇒ rejected/IO_ERROR；**applyCommit 从不自己跑 recoverPack 再宣称已恢复**（A06 用 recoverPack 计数器 = 0 证明）",
+    "landingPointWiring": {
+      "ledger-transaction.cjs": "只插入一个 `failureFor(result)`（+ STATE_FAILURE_KINDS / SYS_CODE_PREFIX）：七态归本件所有，故 state→kind 只在它这儿定；**不产出码值**（LOCK_BUSY/RECOVERY_REQUIRED 这类新码只许落在 lib/unify/*，U03 的查重结论），errorCode 只从本件自己的 `${code}: ${message}` 前缀原样取出。git diff = +46 行 / -0 行",
+      "recover-ledgers.mjs": "只插入 `--json`（check / recover 两条路径各一行 JSON）：默认文本回执（PASS/PENDING/OK 三行）与退出码 0/1/2 语义逐字保持；failure 由事务件 failureFor 给。git diff = +42 行 / -0 行",
+      "noSecondSystem": "没有第二把锁、第二套日志、第二套恢复：applyCommit 的唯一写路径是事务件的 withPackTransaction（包锁 .whale-write.lock + .whale-txn/<id>/journal.json + recoverPack 离线恢复）"
+    },
+    "entry": "test/audit/U06.mjs 用 U01 的**异步**壳（runCard 真的 await；缺/多/重复/空用例/异常/截断都不许 PASS），固定 A01–A08 八项。A07 在 E:\\Temp 副本把 commit.cjs 复制成两棵（含 errors.cjs 与事务件，保持相对 require），分别打「跳过确认闸」与「把恢复失败当成功」两个变异，用子进程判据内核 `--commit-contract=<dir>` 跑：干净副本 `COMMIT-CONTRACT OK` / exit 0，两个变异副本 exit 1 并点名对应闸。",
+    "verdict": "PASS U06 checks=8 failed=0 skipped=0（首次权威运行 audit-evidence/U06/runs/U06-14428）；A08 判据修正（见 deltas.interfaceLockAnchorRealignment）之后复跑同判词：audit-evidence/U06/runs/U06-33740 与 `--evidence-root=E:\\Temp\\U06-anchor-verify` 各一次，均 PASS / exit 0；`--anchor-self-proof` ⇒ `ANCHOR-SELF-PROOF OK samples=5 red=3 green=2` / exit 0。`--evidence-root=E:\\workplace\\not-allowed` ⇒ `BLOCKED U06 …` / exit 2"
+  },
+
+  "dependencies": {
+    "upstream": [
+      {
+        "card": "U01",
+        "requirement": "接口锁/错误码/落点表、异步判据壳；真实 PASS + tracked 回执",
+        "observed": "docs/unify/receipts/U01.json status=PASS；本卡只读消费 interfaces.md 与 baseline.json，一个字节都没写（A08 用「运行期自锚：开跑快照 = 收口快照」逐件证明；见 deltas.interfaceLockAnchorRealignment）。口径已改：interfaces.md 归 U01 且被合法账本同步更新过两次（U01 deltas L1/L3），本卡**不再**要求它的 sha 等于 U03 消费时记下的旧锁值——只登记 + 按 §6 归属（证据 audit-evidence/U06/runs/U06-17180/anchors.json 的 staleRecords：U03 的 46889B/35acebe7… 与现 47673B/0dc0bc6e… 不同源，blocking=false）；用 2f57b1f 的对象做事务件基线 sha 锚点"
+      },
+      {
+        "card": "U03",
+        "requirement": "lib/unify/errors.cjs（failure 结构 + makeFailure 唯一工厂）、lib/unify/ledger-read.cjs；真实 PASS + tracked 回执",
+        "observed": "docs/unify/receipts/U03.json status=PASS；errors.cjs 现 sha256 = 4e18e718… 与 U03 回执 writeSet 记的一致（A08 **只登记**这个跨卡登记值、归属 U03，不拿等值判红）；依赖是否还可用改由**行为锁**证明：FAILURE_KINDS 五态逐字、makeFailure/isFailure 在、非法 kind 抛 TypeError、LOCK_BUSY/RECOVERY_REQUIRED 落点仍在、码值原样往返。本卡 failure 全部经 makeFailure 过一遍形状（kind 域 / 非空 code / 非空 error）"
+      },
+      {
+        "card": "仓内事务件（T09 基线，非 U 卡）",
+        "requirement": "withPackTransaction / recoverPack 的真实签名与约束（U01 §3 落点锁：35601 字节 / sha256 0361593f…）",
+        "observed": "HEAD 上的 ledger-transaction.cjs = 0361593f… 与 U01 锁一致；本卡改动是**纯插入**（HEAD 每一行按序都在当前文件里，0 删除/0 修改行），既有导出名、TXN_SCHEMA='whale-txn/1'、TXN_DIR='.whale-txn'、LOCK_NAME='.whale-write.lock'、JOURNAL_NAME='journal.json'、DEFAULT_TIMEOUT_MS=5000、STATES 七态逐字、T09 判据锁着的「锁获取」「回滚」两段正则仍各命中一次"
+      }
+    ],
+    "downstreamReleased": ["U09", "U10", "U14", "U18", "U19", "U20"],
+    "downstreamBoundary": "本卡只交付**协议与接线**：把各领域写口（intake/goal-io/teaching-io/ask-io/notes-io/evidence-io/glossary-edit-io）改调 planCommit/applyCommit 归各自卡片；包内副本 lib/pack-template/tools/unify/{commit,errors,…}.cjs 由 U19 生成（本卡不手补）；全量与随包收口归 U20/U17。"
+  },
+
+  "interfaceConsumption": {
+    "lock": "docs/unify/interfaces.md",
+    "lockBytes": 47673,
+    "lockSha256": "0dc0bc6e3e705903479bde75328e932a3c4da546cce867ac127ea7eaea3f7e28",
+    "lockBytesAtDelivery": 46889,
+    "lockSha256AtDelivery": "35acebe7bc1fd4560f59e244ea5a89730c1b11435d27da75ff5fdfa19ab92658",
+    "lockSupersededBy": "deltas.interfaceLockAnchorRealignment：interfaces.md 归 U01，在授权路径上被合法账本同步更新过两次（U01 回执 deltas L1 / L3）——本卡已把「sha == U03 旧锁值」换成运行期自锚 + §6 归属登记 + 交付物内容锁。",
+    "baseline": "docs/unify/baseline.json",
+    "baselineBytesObserved": 60232,
+    "baselineSha256Observed": "cf53c0c41d5b55b090ed6503fda59ffc2f52372f7629f8924f8e97efd35f36e1",
+    "baselineNote": "baseline 的写权归 U01；本卡只读，且**不锚定**它的字节数（会话期间它被 U01 侧从 53063/06b75c7b 更新为 60232/cf53c0c4 —— U03 回执记的是旧值；差异不由本卡引起，本卡判据也不依赖它）",
+    "baseSha": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "branch": "refactor/unify-20261018",
+    "head": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "transactionInterface": {
+      "withPackTransaction": "withPackTransaction(root, build, {timeoutMs = 5000, fs, ownerToken}) → {ok, value?, state, error?, rollbackError?, txnId?, journal?, lock?, files?}；state ∈ 七态（本卡未改签名/默认值）",
+      "recoverPack": "recoverPack(root, {offline, confirm, ownerToken, fs}) → {ok, state, error, examined, restored, keptCommitted, discarded, swept, takeover, lock}（本卡未改签名/默认值）",
+      "existingExportsKept": ["TXN_SCHEMA", "TXN_DIR", "LOCK_NAME", "JOURNAL_NAME", "DEFAULT_TIMEOUT_MS", "STATES", "txnPaths", "withPackTransaction", "recoverPack", "assertNoRecoveryRequired", "pendingRecovery", "listJournals", "readJournal"],
+      "additiveExport": "failureFor(result) → {kind, error, errorCode?} | null（新字段，纯新增；既有回执字段一个都没改）"
+    },
+    "cliInterface": {
+      "kept": ["node tools/recover-ledgers.mjs <packRoot> --offline --confirm --owner=<令牌>", "node tools/recover-ledgers.mjs <packRoot> --check", "退出码 0/1/2 语义", "PASS / PENDING / OK / FAIL 文本回执"],
+      "added": "同两条路径额外接受 `--json`（默认关闭；输出一行 JSON：ok/mode/root/state|pending/examined/restored/… + failure）"
+    },
+    "codesConsumed": ["PLAN_REQUIRED", "CONFIRM_REQUIRED", "PLAN_STALE", "IO_ERROR"],
+    "newCodesConsumed": ["LOCK_BUSY", "RECOVERY_REQUIRED"],
+    "newCodesLandedWhere": "只出现在 lib/unify/commit.cjs（STATE_CODES）；事务件与恢复 CLI 里零命中（A08 按去注释后的代码扫）"
+  },
+
+  "writeSet": [
+    {
+      "path": "lib/unify/commit.cjs",
+      "kind": "added",
+      "bytes": 33453,
+      "sha256": "8061e8f6f6553408e6f19aa44a560491c4b8d2307d9f93340e4677e5a1cf70b6",
+      "note": "planCommit / applyCommit；只依赖 node:path|fs|crypto + ./errors.cjs + 事务件（默认相对路径 require，可显式注入）；无时钟/随机/env"
+    },
+    {
+      "path": "lib/pack-template/tools/ledger-transaction.cjs",
+      "kind": "modified",
+      "bytes": 38268,
+      "sha256": "e338abf02dfb5125b3a407185e00921937b0263776df59ddab9d5efad7726614",
+      "headBytes": 35601,
+      "headSha256": "0361593f96ca0a940c0b34aef94ca7f74541b18568723a3d79c8c2436b1f8e2f",
+      "diff": "+46 / -0",
+      "note": "只插入 failureFor（七态 → kind）；纯插入（HEAD 行序列是当前文件的子序列）；日志/锁/状态词/导出/默认值逐字保持"
+    },
+    {
+      "path": "tools/recover-ledgers.mjs",
+      "kind": "modified",
+      "bytes": 7939,
+      "sha256": "bb28e814a768a4ba00516a342c2c7ca09679562daf3303ff6b616e8c2e8c5d97",
+      "headBytes": 5516,
+      "headSha256": "5182cc6817f01314c7cd67c2e0db196c87fdbebb9a7e3d11d87b7de784c383a0",
+      "diff": "+42 / -0",
+      "note": "只插入 --json；默认文本回执与退出码逐字保持（T09-recover-cli 在三处文本上仍绿）"
+    },
+    {
+      "path": "test/audit/U06.mjs",
+      "kind": "added",
+      "bytes": 105485,
+      "sha256": "2e09c678ef6c38d124c0cc4da27c535ed43f4115f68bbf4d1ce3b7c6076e6123",
+      "note": "A01–A08；runCard('U06', FIXED_IDS, cases) + printVerdict + writeRunEvidence；A07 在 E:\\Temp 副本上做两个变异；A08 改为运行期自锚 + §6 归属登记 + 交付物内容锁（另带 `--anchor-self-proof` 3 红 2 绿自证）"
+    },
+    {
+      "path": "docs/unify/receipts/U06.json",
+      "kind": "added",
+      "note": "本回执（自指，不给自身 sha）"
+    }
+  ],
+  "writeSetIgnored": {
+    "root": "audit-evidence/U06/",
+    "note": "本次全部原始证据：runs/U06-<pid>/（十次运行，含实现期间两次真实 FAIL；权威运行 U06-14428）+ regression-ab/（A/B 隔离的 T04/T09/T10/T11/T12 原始 stdout）。已 gitignore（.gitignore:13 audit-evidence/），不进仓、不覆盖任何既有 T/U 证据。"
+  },
+  "outOfScope": [],
+  "outOfScopeNote": "无越界写。同一工作树里别的 lane 正在写自己的写集（U04 已改的 lib/text.js|plan.js|fingerprint.js 与三个包侧工具；U07 的 lib/render.js、tools/build-lessons.js 等），A08 把这些 tracked 改动**只登记不归因**（module-locks.json 的 sharedTree），判据不锚定它们的字节数。本卡没碰 docs/unify/interfaces.md、baseline.json、其它 lib/unify/*.cjs、lib/text.js/plan.js/fingerprint.js、lib/pack-scaffold.js、package.json、任何既有 test/*.mjs、test/audit/T*.mjs、cards/**、活包、主树。",
+
+  "verdict": {
+    "entry": "node test/audit/U06.mjs",
+    "expected": "PASS U06 checks=8 failed=0 skipped=0",
+    "exitCode": 0,
+    "runs": 10,
+    "runsPassed": 8,
+    "sameVerdictEachRun": true,
+    "authoritativeRun": "audit-evidence/U06/runs/U06-14428",
+    "failPath": "实现期间两次真实 FAIL / exit 1：U06-22892（`FAIL U06 checks=8 failed=3`：A05 取错字段 / A07 判词点名不匹配 / A08 锚点字段名错）与 U06-38148（A05 busy 态被映射成 rejected 的真 bug + A07 同前 + A08 注释里的新码被当成落点）—— 均已修正，两次 FAIL 的原始证据**保留未覆盖**",
+    "blockedPath": "node test/audit/U06.mjs --evidence-root=E:\\workplace\\not-allowed → `BLOCKED U06 --evidence-root 越界（只许 U06 新运行目录 / U20 复验目录 / 带 U06- 或 u20- 前缀的临时目录）：E:\\workplace\\not-allowed` / exit 2",
+    "customEvidenceRoot": "node test/audit/U06.mjs --evidence-root=E:\\Temp\\u06-evidence-check\\U06-verify-1 → `PASS U06 checks=8 failed=0 skipped=0` / exit 0（只换落点，判据与读取根不变）",
+    "meaning": "PASS 只表示本卡八项判据通过（三闸分别可拒 + 前置零调用 + 真实字节摘要 + 锁内拒绝 + 七态/日志 schema/待恢复阻断 + 恢复失败如实 + 变异有效性 + 记账/证据/路径守卫）。**不表示**全工程已绿：全量门槛属 U01/U20，包内副本与真实迁移闭环属 U19/U17。",
+    "caseIndex": {
+      "A01": "三闸分别可拒绝：闸一 7 种无效计划 / 闸二 3 种非字面确认 + 回引不符 / 闸三 目标漂移；每条带 state+code+failure(kind)+调用次数；另证闸序（闸一先于闸二、闸二先于闸三）、files 排序去重、build 不许写盘",
+      "A02": "前置拒绝（闸一 / 闸二 / 回引不符）注入计数探针 = 0；同一探针在成功路径涨到 1、在闸三涨到 1（证明探针不是恒零空壳）",
+      "A03": "同计划目标改一个字节 ⇒ 写前摘要、输出摘要、planDigest 三者都变且被拒；非 UTF-8 字节（00 ff → 00 fe）也算真实字节变化（utf8 字符串比较会漏）",
+      "A04": "计划后、提交前改目标 ⇒ 锁内拒绝；读目标字节时锁已持有（锁探针）；旧计划不覆盖新内容、不留 journal、锁已放；换回原字节后同一计划可提交",
+      "A05": "七态逐态：building（事务 live state）/prepared+committed（journal 落盘序列）/committed/rejected/busy/rolled-back/recovery-required（回执）；whale-txn/1 键集与顺序逐字；待恢复阻断普通写（build 0 次、提交 0 次）；CLI --check 文本 + --json + 离线恢复后再写成功",
+      "A06": "真残骸（rename 与回滚同缝失败）+ 事务实现抛错两路都报 recovery-required / RECOVERY_REQUIRED，材料（journal/backup/锁）保留、目标未改、applyCommit 不自己 recoverPack（计数器 0）；抛错且无材料 ⇒ rejected/IO_ERROR（不凭空说「要恢复」）",
+      "A07": "干净副本 COMMIT-CONTRACT OK / exit 0；变异「跳过确认闸」与「吞掉恢复失败」各 exit 1 并点名对应要求；再用进程内调用证明变异真的改变行为（不是把文件改坏）",
+      "A08": "运行期自锚（七件依赖 boot=end，收口前再比一次）+ §6 归属现场解析（7 条）+ 交付物内容锁（commit.cjs/ledger-transaction.cjs/recover-ledgers.mjs/U06.mjs 必须仍等于回执登记字节）+ 依赖行为锁（errors.cjs 的 kind 域/工厂/新码码值真跑）+ 接口锁两次合法更新的出处（U01 deltas L1/L3 → 三处落点）+ 反空转自证 3 红 2 绿（子进程 `--anchor-self-proof`）+ 进程内写守卫（写锚点 0 次、越界 0、野路径真盘对照判红 2 条、哨兵自证、卸载后不再记账）+ 路径守卫 5 拒 1 收 + 七份证据落盘回读 + 清理后临时目录消失。跨卡字节等值锚已撤（见 deltas.interfaceLockAnchorRealignment）"
+    }
+  },
+
+  "deltas": {
+    "interfaceLockAnchorRealignment": {
+      "kind": "criterion-realignment",
+      "id": "M1",
+      "title": "A08 的跨卡接口锁等值锚 → 运行期自锚 + §6 归属 + 交付物内容锁",
+      "scope": "只动 test/audit/U06.mjs 的 A08（及其新带的反空转子进程模式）与 docs/unify/receipts/U06.json；A01–A07 一个字未改，lib/** 零写，任何既有 test/*.mjs、test/audit/U*.mjs（除本卡 U06.mjs）、cards/**、package.json 零写。",
+      "oldCriterion": {
+        "code": "A08 原第 986 行：eq(sha256(fs.readFileSync(IFACE_FILE)), u03.interfaceConsumption.lockSha256, 'interfaces.md 的 sha256 与 U03 消费时记下的锁值不符 —— 接口锁被改过')",
+        "observedRed": "FAIL U06 checks=8 failed=1 skipped=0 :: A08: 抛异常：interfaces.md 的 sha256 与 U03 消费时记下的锁值不符 —— 接口锁被改过：actual=\"0dc0bc6e3e705903479bde75328e932a3c4da546cce867ac127ea7eaea3f7e28\" expected=\"35acebe7bc1fd4560f59e244ea5a89730c1b11435d27da75ff5fdfa19ab92658\"",
+        "whyInevitablyStale": [
+          "docs/unify/interfaces.md 在 interfaces.md §6 的写集表里归 **U01**；U06 对它的写权为零，U03 记下的 46889B / 35acebe7… 只是 U03 消费那一刻的快照。",
+          "该文件在授权路径上被**合法**更新过两次（出处逐条可查）：① docs/unify/receipts/U01.json 的 deltas.authorizedWriteSetLedgerSync（id=L1）—— §6 U09 行补两项落点 ✅ lib/point-ref.js、✅ test/mirror-parity.mjs，依据 docs/unify/authorization.json 的 derivedConsequences.C4 与 scope.A；② deltas.authorizedWriteSetLedgerSyncU10（id=L3，supersedesResidualOf=L1）—— §6 U10 行补一项落点 ✅ test/intake.mjs，并把 interfaces.md 从 47450B 改成 47673B，依据 authorization.json 的 scope.A（quoteVerbatim「选A和授权p1和p2」）。两次更新合计三处落点 —— A08 现在从 U01 回执**现场解析**出 landings=[lib/point-ref.js, test/mirror-parity.mjs, test/intake.mjs] 并断言恰为 3 处。",
+          "⇒ 现字节 47673B / 0dc0bc6e3e705903479bde75328e932a3c4da546cce867ac127ea7eaea3f7e28，与 U01 回执自记的 lockBytes=47673 自洽，与 U03 的旧锁值 46889B / 35acebe7… 不可能再相等。旧判据锚错了对象：它把「U03 消费时刻的快照」当成了「接口锁的当前值」。",
+          "U01 回执 L3 的 residual ② 已把这条冲突原文交办：『…U06 有一条「接口锁 sha256 必须等于 U03 消费时记下的锁值」的断言，这类账本同步天然与之冲突；U06 不在本卡写集，只登记不改，交主持人与 U06 的 owner 处置。』本次修正即该处置 —— 不是本卡交付物缺陷。"
+        ]
+      },
+      "newCriterion": [
+        "① 运行期自锚：本次运行开始时记下七件依赖的 sha256（docs/unify/interfaces.md、docs/unify/baseline.json、lib/unify/commit.cjs、tools/recover-ledgers.mjs、lib/pack-template/tools/ledger-transaction.cjs、lib/unify/errors.cjs、lib/unify/ledger-read.cjs）；收口前（七份证据落盘之后再读一次）必须逐字节相同。boot≠end ⇒ 红，判词点名是哪一件、从哪个 sha 漂到哪个 sha。",
+        "② 本进程写守卫：进程内 fs 写守卫逐次记账；锚点只要被本进程写过就红（**字节相同也红** —— 写权不归本卡）。写守卫的允许面匹配（allowedMatcher / writeViolations）与反空转样本 R3 共用同一份代码，不再是两套实现。",
+        "③ 交付物内容锁：本卡交付物（lib/unify/commit.cjs、lib/pack-template/tools/ledger-transaction.cjs、tools/recover-ledgers.mjs、test/audit/U06.mjs）必须仍等于 docs/unify/receipts/U06.json 的 writeSet 登记字节（bytes + sha256 双比），不符即红 —— 「你的文件还是你写下的字节」。",
+        "④ 跨卡登记值漂移只登记 + 归属：interfaces.md / baseline.json → U01，errors.cjs / ledger-read.cjs → U03（归属**从 interfaces.md §6 的写集表现场解析**，再与锚点清单逐条比对，7/7 一致）；与登记值不同只进 attributedDrift / staleRecords，**不判红**。U03 的旧接口锁值 46889B / 35acebe7… 就是这样被登记下来的（blocking=false，matchesNow=false）。",
+        "⑤ 反空转自证（新增能力，不改任何判据）：node test/audit/U06.mjs --anchor-self-proof 用同一份纯函数跑 5 个样本 —— 3 红（运行期写 interfaces.md / 运行期把本卡交付物 commit.cjs 改成非登记字节 / 写野路径 lib/whatever.js）+ 2 绿（interfaces.md 在运行期外被 U01 合法同步 → 归属 U01 不红；别的卡合法产物存在 → 不红），判词 ANCHOR-SELF-PROOF OK samples=5 red=3 green=2。A08 每次运行都用子进程复跑同一份，并逐条断言 3 红 2 绿兑现。"
+      ],
+      "strength": {
+        "verdict": "没有一条从红变绿；锚点相关断言 4 条 → 20+ 条，且新增 4 条交付物内容锁与 2 条真盘野路径判红对照。",
+        "removed": "唯一被撤掉的是 eq(sha256(interfaces.md), U03.lockSha256)。它测的不是本卡行为，而是另一张卡某一刻的字节快照：U01 只要合法同步一次就必红（已实际发生），而真正的越权改写若字节侥幸等于旧值反而不红 —— 对「接口锁被谁改过」没有判断力。",
+        "added": [
+          "7 条 boot=end 硬断言（每件锚点一条，判词指名到件与 sha）",
+          "1 条 anchorWrites=0（本进程写锚点 0 次；字节相同也红）",
+          "4 条交付物内容锁（bytes + sha256；U06.mjs 自指也锁，回执即「我写下的字节」的凭据）",
+          "8 条依赖行为锁（FAILURE_KINDS 五态逐字 / makeFailure / isFailure / 非法 kind 抛 TypeError / 两个新码落点 / 码值原样往返 / failure 被 isFailure 认）—— 替代原来那条 errors.cjs 字节等值",
+          "7 条 §6 归属现场解析比对（不拿常量表自说自话）",
+          "3 条出处断言（U01 两次账本同步都在、都点名 interfaces.md、landings 恰为三处）",
+          "5 条反空转逐样本断言（3 红必须红、2 绿必须绿、样本数 5、判词行；绿样本 G1 还必须被判成 attributed-drift 且归属 U01 —— 绿是「登记 + 归属」，不是「没扫到」）",
+          "2 条真盘野路径判红对照（offScope 探针的写与删各被点名一次）",
+          "8 条收口复比（七件锚点收口 sha == 开跑 sha；收口时锚点判据零红）"
+        ],
+        "unchanged": "A08 其余断言一条未动：事务件 HEAD 基线 sha=0361593f…、纯插入（isLineSubsequence / 行数变多）、既有导出与常量逐字、T09 锁获取与回滚段落各恰好一处、禁止第二套协议落点、新码只落在 lib/unify/*（去注释后扫）、恢复 CLI 的 PASS/PENDING/OK 文本与 0/1/2 退出码与 --owner 解析、路径守卫 5 拒 1 收、七份证据落盘回读、清理后临时目录消失。A01–A07 一个字符未改。",
+        "costAccepted": "两条代价如实记：① interfaces.md 若在别的 lane 的运行期被合法同步，本卡这一跑会红（boot≠end）—— 这是「本次运行期没写它们」这条口径的必然边界，判词指名到件与 sha，可复核；② 交付物内容锁意味着以后改 test/audit/U06.mjs 必须同步更新回执 writeSet（否则红）—— 这正是内容锁要防的事（回执说的字节必须真在盘上）。"
+      },
+      "files": [
+        "test/audit/U06.mjs（A08 判据 + --anchor-self-proof 子进程模式 + 新增纯函数 normRel / readAnchor / snapshotAnchors / anchorRows / classifyAnchors / allowedMatcher / writeViolations / verifyReceiptContentLocks / section6OwnerOf / collectLedgerSyncDeltas）",
+        "docs/unify/receipts/U06.json（本 delta + interfaceConsumption / dependencies.upstream / completion.verdict / verdict.caseIndex.A08 / writeSet.U06.mjs 的字节与 sha 同步）"
+      ],
+      "notTouched": "lib/** 零写（U18 正在改 evidence/state/gate，本卡不碰）；lib/pack-template/tools/ledger-transaction.cjs 与 tools/recover-ledgers.mjs 本次**一个字节都没改**（内容锁 38268/e338abf0…、7939/bb28e814… 与首轮登记逐字节相同）；docs/unify/interfaces.md、baseline.json、authorization.json 零写；audit-evidence/U03/** 零写；任何既有 test/*.mjs 零写；不做 git 写、不提交、不升版。",
+      "boundaryNote": "事务件与恢复 CLI 的内容锁**不需要重记**：它们是本卡交付物，字节未变（回执 writeSet 值与盘上逐字节相同，A08 每次运行现场比对）；变的是**审计口径**（A08 的判据），不是这两个文件的字节。它们那条「HEAD=0361593f… + 纯插入」的基线锚也照旧保留（HEAD 的对象没动）。",
+      "evidence": {
+        "run": "audit-evidence/U06/runs/U06-33740（PASS / exit 0；七份证据：result.json 1275B、anchors.json 10784B、module-locks.json 11452B、write-guard.json 1062B、gate-matrix.json 4022B、states.json 1644B、recovery.json 516B、mutation.json 532B）",
+        "customRoot": "E:\\Temp\\U06-anchor-verify（同名目录每次运行覆盖；最后一次 PASS / exit 0，result.json 1226B、anchors.json 10783B、module-locks.json 11452B、write-guard.json 1009B）",
+        "selfProof": "node test/audit/U06.mjs --anchor-self-proof → 5 行 SAMPLE + ANCHOR-SELF-PROOF OK samples=5 red=3 green=2 / exit 0；A08 每次运行也用子进程复跑同一份",
+        "realDataFacts": "anchors.json 的 bootAndEnd：七件 stable=true、matchesRecorded=true、state=locked（interfaces.md 47673B 对 U01 的 lockBytes 47673）；staleRecords：U03 的 46889B/35acebe7… matchesNow=false、blocking=false；attribution：7/7 与 interfaces.md §6 一致；ledgerSyncs：L1/L3 都点名 interfaces.md，landings 三处；contentLock：四个交付物 ok=true（U06.mjs 105485B/2e09c678…）；write-guard.json：anchorWrites=0、violations=0",
+        "supersede": "本回执顶层的 verdict / evidenceIndex 两块写于**首轮**（authoritativeRun=U06-14428、U06.mjs 75693B、A08 旧口径）。A08 判据以本条 delta 为准（现 U06.mjs 105485B / sha256 2e09c678ef6c38d124c0cc4da27c535ed43f4115f68bbf4d1ce3b7c6076e6123）。其余条目一字未动，只把 interfaceConsumption 的接口锁现值、dependencies.upstream 的 U01/U03 观察、completion.verdict、verdict.caseIndex.A08 同步到新口径。"
+      }
+    },
+    "assertions": {
+      "newCaseIds": ["A01", "A02", "A03", "A04", "A05", "A06", "A07", "A08"],
+      "increment": 8,
+      "note": "只新增 U 系列专项 8 条；未改任何既有 test/*.mjs、test/audit/T*.mjs、harness、release 检查器的一个断言。"
+    },
+    "existingTestsRerun": {
+      "note": "为确认「改事务件没引入回归」，在 E:\\Temp 的仓源副本（无 .git）里跑直接受影响的 T 卡：**同一副本**=含本卡改动；**base 副本**=把 ledger-transaction.cjs 与 recover-ledgers.mjs 换回 HEAD 字节并删掉本卡新增文件。",
+      "inCopy": {
+        "T09": "PASS T09 checks=24 failed=0 skipped=0 / exit 0",
+        "T10": "PASS T10 checks=48 failed=0 skipped=0 / exit 0",
+        "T11": "FAIL T11 checks=22 failed=17 skipped=0 / exit 1",
+        "T12": "FAIL T12 checks=26 failed=1 skipped=0 / exit 1",
+        "T04": "FAIL T04 checks=46 failed=2 skipped=0 / exit 1"
+      },
+      "inBaseCopy": {
+        "T10": "PASS T10 checks=48 failed=0 skipped=0 / exit 0",
+        "T11": "FAIL T11 checks=22 failed=17 skipped=0 / exit 1（同案同数同因）",
+        "T12": "FAIL T12 checks=26 failed=1 skipped=0 / exit 1（同案同数同因）",
+        "T04": "FAIL T04 checks=46 failed=2 skipped=0 / exit 1（同案同数同因）"
+      },
+      "conclusion": "T11/T12/T04 的红在**去掉本卡改动**的 base 副本上完全一致 ⇒ 属已发现新增回归（别的卡的 in-flight 接线），不是 U06 引入；T09/T10 在本卡改动下仍 PASS ⇒ 事务件的锁/日志/回滚行为未被改坏。"
+    },
+    "suites": {
+      "topLevelSuitesBefore": 56,
+      "topLevelSuitesAfter": 56,
+      "note": "test/audit/U*.mjs 不在 test/_suite-manifest.mjs 的发现范围（只发现顶层 test/*.mjs 并排除 _ 前缀与 5 个入口），套件数不变；新专项不替代旧套件。"
+    },
+    "skipped": {
+      "baselineFrozen": 2,
+      "added": 0,
+      "note": "本卡入口不许 skip（runner 里 skip 不计 pass）；基线原有 2 条 skip 未被本卡触碰。"
+    },
+    "fullGate": {
+      "ran": false,
+      "note": "全量门槛只属 U01/U20；本卡不跑、不访问活包 E:\\workplace\\study、不写主树、不操作 git index/提交/分支。"
+    }
+  },
+
+  "regressionsDiscovered": [
+    {
+      "id": "R1",
+      "symptom": "FAIL T11 checks=22 failed=17 skipped=0 / exit 1（首个：T11-ask-commit）",
+      "rootCause": "lib/pack-template/tools/pack-text.js:19 `module.exports = require('./unify/text.cjs')`，而 lib/pack-template/tools/unify/ **不存在**（U04 已把包侧件改成委托权威内核；那批副本只有 U19 的 tools/sync-unify-core.mjs --write 才生成）。同一个原因还命中了 fingerprint.js:18（./unify/fingerprint.cjs）、plan-map.js:18（./unify/plan.cjs）、build-lessons.js:40（./unify/render.cjs）。",
+      "whyInevitablyRed": "T11 的每个夹具都要起/加载包侧 ask-server，它 require pack-text ⇒ 直接 MODULE_NOT_FOUND，17 条用例在断言前就抛；与本卡改动无关。",
+      "minimalUnblock": "U19 生成 lib/pack-template/tools/unify/ 的十四副本（或 U04 侧的委托接线回退到 U19 落地前）—— 不是 U06 能改的文件；U06 一个字节都没碰它们。",
+      "abProof": "audit-evidence/U06/regression-ab/T11-base.log 与 T11-mine.log 逐行同因同数（两棵副本 bytes 都是 1936）"
+    },
+    {
+      "id": "R2",
+      "symptom": "FAIL T04 checks=46 failed=2 skipped=0 / exit 1（T04-PREVIEW-accept-trusted、T04-REG-rebuild-job-parity-kept）",
+      "rootCause": "同 R1 的根因：预览服务加载链 app-server → pack-text → ./unify/text.cjs 缺件，/health 起不来；引擎闸拒后两份实现的告警比对也因此拿到空数组。",
+      "whyInevitablyRed": "preview 进程 boot 即 MODULE_NOT_FOUND（T04 日志里的 <<<R>>> 原文点名 `Cannot find module './unify/text.cj…'`），与 U06 无关。",
+      "minimalUnblock": "同 R1（U19 生成副本 / 回退包侧委托）",
+      "abProof": "T04-base.log 与 T04-mine.log 同案同数；**注意**：两者打印的引擎 digest 不同（a85d95… vs 3a9b11…）是因为 digest 覆盖 ledger-transaction.cjs 的字节，本卡的纯插入改了它 —— 失败身份（case id/计数/消息）未变。"
+    },
+    {
+      "id": "R3",
+      "symptom": "FAIL T12 checks=26 failed=1 skipped=0 / exit 1（T12-negative-baseline）",
+      "rootCause": "test/audit/T12.mjs 的负向控制夹具把 lib/pack-model.js 复制成 fixture 的 baseline-lib/pack-model.js，但**没有**复制 lib/adapters/jvm.js；而基线后的 lib/pack-model.js 已 `import … from './adapters/jvm.js'` ⇒ ERR_MODULE_NOT_FOUND。",
+      "whyInevitablyRed": "夹具内 import 解析失败，该用例在任何断言前抛；与 U06 无关。",
+      "minimalUnblock": "T12 夹具的复制清单补上 lib/adapters/（T 卡测试的结构性修改，U06 无写权；若按 §12 口径需单独裁决，不属于 U09/U10/U14 的 A 授权范围）",
+      "abProof": "T12-base.log 与 T12-mine.log 同案同数同因（两棵副本 bytes 都是 2058）"
+    }
+  ],
+
+  "evidenceIndex": {
+    "root": "audit-evidence/U06/",
+    "authoritativeRun": "audit-evidence/U06/runs/U06-14428/",
+    "authoritativeFiles": [
+      { "file": "result.json", "bytes": 1275, "sha256": "aec542dfc461654c35d778a0420ff019af9fdda5be910789297eb6eb707e6c6c" },
+      { "file": "cases.jsonl", "bytes": 629, "sha256": "250b65037fb78035cdd12078700871df0c43002d8bf42c99a597e89f5db4f27b" },
+      { "file": "module-locks.json", "bytes": 3129, "sha256": "d81c9d0fff4c1c34d3dd368f0a1f9962fdec3928dbdc1e7d70a4940f2b753da8" },
+      { "file": "gate-matrix.json", "bytes": 4022, "sha256": "c822ad44d51ba431b48befa14f572d2da6a00107b64fcbb051fee8182312af1c" },
+      { "file": "states.json", "bytes": 1644, "sha256": "bc8295f1f831b5c54ecddc3f76418ff141724a9fc6fa2e4d48216ace3bc50ef1" },
+      { "file": "recovery.json", "bytes": 516, "sha256": "f6ef236510811b59a616ac675e6ff58fe9d43cc4e2f429f2ff3f0a14da365baa" },
+      { "file": "mutation.json", "bytes": 532, "sha256": "41c30a3aeacb5a7da8cbded1f72b229d15b93c717a20567fc1595310cf929b89" },
+      { "file": "write-guard.json", "bytes": 1041, "sha256": "3401b04df8431f887a961dd55d251b816dd9679c7b04a79fd85b89a16ef9543c" }
+    ],
+    "regressionAbLogs": [
+      { "file": "regression-ab/T09-mine.log", "bytes": 80, "sha256": "5ab950f6863c3f232b8c376c5022b4c52085327c44bd04ef3e9e086ffda1c1dd" },
+      { "file": "regression-ab/T10-mine.log", "bytes": 80, "sha256": "1c99deac4de2a1559c075f49a0e3301237f12ac0d4cb31b44f83dba794342260" },
+      { "file": "regression-ab/T10-base.log", "bytes": 80, "sha256": "1c99deac4de2a1559c075f49a0e3301237f12ac0d4cb31b44f83dba794342260" },
+      { "file": "regression-ab/T11-mine.log", "bytes": 1936, "sha256": "a7bc90fab6fc95fb20378fad8b2b4530ce0816364f454c3665524e46032c67fc" },
+      { "file": "regression-ab/T11-base.log", "bytes": 1936, "sha256": "41d080d997bc1954ed904a867c99066ce9ddfff50aeea8b29ec5c9b0fea24dbc" },
+      { "file": "regression-ab/T12-mine.log", "bytes": 2058, "sha256": "157ade53d04650815e376b3fdf2eff8eb5172e9bca66740cbd3c345dc34d17cd" },
+      { "file": "regression-ab/T12-base.log", "bytes": 2058, "sha256": "8f51ff558046c1cc182e4d60ea812366477568cd18a34bc33d9d30691cead4e0" },
+      { "file": "regression-ab/T04-mine.log", "bytes": 1442, "sha256": "65268cb0e49dd153dd1023b1fd8492fcc0edb361e8df9329ec50dc94ebb1e6bb" },
+      { "file": "regression-ab/T04-base.log", "bytes": 1442, "sha256": "7ceadffd2df5590bf2aadd0901527244dbbae3a5d849cc62d0632a4eb58127a5" }
+    ],
+    "highlights": [
+      "module-locks.json：本卡五个落点的字节数/sha + 三个依赖锚点（interfaces.md 46889/35acebe7…；errors.cjs 4e18e718… = U03 记的值；事务件 HEAD 0361593f… = U01 锁的值 + insertOnly=true）+ sharedTree（别的 lane 的 tracked 改动，只登记不归因）",
+      "gate-matrix.json：12 条闸拒绝（7 闸一 / 3 闸二 / 1 回引 / 1 闸三）各带 code/kind/调用次数；A02/A03/A04 采样",
+      "states.json：七态词、事务 live state（building×2）、journal 落盘序列 [prepared, committed] 与键集、五个回执态、CLI --check/--json/恢复回执",
+      "recovery.json：真残骸（journal state=recovery-required、backup-0.bin、锁保留、回执 journal 路径）+ 抛错路（errorCode=EACCES、材料保留、recoverPack 调用 0）+ 无材料路（rejected/io）",
+      "mutation.json：两个变异 token（源码里各恰好一次）、干净副本 exit 0、两个变异副本 exit 1 与判词",
+      "write-guard.json：62 次写 / 4 种写能力 / 越界 0 / 越界探针被记 2 次 / 允许根清单（含本卡写集与证据根与 E:\\Temp 本卡唯一目录）",
+      "runs/：十次运行全保留（含两次实现期真实 FAIL：U06-22892、U06-38148），不覆盖、不删除"
+    ]
+  },
+
+  "commands": {
+    "verify": [
+      { "argv": ["node", "test/audit/U06.mjs"], "exitCode": 0, "stdout": "PASS U06 checks=8 failed=0 skipped=0", "runs": 3, "note": "首轮权威运行 U06-14428；此前另有多次 PASS 运行保留在 runs/" },
+      { "argv": ["node", "test/audit/U06.mjs", "--evidence-root=E:\\Temp\\u06-evidence-check\\U06-verify-1"], "exitCode": 0, "stdout": "PASS U06 checks=8 failed=0 skipped=0" },
+      { "argv": ["node", "test/audit/U06.mjs", "--evidence-root=E:\\workplace\\not-allowed"], "exitCode": 2, "stdout": "BLOCKED U06 --evidence-root 越界（只许 U06 新运行目录 / U20 复验目录 / 带 U06- 或 u20- 前缀的临时目录）：E:\\workplace\\not-allowed" },
+      { "argv": ["node", "test/audit/U06.mjs"], "exitCode": 0, "stdout": "PASS U06 checks=8 failed=0 skipped=0", "note": "A08 判据修正后的复跑（deltas.interfaceLockAnchorRealignment）：audit-evidence/U06/runs/U06-33740" },
+      { "argv": ["node", "test/audit/U06.mjs", "--evidence-root=E:\\Temp\\U06-anchor-verify"], "exitCode": 0, "stdout": "PASS U06 checks=8 failed=0 skipped=0", "note": "同上，只换落点；七份证据含 anchors.json（result.json 1226B / anchors.json 10783B）" },
+      { "argv": ["node", "test/audit/U06.mjs", "--anchor-self-proof"], "exitCode": 0, "stdout": "ANCHOR-SELF-PROOF OK samples=5 red=3 green=2", "note": "3 红 2 绿：运行期写 interfaces.md / 运行期改写 commit.cjs / 写野路径 lib/whatever.js；interfaces.md 运行期外漂移归属 U01 / 别的卡合法产物存在不红" }
+    ],
+    "regressionAb": [
+      { "argv": ["node", "test/audit/T09.mjs"], "cwd": "E:\\Temp\\<copy>\\T09-tree（含本卡改动）", "exitCode": 0, "stdout": "PASS T09 checks=24 failed=0 skipped=0" },
+      { "argv": ["node", "test/audit/T10.mjs"], "cwd": "同上（含本卡改动）", "exitCode": 0, "stdout": "PASS T10 checks=48 failed=0 skipped=0" },
+      { "argv": ["node", "test/audit/T11.mjs"], "cwd": "同上（含本卡改动）", "exitCode": 1, "stdout": "FAIL T11 checks=22 failed=17 skipped=0 :: T11-ask-commit: … Cannot find module './unify/text.cjs'" },
+      { "argv": ["node", "test/audit/T11.mjs"], "cwd": "E:\\Temp\\<copy>\\T11-base（本卡两个文件回退到 HEAD、删除本卡新增件）", "exitCode": 1, "stdout": "FAIL T11 checks=22 failed=17 skipped=0 :: 同案同数同因" },
+      { "argv": ["node", "test/audit/T12.mjs"], "cwd": "两棵副本", "exitCode": 1, "stdout": "FAIL T12 checks=26 failed=1 skipped=0 :: T12-negative-baseline（两棵一致）" },
+      { "argv": ["node", "test/audit/T04.mjs"], "cwd": "两棵副本", "exitCode": 1, "stdout": "FAIL T04 checks=46 failed=2 skipped=0 :: T04-PREVIEW-accept-trusted / T04-REG-rebuild-job-parity-kept（两棵一致）" }
+    ],
+    "selfChecks": [
+      { "argv": ["node", "-e", "require('./docs/unify/receipts/U06.json')"], "exitCode": 0, "note": "回执必须是合法 JSON（U04 踩过的坑）" }
+    ]
+  },
+
+  "deviations": [
+    {
+      "id": "D1",
+      "what": "`planCommit` 返回 `{ok:true, plan}` / `{ok:false, plan:null, code, error, failure}`，而不是裸 plan。",
+      "effect": "卡面写「→ 计划」，计划本体仍在 `plan` 字段里（schema=whale-commit/1）；失败要能带码与 failure，所以不能回退成裸对象。判据按这个形状断言（A01 断言 plan 的键集）。"
+    },
+    {
+      "id": "D2",
+      "what": "三闸码选型：①`PLAN_REQUIRED` ②`CONFIRM_REQUIRED`（回引不符 → `PLAN_STALE`）③`PLAN_STALE`；busy/待恢复才用拟新增码 `LOCK_BUSY`/`RECOVERY_REQUIRED`。",
+      "effect": "四个旧码全部命中 U01 锁定的真实码表（A01 现场核对 interfaces.md），没有新增同义码；新码只在 lib/unify/commit.cjs 落地（A08 按代码扫事务件与 CLI 零命中）。"
+    },
+    {
+      "id": "D3",
+      "what": "计划 files 除输出摘要 `digest`/`bytes` 外还记**写前摘要** `beforeDigest`（可空）。",
+      "effect": "仍只记摘要不记正文；但闸三要能拒绝「计划后目标被改」，而这一变化未必体现在 build 的确定性输出里（例如 build 只写一个固定文件），所以必须把**当前输入/目标的真实字节**也锚进计划。"
+    },
+    {
+      "id": "D4",
+      "what": "计划允许空 files（no-op 提交）。",
+      "effect": "与事务件既有形状 `() => []` 一致（T09 已锁这条）；空计划不写任何字节，仍走锁与日志。"
+    },
+    {
+      "id": "D5",
+      "what": "A07 的第二个变异是「把 recovery-required 当成功（ok:true/state:committed）」，不是「删掉整个分支」。",
+      "effect": "这样变异是**行为级**的（宣称已恢复），判据内核第一句就红并点名 recovery-required；比删分支更能证明「不许吞掉恢复失败」。"
+    },
+    {
+      "id": "D6",
+      "what": "两个落点的接线选型：事务件只加 `failureFor()`（kind 归它、码归 lib/unify），恢复 CLI 只加 `--json`。",
+      "effect": "都是纯插入（+46/-0、+42/-0，HEAD 行序列仍是当前文件的子序列）；没有第二张码表、第二套日志、第二个恢复入口；T09 判据锁着的两段源码与常量/导出逐字未动。"
+    },
+    {
+      "id": "D7",
+      "what": "会话期间 docs/unify/baseline.json 被 U01 侧从 53063/06b75c7b 更新为 60232/cf53c0c4（U03 回执记的是旧值，U01 回执记的是新值）。",
+      "effect": "本卡只读、不锚定它的字节数；A08 改成「开跑快照 = 收尾快照」证明本卡运行期间没写它，并对 interfaces.md 额外做 U03 锁值锚定（46889/35acebe7… 未变）。差异不由本卡引起，登记供主持人核对。"
+    },
+    {
+      "id": "D8",
+      "what": "A02 的「提交调用次数为 0」只对**前置**（闸一 / 闸二 / 回引不符）成立；闸三必然进事务一次。",
+      "effect": "闸三只能在锁内做（事务件持锁后才给真实写前字节），所以用同一个计数探针断言「成功路径 = 1、闸三 = 1、前置 = 0」，把「0 次」钉在「前置」上，而不是「从不调用」。"
+    }
+  ],
+
+  "unverified": [
+    "包内副本 `lib/pack-template/tools/unify/{commit,errors,…}.cjs` 未生成（U19 的 tools/sync-unify-core.mjs --write 才做）；U06 没有手补，也没有在包内验证（S2 阶段允许，真包装归 U17/U19）。",
+    "真实消费方（intake / goal-io / teaching-io / ask-io / notes-io / evidence-io / glossary-edit-io）尚未改调 planCommit/applyCommit：本卡只交付协议与接线，把各领域接到三闸上归后续卡。",
+    "跨进程并发下的陈旧计划没有做压力测试：本卡只断言「计划后目标被改 ⇒ 锁内拒绝」；多写者并发/崩溃恢复属事务件范围，T09 已 PASS（在隔离副本里复验）。",
+    "只在 Windows + Node v25.2.1 实测；rename 瞬时码（EPERM/EBUSY/EACCES）重试路径是事务件既有实现，本卡未在别的平台复验。",
+    "全量门槛与随包联调未跑（U01/U20/U17/U19 的职责）；本 PASS 不与「全工程已绿」等价。",
+    "T11/T12/T04 的三处回归（见 regressionsDiscovered）在本卡权限外，未修；登记为已发现新增回归并给出最小解除条件。"
+  ],
+
+  "handoff": {
+    "to": "S2 后续卡与 U19/U20",
+    "consumers": {
+      "后续领域卡（U09/U10/U14/U18 等）": "写口改调 `planCommit(root, build, {fs})` + `applyCommit(root, plan, {confirm, planDigest, build})`：build 只算字节（拿只读 fs，别写盘），confirm 由受信适配器在已确认意图后给 true，planDigest 逐字回引。",
+      "U19": "把 lib/unify/ 十四 .cjs 逐字节生成到 lib/pack-template/tools/unify/；本卡的 commit.cjs 依赖 ./errors.cjs 与 ../pack-template/tools/ledger-transaction.cjs（相对路径），生成后包侧一致。",
+      "U20": "本卡 PASS 只证明 U06 范围；全量对账以 U01 基线为准，三处已登记的回归（T11/T12/T04）需在 U20 前由相应责任方解除或带差异裁决。"
+    },
+    "how": "接口口径以本回执 + `lib/unify/commit.cjs` 真实字节为准；发现与 U01 锁不符按 U-SPEC §10 暂停并带证据报差异。",
+    "reverify": "node test/audit/U06.mjs（判据；证据默认落 audit-evidence/U06/runs/U06-<pid>），或 `--evidence-root=<绝对新目录>` 只换落点；A08 的锚点分类器可单独反空转自证：`node test/audit/U06.mjs --anchor-self-proof`（3 红 2 绿，OK / exit 0，FAIL / exit 1）。",
+    "noRerun": "本卡不跑全量门槛、不访问活包、不写主树、不操作 git index/提交/分支、不改模板登记/package.json。"
+  }
+}

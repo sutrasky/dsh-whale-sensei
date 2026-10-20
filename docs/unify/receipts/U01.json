@@ -1,0 +1,632 @@
+{
+  "card": "U01",
+  "title": "基线与判据基础（D lane · S0 首卡）",
+  "status": "PASS",
+  "scope": "unresolved",
+  "scopeNote": "U-SPEC §12 的 A/B 两项范围选择在用户明确裁决前未裁决；本卡只做独立准备（基线 + 接口锁 + 判据壳），不代选、不声称已授权。",
+  "completion": {
+    "summary": "在固定基线 2f57b1f 上完成四件事：① 可核对的基线（真实全量门槛跑了一次，红也如实记）；② 既有接口与错误码锁（11 重点文件 + 18 另读落点 + 86 码值 + 模板登记 + U01–U20 落点）；③ 不会误判异步结果的专项执行壳（unify-runner.mjs，真 await）；④ 本卡八项验收入口（默认只验采集材料，--verify-baseline 只对基线提交对象）。",
+    "ranFullGate": "node test/all.mjs --pack=E:\\workplace\\study --mode=real → exit 1（红：35/38 · 56 套 · 7 红 · skipped 2），只跑一次",
+    "livePackWindow": "窗口前后两次逐文件 sha256 清单：内容口径相同（唯一差异 .git/index 是 git stat 缓存，已归因登记）",
+    "verdict": "PASS U01 checks=8 failed=0 skipped=0（两次运行各一条）"
+  },
+  "dependencies": {
+    "upstream": [],
+    "note": "U01 是 U 系列首卡，无上游 PASS 要求（U-BATCHES：S0/D lane，依赖「无」）。",
+    "downstreamReleased": [
+      "U02",
+      "U03",
+      "U04"
+    ],
+    "downstreamStillBlocked": [
+      "U09",
+      "U10",
+      "U14"
+    ],
+    "downstreamBlockedWhy": "§12 未裁决；A 路径未确立前这三卡保持 BLOCKED，不实施。"
+  },
+  "interfaceConsumption": {
+    "lock": "docs/unify/interfaces.md",
+    "lockBytes": 51235,
+    "baseline": "docs/unify/baseline.json",
+    "baselineBytes": 60232,
+    "baseSha": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "branch": "refactor/unify-20261018",
+    "sourceLockFiles": 29,
+    "keyFiles": [
+      "lib/pack-model.js",
+      "lib/ask.js",
+      "lib/ask-io.js",
+      "lib/state.js",
+      "lib/state-scan.js",
+      "lib/fingerprint.js",
+      "lib/glossary.js",
+      "lib/glossary-io.js",
+      "lib/client.js",
+      "package.json",
+      "tools/upgrade-pack.mjs"
+    ],
+    "extraReads": [
+      "lib/adapters/jvm.js",
+      "test/_suite-manifest.mjs",
+      "test/_t26-migrated-pack.mjs",
+      "tools/check-contracts.mjs",
+      "tools/check-distribution.mjs",
+      "lib/pack-template/tools/distribution-license.cjs",
+      "lib/pack-scaffold.js",
+      "lib/pack-template/tools/engine-files.cjs",
+      "lib/pack-template/tools/engine-policy.cjs",
+      "lib/pack-template/tools/path-policy.cjs",
+      "lib/pack-template/tools/ledger-transaction.cjs",
+      "test/audit/harness.mjs",
+      "test/all.mjs",
+      "test/run-all.mjs",
+      "test/_result.mjs",
+      "test/_pack.mjs",
+      "test/audit/release.mjs",
+      "test/audit/release-exit-code.mjs"
+    ],
+    "errorCodes": {
+      "distinct": 86,
+      "occurrences": 224,
+      "seeds": 13,
+      "seedsAllFound": true,
+      "kebabFamily": 17,
+      "proposedNew": [
+        "ID_AMBIGUOUS",
+        "MIGRATION_REQUIRED",
+        "LEDGER_INVALID",
+        "LOCK_BUSY",
+        "RECOVERY_REQUIRED"
+      ],
+      "proposedCollisions": [],
+      "conclusion": "5 个拟新增码在固定基线上都不存在；无用例/注释重名，无语义冲突。新增只许落在 lib/unify/errors.cjs（†, U03），不改旧码。"
+    },
+    "identity": {
+      "pointKey": "lib/pack-model.js:375 既有公开导出 pointKey(circle, point)（签名不变）",
+      "lessonKey": "lib/pack-model.js:387 既有公开导出 lessonKey(circle, point, number)（padStart(4)，无范围校验）",
+      "secondImplementationOnBaseline": "lib/point-ref.js 的 qualified() 内联构造 + splitQualified() 反解 —— 已登记为第二处",
+      "staging": "U02 只建严格内核并暂存双实现，不改 lib/pack-model.js",
+      "convergence": "U09 唯一负责旧导出（含 point-ref.js 内联）委托收敛",
+      "noThirdImplementation": true
+    },
+    "templateRegistry": {
+      "owner": "U19",
+      "templateFiles": 126,
+      "scaffoldDirs": 12,
+      "source": "lib/pack-scaffold.js"
+    },
+    "runnerContract": "test/audit/unify-runner.mjs 导出 runCard(card, ids, cases)（真 await）+ FIXED_IDS(A01–A08) + printVerdict/writeRunEvidence/resolveEvidenceRoot/guardTempPath/safeRemoveTree/Blocked/Truncated；判词一行，exit 0/1/2。",
+    "baselineEvidenceFiles": 102,
+    "receiptBytes": 49284
+  },
+  "writeSet": [
+    {
+      "path": "test/audit/unify-runner.mjs",
+      "kind": "added",
+      "note": "异步执行壳（真 await），固定 A01–A08、拒绝空回调/缺多重复 ID/异常/超时/截断"
+    },
+    {
+      "path": "test/audit/U01.mjs",
+      "kind": "added",
+      "note": "本卡专项入口：默认只验证已采集材料；--verify-baseline 只对基线提交对象 + 采集证据",
+      "bytes": 83325,
+      "sha256": "c0fc99834a6c4c7ade65247d7dc0dc48260992820a88a507de67babd915d1847"
+    },
+    {
+      "path": "docs/unify/interfaces.md",
+      "kind": "added",
+      "note": "可进仓接口锁（11 重点文件 + 18 另读落点 + 86 码值 + 模板登记 + U01–U20 落点 + T 复验清单）"
+    },
+    {
+      "path": "docs/unify/baseline.json",
+      "kind": "added",
+      "note": "基线：base SHA、源文件锁、实测全量、活包前后摘要、证据索引、scope=unresolved、冻结边界"
+    },
+    {
+      "path": "docs/unify/receipts/U01.json",
+      "kind": "added",
+      "note": "本回执"
+    }
+  ],
+  "writeSetIgnored": {
+    "root": "audit-evidence/U01/",
+    "note": "本卡全部原始证据（采集脚本 + 输出 + 逐套 execution.json + 窗口清单 + T 复验输出）落在这里，已被 .gitignore 忽略、不进仓；未覆盖任何既有 T/发布证据（本工作树此前没有 audit-evidence/ 目录）。"
+  },
+  "outOfScope": [],
+  "outOfScopeNote": "无越界写入。既有 test/*.mjs、test/audit/T*.mjs、cards/T*.md、审计主树、活包、模板与生成目录一律只读。",
+  "verdict": {
+    "entry": "node test/audit/U01.mjs",
+    "expected": "PASS U01 checks=8 failed=0 skipped=0",
+    "exitCode": 0,
+    "verifyBaselineEntry": "node test/audit/U01.mjs --verify-baseline",
+    "verifyBaselineExpected": "PASS U01 checks=8 failed=0 skipped=0",
+    "verifyBaselineExitCode": 0,
+    "meaning": "PASS 只代表本卡八项验证通过，**不代表全工程变绿**：本轮全量门槛实测是红的（35/38 · 56 套 · 7 红 · exit 1）。"
+  },
+  "deltas": {
+    "assertions": {
+      "newCaseIds": [
+        "A01",
+        "A02",
+        "A03",
+        "A04",
+        "A05",
+        "A06",
+        "A07",
+        "A08"
+      ],
+      "increment": 8,
+      "note": "只新增 U 系列专项 8 条，未改任何既有 test/*.mjs 或 test/audit/T*.mjs 的断言（一处没动）。"
+    },
+    "suites": {
+      "topLevelSuitesBefore": 56,
+      "topLevelSuitesAfter": 56,
+      "note": "test/audit/U*.mjs 不在顶层套件发现范围内（发现器只看 test/*.mjs），所以套件数不变；新专项不替代旧套件。"
+    },
+    "skipped": {
+      "baselineFrozen": 2,
+      "added": 0,
+      "note": "专项不得 skip；基线原有 2 条 skip 如实冻结。"
+    },
+    "baselineVsAssumption": {
+      "gate": "38/38 → 35/38",
+      "suites": "51 → 56",
+      "assertions": "2469 → 2883（run-all 自报）/ 2980 通过 + 36 失败（逐套摘要相加）",
+      "redSuites": "假定六红 → 实测七红（另加 settings-teaching）",
+      "exitCode": "1（与假定同）",
+      "note": "实测与假定不同不判失败，但必须如实登记；本轮唯一基线以实测为准（见 baseline.json measuredDiff）。"
+    },
+    "authorizedWriteSetLedgerSync": {
+      "kind": "authorized-write-set-ledger-sync",
+      "id": "L1",
+      "when": "U09/U10 lane 落地之后（工作树里已出现 M lib/point-ref.js 与 M test/mirror-parity.mjs）",
+      "what": "docs/unify/interfaces.md §6 的 U09 行补两项落点 —— ✅ lib/point-ref.js、✅ test/mirror-parity.mjs；AUTHORIZED_WRITE_SET.U09 同步成与 §6 现文本逐条一致（§6 自检每跑一次就当场比对，不一致即红）；proveScopeBoundary 把 M lib/point-ref.js / M test/mirror-parity.mjs 从「必须判越界」改列「必须放行」，tracked-modified 的红样本换成同样无归属的 M lib/adapters/jvm.js（红样本条数不减）。除这两处常量内容外，A01–A08 的判据逻辑一行未改。",
+      "why": "两条都是**账本缺口**，不是 U09 越界：① 主持人裁决 C4 把 lib/point-ref.js 追加进 U09 写集（依据 U-SPEC §2 与本文件 §2「U09 唯一负责旧导出委托」；只把 qualified / splitQualified 两个内部调用改走严格内核，导出面与返回语义逐字不变）；② §12 A 面把 test/mirror-parity.mjs 归 U09（仅课程身份所需的夹具输入 + 第 149 行一带旧身份预期与说明）。两处原文见 docs/unify/authorization.json 的 derivedConsequences.C4 / scope.A。",
+      "files": [
+        "docs/unify/interfaces.md（§6 U09 行 +2 项，含 C4/A 面出处）",
+        "test/audit/U01.mjs（AUTHORIZED_WRITE_SET.U09 +2 项；proveScopeBoundary 两条样本换位）",
+        "docs/unify/receipts/U01.json（本条 + lockBytes / receiptBytes）"
+      ],
+      "notLoosened": {
+        "criterionSame": "A01 的判据一个字没改：已跟踪改动仍必须落在 §6 并集里；未跟踪项仍必须落在并集 ∪ cards/U*.md ∪ docs/unify/** ∪ audit-evidence/**；索引里出现任何改动仍一出现就红。",
+        "selfProved": "纯函数自证 3 红 + 1 绿：?? lib/whatever.js、M test/_pack.mjs、?? tools/stray-new.mjs 全部仍判越界；M lib/point-ref.js 放行且归属显示 U09。原始输出：audit-evidence/U01/ledger-sync-selfproof.txt 与 E:\\Temp\\u01-u02-ledger-sync\\ledger-sync-selfproof.txt。",
+        "redSamplesKept": "tracked-modified 的红样本由 M lib/point-ref.js 换成 M lib/adapters/jvm.js（同样在 §6 里无归属），红样本条数不变。"
+      },
+      "residual": "真实树里 M test/intake.mjs（U10 的 §12 A 面，08:30:16 由兄弟 lane 写入）仍不在 §6 并集里 —— 那是 U10 那张卡的同一类账本缺口；补 U10 行不在本次账本同步的授权范围内，故只登记不代补。"
+    },
+    "authorizedWriteSetLedgerSyncU10": {
+      "kind": "authorized-write-set-ledger-sync",
+      "id": "L3",
+      "supersedesResidualOf": "L1",
+      "when": "U10 的 lane 已在工作树里改 test/intake.mjs（M）之后 —— A01 因此判越界，A07 的干净副本连带红（实测 FAIL U01 checks=8 failed=2 skipped=0：A01「已跟踪文件被改/删/增，且路径不在任何 U 卡授权写集里：test/intake.mjs」+ A07）",
+      "what": "docs/unify/interfaces.md §6 的 U10 行补一项落点 —— ✅ test/intake.mjs（仅 §12 A 授权面：裸 point 夹具与 latest.vue 等身份预期；其余版本/日期/学生原话/键序等非身份断言不许动；落账见 docs/unify/authorization.json 的 scope.A）；AUTHORIZED_WRITE_SET.U10 同步成与 §6 现文本逐条一致（§6 自检每跑一次就当场逐卡比对，不一致即红）；proveScopeBoundary 的 allowed 组新增一条 M test/intake.mjs（放行样本 13 → 14），rejected 组 13 条红样本与 mixed 混合输入一条未动。除这两处常量内容外，A01–A08 的判据逻辑一行未改、阈值一个未动。",
+      "why": "这是**账本缺口**，不是 U10 越界：§12 A 面（用户原文「选A和授权p1和p2」）的 scope.A 逐字把「U10 独占 test/intake.mjs 中裸 point 夹具及 latest.vue 等身份预期（78/86/87 行）」写进授权面，而 interfaces.md §6 的 U10 行一直没有这个落点，于是 A01 把一条**被授权**的改动判成越界。上一轮 L1 的 residual 已如实登记这条缺口但按当时口径没有代补；本轮主持人明示按方案 A 补齐，使 §6 落点 / 常量 / 校验口径重新同源。依据原文：docs/unify/authorization.json 的 scope.A（quoteVerbatim「选A和授权p1和p2」）。",
+      "files": [
+        "docs/unify/interfaces.md（§6 U10 行 +1 项，含 A 面出处；字节 47450 → 47673）",
+        "test/audit/U01.mjs（AUTHORIZED_WRITE_SET.U10 +1 项；proveScopeBoundary allowed +1 条）",
+        "docs/unify/receipts/U01.json（本条 + lockBytes / receiptBytes）"
+      ],
+      "notLoosened": {
+        "criterionSame": "A01 的判据一个字没改：已跟踪改动仍必须落在 §6 并集里；未跟踪项仍必须落在并集 ∪ cards/U*.md ∪ docs/unify/** ∪ audit-evidence/**；索引里出现任何改动仍一出现就红。本次只是把 §12 A 面本来就授权的 test/intake.mjs 落进账面 —— 没有新增任何「白名单」分支，也没有把并集之外的路径塞进来。",
+        "selfProved": "从 U01.mjs **逐字节切出**同一段纯函数（AUTHORIZED_WRITE_SET / parseSection6 / classifyWorktree / assertScopeClean / proveScopeBoundary）跑的自证：3 红 —— ?? lib/whatever.js、M test/_pack.mjs、M lib/adapters/jvm.js 全部仍判越界（各 1 条 violations）；2 绿 —— M lib/point-ref.js 放行且归属 U09、M test/intake.mjs 放行且归属 U10；真实 git status 88 行（tracked=25 / untracked=63）violations=0。原始输出：audit-evidence/U01/ledger-sync2-scope-selfproof.txt 与 E:\\Temp\\u10-ledger-sync-2f57b1f\\scope-selfproof.txt（脚本 scope-selfproof.mjs 同目录，切片来源可逐行复核）。",
+        "redSamplesKept": "rejected 组 13 条红样本原样（含 M test/_pack.mjs、M lib/adapters/jvm.js、D test/all.mjs、3 条 staged-change），mixed 混合输入「一条野路径 + 一堆合法产物只抓那一条」也原样；A01 每次运行仍跑 proveScopeBoundary，红/绿样本任何一条被改松当场红。",
+        "entryStillRed": "node test/audit/U01.mjs --self-prove-scope 仍能证明守卫会红：真实输出 + 注入 2 条野路径 → violations=2（scripts/x.mjs、lib/whatever.js），A01-would-fail 判词照出。"
+      },
+      "residual": "① 本次只补 U10 的 A 授权面一项，U10 的其余写集（lib/unify/stage.cjs / lib/intake.js / lib/goal-io.js / lib/teaching-io.js）与 §6 的其它 19 张卡一字未动；§6 并集之外的已跟踪改动仍一条都不放行（自证 3 红即为证）。② interfaces.md 自上一轮同步起就与 U03/U06 回执里登记的锁值（46889 B / 35acebe7…）不同源 —— U06 有一条「接口锁 sha256 必须等于 U03 消费时记下的锁值」的断言，这类账本同步天然与之冲突；U06 不在本卡写集，只登记不改，交主持人与 U06 的 owner 处置。③ 首次复跑曾遇到一次 A07 子进程报「临时副本没清干净：U01-mut-forge-exit」—— 那是 E:\\Temp\\u01-s0-dlane 这个**共享**临时根的并发窗口（同一时刻有别的进程在跑 U01 的变异副本），重跑即 PASS；未改任何清理逻辑。"
+    },
+    "p1p2AuthorizationLedger": {
+      "kind": "p1p2-authorization-ledger",
+      "id": "L4",
+      "when": "P1/P2 已落地之后（工作树里 M test/audit/T26.mjs；lib/unify/fingerprint.cjs 持有 PROBE_VERSION 的唯一字面量）。本卡实测复核到的红：U01 → FAIL U01 checks=8 failed=2（A01「已跟踪文件被改/删/增，且路径不在任何 U 卡授权写集里：test/audit/T26.mjs」+ A07 干净副本连带红）；U04 → FAIL（A08 ⑤「tracked 改动越出 U01–U20 授权写集并集：M test/audit/T26.mjs」；同一判词另见 docs/unify/receipts/P1-P2.json 的 verification.V4）。主持人实测另报 U08/U10/U11/U12/U14/U15 同因红（同一批 tracked 归属判据、同一处缺口）。",
+      "what": "docs/unify/interfaces.md §6 的 U01 行补一项落点 —— ✅ test/audit/T26.mjs（仅 P1/P2 授权面：F01 内 PROBE_VERSION 字面量断言改为「内核一份字面量 + 宿主/包侧导出同值、不再各自持有字面量」；并写明断言对象归 U04 交付的内核、落点行记在 U01 的理由，出处指到 docs/unify/authorization.json 的 scope.P2 与 derivedConsequences.C2）；AUTHORIZED_WRITE_SET.U01 同步 +1 项（§6 自检每跑一次就当场逐卡比对，不一致即红）。§6 其余 19 行、U04 行本身、A01–A08 的判据逻辑与阈值一字未动。",
+      "why": "这是**账本缺口**，不是越界：P2 的授权出处是 docs/unify/authorization.json —— quoteVerbatim 逐字「选A和授权p1和p2」（quoteSource：用户在 dsh 会话中的直接消息，逐字如上；本文件不转述、不改写、不补全），scope.P2 第 2 条明写：「test/audit/T26.mjs 第 63 行 F01 用例内与 PROBE_VERSION/闭包相关的断言对象：同样改为『单一源码 + 导出同值』，其余 F01 断言（PROBE_SOURCES 含 jvm、导入闭包一致）不动」。该文件是**已跟踪**文件（git ls-files 命中），而 P1/P2 不是 U 卡、§6 解析器只认 | U\\d\\d | 行，于是 §6 并集里没有任何一张卡拥有它 —— 一处**被授权**的 tracked 改动因此被判越界，8 张卡假红。",
+      "assertionChanged": {
+        "file": "test/audit/T26.mjs",
+        "where": "第 63 行 F01 用例内那一处（git diff --numstat = 1 1：只动一行，行尾字节也没被改写）",
+        "before": "在模板包装器源码里抓字面量：assert.equal(/const PROBE_VERSION = '([^']+)'/.exec(template)[1], PROBE_VERSION) —— 委托化之后模板里不再有这个字面量，exec 回 null",
+        "after": "lits() 只数活代码里的 PROBE_VERSION = '…' 赋值：内核 lib/unify/fingerprint.cjs 恰好 1 份；PROBE_VERSION === 内核导出（运行时比）；宿主与包侧两个包装器各 0 份；并断言包侧是纯委托。F01 的其它断言（PROBE_SOURCES 含 lib/adapters/jvm.js、第 3 项起字节序、与 PROBE_SOURCES 现算重算值相等、导入闭包一致）原样保留",
+        "deltaIsNotWeakening": "旧断言比的是「源码里有一个与常量相等的字面量」；新断言把它拆成三条更强的：唯一性（内核恰 1 份）、同值（运行时导出相等）、零持有（宿主与包侧不许再有字面量）。反方向都被抓住：把字面量从包装器删掉仍会被「内核必须有且只有 1 份」抓到，改内核不改导出会被「导出同值」抓到。"
+      },
+      "whyRowIsU01": {
+        "decision": "断言对象的归属确实是 U04 交付的内核（PROBE_VERSION 的唯一字面量在 lib/unify/fingerprint.cjs），按语义最自然的登记行是 §6 的 U04 行；但本卡**实测**这样落会立刻打红 U04 自己：U04.mjs 的 A08 有一条「§6 里 U04 的落点必须逐条等于本卡写集」的逐条比对（T26 不是 U04 的卡面写集，加进 §6 就多一条）。原始输出：E:\\Temp\\u01-p1p2-ledger-2f57b1f\\exp-u04row-U04.txt（FAIL U04 checks=8 failed=1，判词「A08 · §6 里 U04 的落点必须逐条等于本卡写集（接口锁与入口不一致）」，实得 12 项 / 期望 11 项）。",
+        "whyNotLoosenU04": "改 U04.mjs 的 WRITE_SET 不在本次写集（派发明令不得改其它 test/audit/U*.mjs），也不该为登记一条落点去动一张已完成卡的卡面写集 —— 那会把「账本」与「卡面授权」混成一件事。",
+        "chosen": "因此落点行记在 U01（本卡就是账本并集的判据核心：A01 的允许面 = §6 全部 U 卡写集并集），并在 §6 那一项里写明「断言对象归 U04 内核、落点行记在 U01 及理由」，归属语义不丢、两份账仍同源。若主持人要求按 U04 命名落账，最小后续 = 由 U04 的 owner 在 U04.mjs 的 WRITE_SET 里加 test/audit/T26.mjs，并把本项从 U01 行移到 U04 行（两处同时改，缺一即红）。"
+      },
+      "notLoosened": {
+        "criterionSame": "A01 的判据一个字没改：已跟踪改动仍必须落在 §6 并集里；未跟踪项仍必须落在并集 ∪ cards/U*.md ∪ docs/unify/** ∪ audit-evidence/**；索引里出现任何改动仍一出现就红。本次只是把 P2 本来就授权的 test/audit/T26.mjs 落进账面。",
+        "noNewWhitelist": "没有新增任何白名单分支或正则；§6 并集之外的路径仍然一条都不放行。",
+        "selfProved": "node test/audit/U01.mjs --self-prove-scope：纯函数自证 ok（13 条红样本逐条仍判越界：?? lib/whatever.js / M test/_pack.mjs / M lib/adapters/jvm.js / D test/all.mjs / 3 条 staged-change 等），真实 git 输出 + 注入 2 条野路径 → violations=2 → A01-would-fail 判词照出。原始输出：audit-evidence/U01/ledger-sync-p1p2-scope-selfproof.txt 与 E:\\Temp\\u01-p1p2-ledger-2f57b1f\\scope-selfproof.txt。",
+        "redSamplesKept": "proveScopeBoundary 的 rejected 组 13 条与 mixed 混合输入原样保留（含 M test/_pack.mjs、M lib/adapters/jvm.js）；allowed 组 14 条未再加样本 —— T26 走的正是 rejected 侧同一套 tracked-modified 判据，不靠加放行样本来变绿。"
+      },
+      "files": [
+        "docs/unify/interfaces.md（§6 U01 行 +1 项，字节 47673 → 48177）",
+        "test/audit/U01.mjs（AUTHORIZED_WRITE_SET.U01 +1 项 + 一行出处注释）",
+        "docs/unify/receipts/U01.json（本条 + lockBytes / receiptBytes）"
+      ],
+      "residual": "① §6 的 U04 行本身没动（仍是 11 项，与 U04.mjs 的卡面写集逐条一致）；若日后要把 T26 改记到 U04 行，必须同时改 U04.mjs（见 whyRowIsU01 的最小后续）。② 本轮只登记 P1/P2 带来的这**一处** tracked 落点，没有顺带给任何其它既有测试开口子；docs/unify/authorization.json 与 baseline.json 一字未改。③ §12 A/B 的卡面迁移状态字段（authorization.status）仍是 unresolved，本卡不代改。④ 顺手把两张卡的红登记清楚（都不是 §6 落点缺口，也都不在本卡写集内）：U09 → 本卡收口时刻实测 FAIL checks=8 failed=1，红在 A08「回执必须有 selfAttestation.files 且至少 5 条（实得 0）」—— 那是 U09 的 lane 正在重写自己的入口与回执（U09.mjs 13:25:50 已把 T26 的自证样本改成「allow + 归属 U01 + 限定语仅 P1/P2 授权面」，回执仍是 12:56:48 的旧版），与本卡的 §6 落点无关；它的新样本期待的形状正是本卡登记的 U01 行，可作交叉印证。U15 → FAIL checks=8 failed=1，红在它的 A08 ⑥「既有测试改动只许是 A 面逐字点名的归属」：它只从 authorization.json 的 scope.A 抽被点名的既有测试（U09/U10），scope.P1/P2 一律不算，于是 T26 必落冲突侧（改前它先撞的是 A08 的 §6 并集那条，第 1279 行；本次补 §6 后露出这一条）；修法照 U13/U18 已有的做法把 scope.P1/P2 点名的测试并进 allowedTests，同样属 U15 的入口。两条都如实登记，不代改、不静默。"
+    },
+    "decisionsTCardLedger": {
+      "kind": "decisions-t-card-ledger",
+      "id": "L5",
+      "when": "decisions 授权（决-1/决-2/决-5/决-6）已把三张 T 卡改在树上：git status -uall 实测 M test/audit/T03.mjs / M test/audit/T10.mjs / M test/audit/T12.mjs —— 主持人实测 U04 的 A08「tracked 改动越出 U01–U20 授权写集并集」假红在这三条上。",
+      "authorization": {
+        "file": "docs/unify/authorization.json",
+        "field": "decisions.approvedChanged",
+        "quoteVerbatim": "全按推荐",
+        "quoteSource": "用户在 dsh 会话（U 系列统筹会话）中的直接消息，原文逐字如上。",
+        "date": "2026-10-20",
+        "citedIds": [
+          "决-1",
+          "决-2",
+          "决-5",
+          "决-6"
+        ],
+        "verbatim": [
+          {
+            "id": "决-1",
+            "what": "lib/mods/author.js 调用点改传规范身份（不再把裸点交给 challengeGate）；同步 test/audit/T03.mjs 那一行源码字面量"
+          },
+          {
+            "id": "决-2",
+            "what": "lib/gate.js 修「候选唯一但错圈」泄漏（按 circle+point 过滤）；同步 T03"
+          },
+          {
+            "id": "决-5",
+            "what": "test/audit/T12.mjs 夹具复制清单补 lib/adapters/jvm.js"
+          },
+          {
+            "id": "决-6",
+            "what": "test/audit/T10.mjs:1038-1055 最小同步（只改被委托影响的字面量，判据强度不变）"
+          }
+        ]
+      },
+      "what": "docs/unify/interfaces.md §6 的 U01 行补三项落点 —— ✅ test/audit/T03.mjs（仅 decisions 决-1/决-2 授权面）、✅ test/audit/T12.mjs（仅 decisions 决-5 授权面）、✅ test/audit/T10.mjs（仅 decisions 决-6 授权面），各带一句限定语；AUTHORIZED_WRITE_SET.U01 同步 +3 项（§6 自检每跑一次就当场逐卡比对，不一致即红）。§6 其余 19 行、A01–A08 的判据逻辑与阈值、proveScopeBoundary 的红/绿样本一字未动。",
+      "actualDeltas": [
+        {
+          "file": "test/audit/T03.mjs",
+          "numstat": "1 1",
+          "delta": "challengeGate 调用点的源码字面量由 point: args.point 同步为 point: gatePoint（随 lib/mods/author.js 改传规范身份）；其余断言未动。"
+        },
+        {
+          "file": "test/audit/T12.mjs",
+          "numstat": "7 0",
+          "delta": "负向夹具复制清单里补 fs.cpSync：把 lib/adapters 与 lib/unify 两个目录整体拷进夹具（决-5 逐字写的是 lib/adapters/jvm.js；实测还多一个 lib/unify 目录 —— lib/pack-model.js 现 import ./unify/*.cjs，只补扁平文件会让夹具在断言之前就 ERR_MODULE_NOT_FOUND）。只补复制，断言一个字没改。"
+        },
+        {
+          "file": "test/audit/T10.mjs",
+          "numstat": "32 9",
+          "delta": "T10-source-wired 由「适配层源码里必须有 withPackTransaction( 字面量」改为逐环验证委托链：适配层 require 委托件 + 真的调用记录写入口 + 委托链末端（lib/unify/records.cjs / lib/unify/commit.cjs）真的在 withPackTransaction( 里提交 + 仍不许 appendFileSync/ftruncateSync 绕过事务。等价更强，不是放宽。"
+        }
+      ],
+      "whyRowIsU01": {
+        "criterion": "U01 的 A01 允许面 = §6 全部 U 卡写集并集；三张 T 卡不在 §6 任何一行里，于是并集里没有主，被授权的 tracked 改动被判越界。账本缺口只能记在产生并集的那一行。",
+        "notAnyCardFace": "三张都不是 U01/U04/任何 U 卡的卡面写集；authorization.json 是已跟踪文件，但 §6 解析器只认 | U\\d\\d | 行。",
+        "whyNotU04Row": "与 L4 同理：U04 的 A08 有一条「§6 里 U04 的落点必须逐条等于本卡写集」，往 U04 行加非卡面路径会立刻打红 U04 自己；改 U04.mjs 也不在本次写集。"
+      },
+      "notLoosened": {
+        "criterionSame": "A01 的判据一个字没改：已跟踪改动仍必须落在 §6 并集里；未跟踪项仍必须落在并集 ∪ cards/U*.md ∪ docs/unify/** ∪ audit-evidence/**；索引里出现任何改动仍一出现就红。已跟踪文件被新增（A）仍不放行 —— 这次只是把三条本来就授权的落点记进账面。",
+        "noNewWhitelist": "没有新增白名单分支、正则或例外；§6 并集之外的路径一条都不放行。",
+        "selfProved": "node test/audit/U01.mjs --self-prove-scope：pure-cases ok（人造输入逐条对）；真实 git 输出 tracked=57 untracked=82 violations=0；注入 2 条野路径 → violations=2（scripts/x.mjs、lib/whatever.js），A01-would-fail 判词照出。原始输出：audit-evidence/U01/ledger-sync3-runs.txt。",
+        "redSamplesKept": "proveScopeBoundary 的 rejected 组 13 条（含 M test/_pack.mjs、M lib/adapters/jvm.js、D test/all.mjs、3 条 staged-change）与 mixed 混合输入原样；allowed 组 14 条未加样本 —— 三张 T 卡走的是同一套 tracked-modified 判据，不靠加放行样本来变绿。"
+      },
+      "recheck": {
+        "u01RowItems": 9,
+        "u01Row": [
+          "test/audit/unify-runner.mjs",
+          "test/audit/U01.mjs",
+          "docs/unify/interfaces.md",
+          "docs/unify/baseline.json",
+          "docs/unify/receipts/U01.json",
+          "test/audit/T26.mjs",
+          "test/audit/T03.mjs",
+          "test/audit/T12.mjs",
+          "test/audit/T10.mjs"
+        ],
+        "uniquePathsAcrossAllCards": 145,
+        "crossCardSharedPaths": [],
+        "realTrackedVsUnion": "git status -uall 的 tracked 58 条与 git diff --name-status HEAD 的 58 条，越界 0；三条 T 卡的归属显示 U01。",
+        "rawOutput": "audit-evidence/U01/ledger-sync3-runs.txt（section6-check + union-check 两段）"
+      },
+      "siblingCards": {
+        "at": "2026-10-20 14:20 前后（同一工作树、并发 lane 收敛后的复跑）",
+        "results": [
+          {
+            "card": "U04",
+            "exit": 0,
+            "verdict": "PASS U04 checks=8 failed=0 skipped=0"
+          },
+          {
+            "card": "U10",
+            "exit": 0,
+            "verdict": "PASS U10 checks=8 failed=0 skipped=0"
+          },
+          {
+            "card": "U11",
+            "exit": 0,
+            "verdict": "PASS U11 checks=8 failed=0 skipped=0"
+          },
+          {
+            "card": "U12",
+            "exit": 0,
+            "verdict": "PASS U12 checks=8 failed=0 skipped=0"
+          },
+          {
+            "card": "U14",
+            "exit": 0,
+            "verdict": "PASS U14 checks=8 failed=0 skipped=0"
+          },
+          {
+            "card": "U18",
+            "exit": 0,
+            "verdict": "PASS U18 checks=8 failed=0 skipped=0"
+          },
+          {
+            "card": "U15",
+            "exit": 1,
+            "verdict": "FAIL U15 checks=8 failed=1：A08「既有测试的改动不在授权面内（scope.A / scope.P1 / scope.P2 的 authorized[] 都没逐字点名它）：M test/audit/T03.mjs, M test/audit/T10.mjs, M test/audit/T12.mjs」",
+            "attribution": "U15 入口，不是账本缺口：U15.mjs:1445 的 allowedTests 只从 authorization.json 的 scope.A / scope.P1 / scope.P2 抽被点名的既有测试，不认 decisions.approvedChanged；§6 并集那条（U15.mjs:1402）已过。修法同 L4 residual ②（把 decisions.approvedChanged 点名的 T 卡并进 allowedTests），属 U15 自己的入口，本卡不代改。"
+          }
+        ],
+        "earlierAt1405BeforeSiblingSync": [
+          {
+            "card": "U04",
+            "red": "A04「PROBE_SOURCES 的条目与顺序必须与改前逐字相同」实得 11 项 / 常量 9 项（决-4 的连带）",
+            "later": "U04 入口已自行同步，14:20 复跑 PASS"
+          },
+          {
+            "card": "U12",
+            "red": "A08「未经授权的既有测试改动必须红（未点名 T03/T10/T12）」（U12.mjs:968）",
+            "later": "U12 入口已自行同步，14:20 复跑 PASS"
+          },
+          {
+            "card": "U14",
+            "red": "A08「audit-evidence 第一层出现了非 U 卡证据目录：T26」（U14.mjs:1775）—— 并发 lane 14:06 跑 T26 留下的证据目录，非本卡写入",
+            "later": "该目录已由那条 lane 于 14:17 前后收走，14:20 复跑 PASS"
+          },
+          {
+            "card": "U18",
+            "red": "A08「T03 钉死的那一行必须原样在 mods/author.js 里」找不到旧字面量（U18.mjs:2097）—— 决-1 的连带",
+            "later": "U18 入口已自行同步，14:20 复跑 PASS"
+          }
+        ]
+      },
+      "files": [
+        "docs/unify/interfaces.md（§6 U01 行 +3 项 + 一段出处说明；本卡这次 48177 → 48964，其后并发 lane 又把它带到 49129，故 lockBytes 记 49129）",
+        "test/audit/U01.mjs（AUTHORIZED_WRITE_SET.U01 +3 项 + 出处注释；本卡这次 81100 → 81705，并发 lane 同步 U16 常量后现 81881）",
+        "docs/unify/receipts/U01.json（本条 + lockBytes / receiptBytes）",
+        "audit-evidence/U01/ledger-sync3-runs.txt（U01 默认 / --verify-baseline / --self-prove-scope 与 §6 解析、并集核对的原始输出；含 T26 证据目录存在时的红与收走后的绿）",
+        "audit-evidence/U01/ledger-sync3-siblings.txt（7 张兄弟卡的判词与 exit 原文）"
+      ],
+      "residual": "① 三张 T 卡的落点现在归 U01，语义归属仍是各自的授权条目（限定语已写进 §6）；若日后改记到别的行，必须同时改那一行的 §6 与对应 U 卡的 WRITE_SET（同 L4 的最小后续口径）。② U01 自身实测：默认入口与 --verify-baseline 均 PASS / exit 0；--self-prove-scope 仍 pure-cases ok，且注入两条野路径后 violations=2（A01-would-fail 判词照出）—— 没变松。③ 收口期间两次外部扰动都不是本卡改动引起、也没改判据：一是 audit-evidence/T26（14:06:28 由并发 lane 的一次 T26 运行产生）会让 A01 的证据命名空间守卫红并连带 A07，该目录已于 14:17 前后被那条 lane 收走、之后 U01 恢复 PASS；二是 A07 曾在共享临时根 E:\\Temp\\u01-s0-dlane 上与并发 U01 进程相撞（BLOCKED 缺 live-pack-window-delta.json，同 L3 residual ③），重跑即 PASS。④ 唯一仍红：U15（A08 的 authorized[] 逐字点名口径不认 decisions.approvedChanged），归 U15 入口，本卡不代改。⑤ 第 5 项核对：§6 U01 行现 9 项（自有 5 + T26 + 三条），跨卡共有路径 0 条（并集 145 条全不重复；145 含并发 lane 在 U16 行新增的 lib/pack-export.js）。"
+    },
+    "decision3Ledger": {
+      "kind": "decision-3-ledger",
+      "id": "L5",
+      "when": "决-3 落地之后（工作树里 M lib/pack-export.js；§6 的 U16 行已含收编项）",
+      "what": "docs/unify/interfaces.md §6 的 **U16 行 +1 项落点** —— ✅ `lib/pack-export.js`（决策 决-3 收编：导出链路的身份构造/解析归本卡；出处指到 docs/unify/authorization.json 的 decisions.approvedChanged）；AUTHORIZED_WRITE_SET.U16 同步 +1 项（§6 自检每跑一次就当场逐卡比对，不一致即红）。§6 其余 19 行、A01–A08 的判据逻辑与阈值一字未动。",
+      "why": "这是**账本缺口**，不是越界：该文件在收编前是 §6 里唯一无主的 `lib/` 实现（U09 只能按「文件 + 痕迹」在回执里钉上限，R3 待裁决）。用户按 docs/unify/authorization.json 的 decisions.approvedChanged **逐字「全按推荐」**裁决把它收编给 U16；U16 已在卡内把那 5 处内联身份改走 lib/unify/identity.cjs。该文件是**已跟踪**文件，收编后它的 tracked 改动必须落进 §6 并集，否则 A01 会把一次**被授权**的改动判成越界（正是 L4 那类假红）。",
+      "assertionChanged": {
+        "file": "docs/unify/interfaces.md",
+        "where": "§6 的 U16 行（+1 项 `lib/pack-export.js` 与一行出处括注）",
+        "before": "U16 行 12 个 ✅ 既有落点 + 2 个 † 新文件 = 14 条；lib/pack-export.js 在 §6 里无主",
+        "after": "U16 行 13 个 ✅ 既有落点 + 2 个 † 新文件 = 15 条；lib/pack-export.js 归 U16",
+        "deltaIsNotWeakening": "A01 的判据一个字未改：已跟踪改动仍必须落在 §6 并集里、未跟踪项仍必须落在并集 ∪ cards/U*.md ∪ docs/unify/** ∪ audit-evidence/**、索引里出现任何改动一出现就红；§6 自检仍是**双向**逐卡比对（§6 多一项而常量没跟上 ⇒ 红，反之亦然）。只是把一处**本来就已授权**的落点记到账面。"
+      },
+      "notLoosened": {
+        "criterionSame": "A01 的允许面判定与红样本一条没动；本次只改 AUTHORIZED_WRITE_SET.U16 的内容（+1 项），A01–A08 的代码逻辑、阈值、红样本条数不变。",
+        "selfProved": "node test/audit/U01.mjs → PASS checks=8 failed=0 skipped=0（§6 自检逐卡比对通过，含 +1 后的 U16 行）；node test/audit/U01.mjs --verify-baseline → PASS checks=8 failed=0 skipped=0。",
+        "ownConstantNotTouched": "U01 自己的 AUTHORIZED_WRITE_SET.U01 与 WRITE_SET 一字未改 —— 收编落点记在 U16 行（文件本来就归 U16），不往 U01 行挪。"
+      },
+      "files": [
+        "docs/unify/interfaces.md（§6 U16 行 +1 项；本条落盘时字节 48964 → 49129）",
+        "test/audit/U01.mjs（AUTHORIZED_WRITE_SET.U16 +1 项 + 一行出处注释）",
+        "docs/unify/receipts/U01.json（本条 + lockBytes / receiptBytes）"
+      ],
+      "lockBytes": 49129,
+      "residual": "① interfaces.md 与 test/audit/U01.mjs 本轮被多个决-x lane 同时写（§6 的 U01 行同期还加了 T03/T12/T10 三项，已由对应 lane 同步进常量）：本条的 lockBytes 是**本条落盘时刻**的字节数；若之后还有 lane 改 §6，需在最后一次收口时重算 lockBytes（§6 自检会先替你把「常量没跟上」判红）。② 本条不给任何其它文件开口子；docs/unify/authorization.json 与 baseline.json 一字未改。③ lib/pack-export.js 的 5 处改动与行为不变对拍见 docs/unify/receipts/U16.json 的 deltas.decision-3-pack-export-ownership。"
+    },
+    "strayTEvidenceAllowlist": {
+      "what": "audit-evidence 第一层白名单从硬编码「U 卡目录 + T23」改为「U 卡目录 + T23 + 真实存在的 T 卡」。决-1/决-2/决-5/决-6/决-9/P2 之后，T 卡（T01/T03/T10/T12/T26…）由别的 lane 合法运行并把证据目录留在仓内，旧硬编码口径会把**别人的合法产物**算成本卡越界（结构性假红）。",
+      "rule": "isRealT(d) = /^T\\d{2}$/.test(d) && fs.existsSync(test/audit/<d>.mjs) —— 只有盘上真有入口的 T 卡才放行。",
+      "antiVacuity": "同处追加反空转自证：unexpectedOf([U01, T23, T01, TXX-nobody]) === [TXX-nobody]（真实存在的 T 卡放行；没有入口的 TXX-nobody 仍必须被判出来，任何非 T 非 U 目录仍红）。",
+      "strength": "判据只增不减：原放行面 {U\\d\\d, T23}，新放行面 {U\\d\\d, T23, 真实存在的 T\\d\\d}，同时新增 TXX-nobody 反空转断言。不是「T 一律放行」。",
+      "outOfSet": "无。只改本卡自己的入口 test/audit/U01.mjs 与本卡 tracked 回执 docs/unify/receipts/U01.json。",
+      "movedOutOfRepo": "E:\\Temp\\stray-T01-T03-evidence\\ —— T01 25 件/18623 B、T03 41 件/49068 B，**移出仓但保留、不删**（处置前后逐文件数/字节数一致）。",
+      "evidence": "移出 + 白名单修改后本卡复验：PASS checks=8 failed=0 skipped=0（exit 0）。",
+      "source": "E:\\Temp\\HANDOFF-U-SERIES-20261020.md §3 根因 / §4 决-A1（状态：已确认）。",
+      "kind": "stray-t-evidence-allowlist"
+    },
+    "thirdBatchB1RulesLedger": {
+      "id": "U01-DELTA-B1-RULES-LEDGER",
+      "kind": "authorized-write-set-ledger-sync",
+      "what": "docs/unify/interfaces.md §6 的 **U19 行 +1 项落点** —— `test/pack-template-rules.mjs`（仅 §4 决-B1 / decisions 决-9 授权面：FROM_PLUGIN 只追加 14 行登记项，不改任何判据强度）。",
+      "why": "这是**账本缺口**，不是 U19 越界：第三批授权（交接文件 §4 决-B1，用户原文「确认」）逐字允许 test/pack-template-rules.mjs 的\"只加登记项\"，而 §6 是\"已跟踪改动 ⊆ 授权写集并集\"的唯一出口（U08 A08 直接按 §6 行解析）。不登记 ⇒ U08 判越界；登记后 U12/U15 的\"永不面\"仍逐字点名该文件，并把\"只加登记项\"做成**可机判形状**（U12 registrationsOnlyFromDiff + 变异对照、U15 同口径），用户禁令没有被抹平。",
+      "files": [
+        "docs/unify/interfaces.md（§6 U19 行 +1 项，含决-B1 出处；字节 49129 → 49834）",
+        "docs/unify/receipts/U01.json（本条 + lockBytes / receiptBytes）"
+      ],
+      "notTouched": "§6 其它 19 张卡的落点行、§1 源文件锁、§4 模板登记数字、§5 码表、§7 T 复验清单、§8 全量基线一字未动；baseline.json 未动。",
+      "authorizationSource": "E:/Temp/HANDOFF-U-SERIES-20261020.md §4 决-B1（状态：已确认）+ docs/unify/authorization.json decisions.approvedChanged 决-9"
+    },
+    "u20IntegrationLedger": {
+      "id": "U01-DELTA-U20-INTEGRATION",
+      "kind": "authorized-write-set-ledger-sync",
+      "what": "docs/unify/interfaces.md §6 的 **U20 行 +1 项落点** —— `test/_t26-migrated-pack.mjs`（仅 U20 的集成修正面：T26 迁移夹具补 `tools/unify/*.cjs` 传递依赖，零断言改动）。",
+      "why": "这是**账本缺口**：U04/U11 之后模板里的 `assets/build-glossary.js` 与 `tools/fingerprint.js` 都委托 `tools/unify/**`，而 T26 夹具是「活包整棵拷贝 + 覆盖两个包装器」，旧活包没有 `tools/unify/` ⇒ 夹具准备阶段 `Cannot find module` ⇒ 6 个套件连断言都跑不到。修法与 decisions 决-5（T12 夹具复制清单补 lib/adapters/jvm.js）同类，只补输入准备。不登记则 U08 的 A08 判越界。",
+      "files": [
+        "docs/unify/interfaces.md（§6 U20 行 +1 项，含出处）",
+        "docs/unify/receipts/U01.json（本条 + lockBytes / receiptBytes）",
+        "test/audit/U01.mjs（AUTHORIZED_WRITE_SET.U20 常量同步 +1 项 —— §6 自检要求两边逐条一致）"
+      ],
+      "knockOn": "U20 的 docs 收窄（package.json#files）不产生新落点（package.json 本来就在 U19 行）；它只改 U08 的 A06 判据口径，已在 U08 回执登记。"
+    }
+  },
+  "unverified": [
+    "课程包闸门 38 项的**逐条**原始输出没有落盘（<pack>/tools/gate.mjs 的 stdout 被 test/all.mjs 用 execFileSync 吃掉后只转述摘要），本卡不重跑，因此只登记 35/38 与三个失败项名，没有逐项明细。",
+    "settings-teaching 是假定六红之外的第 7 条红；f5f289b 当时是否也红，本卡无法证明（禁止重跑凑结果），交 U20 按「原红变化」处理并暂停接纳。",
+    "活包窗口内唯一差异是 .git/index（git stat 缓存，字节数不变，mtime 落在窗口内）。全清单口径因此**不相同**；若验收要求把 .git 控制文件也算进冻结内容，则本窗口不满足该条（偏差 D1），需主持人/U20 裁决。",
+    "T23/T25 的自动入口未执行：源码硬编码活包路径（会读活包），只登记为阻断，没有在隔离副本里跑。",
+    "T29 无同名入口，未编造命令；其 WAIVED 是用户裁定，不是本卡验证的结果。",
+    "本卡不实施 U02 及任何后续卡；不提交、不 push、不升版。"
+  ],
+  "evidenceIndex": {
+    "root": "audit-evidence/U01/",
+    "index": "audit-evidence/U01/evidence-index.json",
+    "highlights": [
+      "full-gate/stdout.txt · stderr.txt · run.json（退出码 1/无信号/无超时/303.8s）",
+      "full-gate/run-all-result.json + <结果文件>.children-*/（56 套逐套 execution.json + 机器结果）",
+      "full-gate/suite-baseline.json · suite-baseline.txt（逐套断言/失败项/退出码/skip 台账）",
+      "live-pack-pre.json/.txt + live-pack-post.json/.txt + 两次 total.json（逐文件 sha256 + 总摘要）",
+      "live-pack-window-delta.json（全清单 vs 内容口径 + .git/index 归因）",
+      "live-pack-freeze-deviation.json（00:39:05 第三方引擎升级偏差）",
+      "source-lock.json · interface-extract.json · template-registry.json · git-state.json",
+      "t-reverify-registry.json · t-reverify-runs.json · t-reverify-T13/T16-*.txt · t-reverify-release-exit-code.txt",
+      "main-tree-t-evidence-lock.json（主树冻结证据的 sha256 + mtime 预算）",
+      "capture-*.mjs / build-*.mjs（采集与生成脚本，可复核）"
+    ]
+  },
+  "authorization": {
+    "status": "unresolved",
+    "decidedBy": null,
+    "conflicts": [
+      {
+        "no": 1,
+        "file": "test/mirror-parity.mjs",
+        "asserted": "a.anchor / b.anchor 均为 spring-boot/0001",
+        "ownerOnPathA": "U09"
+      },
+      {
+        "no": 2,
+        "file": "test/intake.mjs",
+        "asserted": "read1.latest.vue / read2.latest.vue",
+        "ownerOnPathA": "U10"
+      }
+    ],
+    "blockedWithoutPathA": [
+      "U09",
+      "U10",
+      "U14"
+    ],
+    "note": "本回执不引用任何人类授权（尚无）；出现授权时须逐字引用人类原话与来源。"
+  },
+  "handoff": {
+    "to": "S1（A/B/C lane）",
+    "consumers": [
+      "U02",
+      "U03",
+      "U04"
+    ],
+    "how": "先读 docs/unify/interfaces.md 与 docs/unify/baseline.json；核对接口时**以本基线 sha256 为准**，发现差异立即暂停该卡并带证据报差异。",
+    "reverify": "node test/audit/U01.mjs（默认只验采集材料）/ --verify-baseline（对基线提交对象）",
+    "noRerun": "U01 的活包窗口只有一次；后续任何卡不得重跑全量、不得再次采样活包（除 U20 的独占窗口）。"
+  },
+  "commands": {
+    "note": "原始命令与退出码（完整 stdout/stderr 见 evidenceIndex）。全量门槛只跑了一次。",
+    "fullGate": {
+      "argv": [
+        "node",
+        "test/all.mjs",
+        "--pack=E:\\workplace\\study",
+        "--mode=real"
+      ],
+      "cwd": "<repo>",
+      "exitCode": 1,
+      "signal": null,
+      "timedOut": false,
+      "ms": 303827,
+      "rerun": 1,
+      "stdout": "audit-evidence/U01/full-gate/stdout.txt",
+      "stderr": "audit-evidence/U01/full-gate/stderr.txt",
+      "run": "audit-evidence/U01/full-gate/run.json",
+      "perSuite": "audit-evidence/U01/full-gate/run-all-result.json.children-*/ （56 套 execution.json + 机器结果）"
+    },
+    "capture": [
+      "node audit-evidence/U01/capture-interfaces.mjs",
+      "node audit-evidence/U01/capture-manifest.mjs pre",
+      "node audit-evidence/U01/capture-full-gate.mjs   ← 唯一一次全量 + 窗口后清单",
+      "node audit-evidence/U01/build-suite-baseline.mjs",
+      "node audit-evidence/U01/capture-window-delta.mjs",
+      "node audit-evidence/U01/capture-deviation.mjs",
+      "node audit-evidence/U01/capture-t-registry.mjs",
+      "node audit-evidence/U01/capture-t-evidence-lock.mjs",
+      "node audit-evidence/U01/build-interfaces-doc.mjs",
+      "node audit-evidence/U01/build-baseline.mjs"
+    ],
+    "isolatedTReverify": [
+      {
+        "argv": [
+          "node",
+          "test/audit/T13.mjs",
+          "--automated-only"
+        ],
+        "cwd": "E:\\Temp\\u01-s0-dlane\\tree（仓源副本）",
+        "exitCode": 0,
+        "verdict": "AUTO-ONLY T13-AUTO checks=37 failed=0 skipped=0"
+      },
+      {
+        "argv": [
+          "node",
+          "test/audit/T16.mjs",
+          "--automated-only"
+        ],
+        "cwd": "E:\\Temp\\u01-s0-dlane\\tree（仓源副本）",
+        "exitCode": 0,
+        "verdict": "AUTO-ONLY T16-AUTO checks=25 failed=0 skipped=0"
+      },
+      {
+        "argv": [
+          "node",
+          "--test",
+          "test/audit/release-exit-code.mjs"
+        ],
+        "cwd": "E:\\Temp\\u01-s0-dlane\\tree（仓源副本）",
+        "exitCode": 0,
+        "verdict": "tests 11 / pass 11 / fail 0"
+      }
+    ],
+    "verify": [
+      {
+        "argv": [
+          "node",
+          "test/audit/U01.mjs"
+        ],
+        "exitCode": 0,
+        "stdout": "PASS U01 checks=8 failed=0 skipped=0"
+      },
+      {
+        "argv": [
+          "node",
+          "test/audit/U01.mjs",
+          "--verify-baseline"
+        ],
+        "exitCode": 0,
+        "stdout": "PASS U01 checks=8 failed=0 skipped=0"
+      }
+    ],
+    "rawVerdictRecord": "audit-evidence/U01/verification-runs.txt"
+  },
+  "deviations": [
+    {
+      "id": "D1",
+      "what": "交接假设「活包自 2026-10-19 19:07:56 起静止」不成立：00:39:05 有一次第三方引擎升级写入活包。",
+      "evidence": "E:\\workplace\\study\\.engine-backup-1792427945122/plan.json 一类备份目录中 plan.json 的 mtime 与内容（source=_install-20261020，replace 7 / add 6）",
+      "effect": "「静止 ≥1 小时」只从 00:39:05 起算（至窗口约 1h17m）；不得声称静止自 19:07:56。已写入 baseline.livePack.freezeBoundary。"
+    },
+    {
+      "id": "D2",
+      "what": "活包窗口内唯一差异是 .git/index（git stat 缓存；字节数不变，mtime 落在窗口内）。",
+      "effect": "全清单口径**不相同**；内容口径（排除 .git/index）相同。若验收要求把 .git 控制文件也算进冻结内容，则本窗口不满足该条，需裁决。"
+    },
+    {
+      "id": "D3",
+      "what": "test/wording.mjs:65 在每次运行时把话术快照写进 <repo>/audit-evidence/T23/。",
+      "effect": "那次全量运行因此在 audit-evidence/ 下留下了 T23/（mtime 落在窗口内，已登记）。它不是本卡写集，也不是 T 卡的整卡证据。"
+    },
+    {
+      "id": "D4",
+      "what": "派发说明写「24 个未跟踪计划文件」「两基线间 110 文件变化」，git 实测是 23 与 108。",
+      "effect": "按实测登记；不改 SPEC、不补造数字。"
+    }
+  ]
+}

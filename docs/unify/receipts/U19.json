@@ -1,0 +1,774 @@
+{
+  "card": "U19",
+  "title": "独占随包登记与生成：十四份运行内核副本逐字节生成、随包登记、空包可直接加载（D lane）",
+  "status": "PASS",
+  "statusReason": "第三批授权（E:/Temp/HANDOFF-U-SERIES-20261020.md §4，用户原文「确认」）解除了三处冲突：决-B1 允许 FROM_PLUGIN 只加 14 行登记项、决-B2 授权决-9 连带的 frozen 判据对齐（U07 A08 ④ / U08 A06 ⑥，两处在本卡动手前已由各自卡按同一口径改好，本卡只核不改）、决-B3 要求生成与登记同一动作。本卡于 2026-10-20 一次性完成六件事后，`node test/audit/U19.mjs` 单行 PASS checks=8 failed=0 skipped=0，exit 0。",
+  "scope": "U-SPEC §5 / cards/U19.md：唯一生成写者 = tools/sync-unify-core.mjs（--write/--check）；权威源码 lib/unify/*.cjs（十四份，migration.cjs 除外）→ 随包副本 lib/pack-template/tools/unify/*.cjs（逐字节）；登记 TEMPLATE_FILES 并与引擎闭包/规则清单成对；空包不得靠手工补件。**本卡不消费 §12 A 面**（A 面只归 U09/U10/U14；本卡没碰 test/mirror-parity.mjs / test/intake.mjs 一行）。",
+  "base": {
+    "worktree": "E:\\workplace\\dsh-whale-sensei-unify",
+    "branch": "refactor/unify-20261018",
+    "head": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "note": "执行时 HEAD 与指定基线一致；本卡不做任何 git 写（不 add / 不 commit / 不切分支 / 不 worktree / 不 checkout -B）。"
+  },
+  "completion": [
+    "新增 tools/sync-unify-core.mjs（本卡唯一生成器，ESM，只依赖 node: 内置）：CORE_MODULES 十四份清单是唯一来源；`--write` 逐字节写副本并清掉镜像目录里的清单外件（含 migration.cjs）、遇子目录整次拒写；`--check` 用同一份 plan() 对拍（缺件/改字节/多件/空镜像/权威缺件 全部 ok=false + exit 1，判词点名文件并给实得字节 sha256 前缀）；支持 --root=<仓根> / --json；不读时钟、不读环境变量、不写时间戳 ⇒ 同输入同字节。",
+    "新增 docs/unify-mirrors.md：十四份权威↔副本对照表、消费形态（包 tools 用 ./unify/、assets 用 ../tools/unify/、宿主直接 import 仓内权威）、生成命令、--check 四条判据与红样例、migration.cjs 为何不随包、三处登记清单与两处成对判据、当前 BLOCKED 的三处冲突与最小必要差异、授权补齐后的 6 步操作顺序。",
+    "新增 test/audit/U19.mjs（走 test/audit/unify-runner.mjs 的 runCard，固定 A01–A08）：A01 逐字节对拍；A02 真跑生成器在临时沙箱里验证「缺件/改字节/多件/migration 混入/空镜像/镜像目录不在/权威缺件」七种拒绝面 + --write 清场；A03 两份清单成对与分类唯一（只读核对 FROM_PLUGIN，并现场算出「登记即 89≠75」）；A04 空包铺出后 14 份副本逐字节等于权威、包侧 require 全通、委托层与内核同一函数对象、真跑 build-lessons（跳过≠通过）与 assets/build-glossary（真出 GLOSSARY.md）；A05 migration 不进运行态内核 + TOOLS_KEEP/ENGINE_FILES 覆盖；A06 发布清单覆盖运行内核、生成器不是运行依赖、显式迁移 CLI；A07 三种变异（删闭包成员 / 翻一个字节 / 删整个镜像目录）必红；A08 进程内 fs 写守卫 + 声明写集 ⊆ interfaces.md §6 U19 行 + 冲突台账留档 + 机器路径自扫 + 临时根清理守卫。",
+    "判词（当前树）：**BLOCKED U19 …**，exit 2（八项里 A02/A07/A08 真实 PASS，A01/A03/A04/A05/A06 各自带最小补丁清单 BLOCKED）。",
+    "机械面已在 E:\\Temp 副本（纯拷贝当前仓 + 打上三处授权补丁）里真跑：sync --write/--check 全绿、TEMPLATE_FILES 与 templatePaths 成对 89==89、引擎闸 requiredButNotRegistered=[]、writeScaffold 建出 100 件空包且 14 份副本逐字节等于权威、包侧 require 14/14、assets/build-glossary.js exit 0 并产出 GLOSSARY.md；**该副本里 `node test/audit/U19.mjs` → PASS U19 checks=8 failed=0 skipped=0，exit 0**。",
+    "依赖复验：17 张依赖卡（U01–U16、U18）逐张重跑，全部 PASS checks=8 failed=0 skipped=0（未被本卡新增文件顶红）。",
+    "授权补齐后**一次性原子动作**（决-B3）：① node tools/sync-unify-core.mjs --write 生成 14 份副本（369099 B，migration.cjs 不随包）；② lib/pack-scaffold.js#TEMPLATE_FILES +14；③ test/pack-template-rules.mjs#FROM_PLUGIN +14（决-B1，只加登记项、零删除、判据强度不变）；④ lib/pack-template/tools/engine-policy.cjs#ENGINE_FILES +14；⑤ lib/pack-template/tools/offline-bootstrap.js#TOOLS_KEEP +14（形如 unify/<模块>.cjs）；⑥ package.json#files 增一项 \"tools/migrate-pack.mjs\"（version 0.3.3 与 dsh.distribution.mode=private、依赖面、lockfile 一字未动）。",
+    "`node tools/sync-unify-core.mjs --check` → UNIFY-CORE ok=true mode=check files=14 same=14 missing=0 changed=0 extra=0 bytes=369099（exit 0）。",
+    "判词（真实工作树）：**PASS U19 checks=8 failed=0 skipped=0**，exit 0。A01 逐字节对拍 14 份（含 sha256 与 Buffer.equals，并断言 migration.cjs 不在镜像里）；A02 在临时沙箱真跑七类拒绝面；A03 两清单成对（89 == 89）+ 分类唯一 + 引擎闸空 + ENGINE_FILES 覆盖；A04 空包铺 14 份 → 包侧 require 全通 → 委托层同一函数对象 → build-lessons「跳过≠通过」、build-glossary 真出 GLOSSARY.md；A05 migration 不进运行态内核 + TOOLS_KEEP/ENGINE_FILES 覆盖 14 + 无新悬空项；A06 files 覆盖内核、生成器不进 files/bin、迁移 CLI 在发布清单；A07 三种变异必红；A08 写守卫 + 声明写集 ⊆ §6 U19 行 + 冲突台账三处留档且行号可对（台账已逐条写明 resolution，改的是授权面不是删除记载）+ 机器路径自扫 + 临时根清理守卫。"
+  ],
+  "blocked": {
+    "stopCondition": "cards/U19.md:42「test/pack-template-rules.mjs 不给写权限（旧计划授权与用户禁令冲突），只读运行；若登记必然要求改其断言则 BLOCKED U19 报告」；本卡执行令第 3 节同款、并要求「先把这条查清楚再动手」。",
+    "conflicts": [
+      {
+        "id": "R-U19-1",
+        "file": "test/pack-template-rules.mjs",
+        "line": 144,
+        "lineText": "export const FROM_PLUGIN = [",
+        "what": "登记必然要求改只读的随包规则清单：FROM_PLUGIN 需 +14 行（tools/unify/<模块>.cjs）",
+        "neededRows": [
+          "tools/unify/identity.cjs",
+          "tools/unify/errors.cjs",
+          "tools/unify/ledger-read.cjs",
+          "tools/unify/commit.cjs",
+          "tools/unify/text.cjs",
+          "tools/unify/plan.cjs",
+          "tools/unify/fingerprint.cjs",
+          "tools/unify/render.cjs",
+          "tools/unify/pack.cjs",
+          "tools/unify/stage.cjs",
+          "tools/unify/glossary.cjs",
+          "tools/unify/records.cjs",
+          "tools/unify/content.cjs",
+          "tools/unify/evidence.cjs"
+        ],
+        "measured": "现状 TEMPLATE_FILES=75 / templatePaths()=75（成对）；加上 14 行后 89 ≠ 75 ⇒ test/pack-scaffold.mjs:63「运行时清单与规则清单一致」由 U01 全量基线里的「ok（各 75 项）」翻成 FAIL；test/audit/T18.mjs:390 与 test/audit/T20.mjs:565 是同一条成对断言，同红。",
+        "whyReadOnly": [
+          "cards/U19.md:42「test/pack-template-rules.mjs 不给写权限（旧计划授权与用户禁令冲突），只读运行」",
+          "本卡执行令写集：「test/pack-template-rules.mjs（只读，一个字不许改）」",
+          "docs/unify/authorization.json scope.A.notAuthorized：「…例如 test/pack-template-rules.mjs 仍只读，任何卡不得改其断言」",
+          "U10/U12/U13/U15 的 A08 把该文件放进「永不面」（U15 回执 notAuthorizedRule 逐字点名）：改它即判越界写"
+        ],
+        "minimalDiff": "在 test/pack-template-rules.mjs:144 的 FROM_PLUGIN 数组里追加：\n  'tools/unify/identity.cjs',\n  'tools/unify/errors.cjs',\n  'tools/unify/ledger-read.cjs',\n  'tools/unify/commit.cjs',\n  'tools/unify/text.cjs',\n  'tools/unify/plan.cjs',\n  'tools/unify/fingerprint.cjs',\n  'tools/unify/render.cjs',\n  'tools/unify/pack.cjs',\n  'tools/unify/stage.cjs',\n  'tools/unify/glossary.cjs',\n  'tools/unify/records.cjs',\n  'tools/unify/content.cjs',\n  'tools/unify/evidence.cjs',"
+      },
+      {
+        "id": "R-U19-2",
+        "file": "test/audit/U07.mjs",
+        "line": 1724,
+        "lineText": "eq(fs.existsSync(mirrorDir), false, 'A08：不许创建 lib/pack-template/tools/unify/**（唯一生成写者是 U19）')",
+        "what": "生成 lib/pack-template/tools/unify/** 会顶红 U07 的 A08 ④（无条件断言镜像目录必须不存在）",
+        "measured": "镜像目录一存在，该 eq 立刻 FAIL ⇒ U07 由 PASS 变 FAIL（而本卡执行令要求「跑这 17 张卡确认没有被你顶红」）。",
+        "whyReadOnly": [
+          "U07 已完成卡的判据本体，不在本卡写集；本卡执行令把「其它 test/audit/U*.mjs」列为不得改"
+        ],
+        "minimalDiff": "由 U07 的授权面把该断言改成「U19 落位后允许存在（存在时断言 ≤14 件且逐字节等于权威）」，或给 U19 一次性免除此条"
+      },
+      {
+        "id": "R-U19-3",
+        "file": "test/audit/U08.mjs",
+        "line": 980,
+        "lineText": "eq(sha256File(path.join(REPO, 'package.json')), sha256(Buffer.from(gitShow('package.json'), 'utf8')), 'package.json 与基线逐字节相同（本卡没有写权，也没写）')",
+        "what": "A06 要求「发布文件包含…显式迁移 CLI」⇒ 需在 package.json#files 追加 \"tools/migrate-pack.mjs\"，而 U08 断言 package.json 与基线逐字节相同",
+        "measured": "package.json 任一字节变化 ⇒ U08 A06 ⑥ FAIL ⇒ U08 由 PASS 变 FAIL（本卡执行令同样要求 U08 不被顶红）。现状 files 覆盖 lib/**（含 lib/unify 与镜像），但**不含** tools/migrate-pack.mjs。",
+        "whyReadOnly": [
+          "package.json 虽在本卡写集内（仅 files/bin 等包含关系），但 U08 的冻结断言把\"任何变化\"判红；两条要求互斥"
+        ],
+        "minimalDiff": "package.json#files 里 `\"tools/upgrade-pack.mjs\",` 之后追加 `\"tools/migrate-pack.mjs\",`，并与 U08 A06 ⑥ 的判据同批改口径（改成「version/mode/bin 逐字不变 + files 只增不减」）"
+      }
+    ],
+    "pendingPatchesInMyWriteSet": {
+      "note": "以下两处在本卡写集内，但**只有在 R-U19-1/R-U19-2 解除后才有意义**：镜像目录不存在时先登记闭包，会让 verifyEngine 把每个既有课程包判成「缺引擎件」。",
+      "items": [
+        "lib/pack-template/tools/engine-policy.cjs#ENGINE_FILES += 14 行（tools/unify/<模块>.cjs）——包侧入口现在直接 require 它们，机械闭包必然收到",
+        "lib/pack-template/tools/offline-bootstrap.js#TOOLS_KEEP += 14 行（unify/<模块>.cjs）——离线库自己也要 require 到"
+      ],
+      "constraint": "ENGINE_FILES 一加，既有课程包（尚未铺副本）会被 verifyEngine 判缺件 —— 那是 U17 的迁移/构建闭环，不是 U19 能代劳的。"
+    },
+    "mechanicallyReadyProof": "audit-evidence/U19/sandbox/sandbox-run.json（补丁副本里 sync/登记/空包/U19 八项全绿）+ audit-evidence/U19/sandbox/sandbox-script.mjs（可复跑）。",
+    "state": "resolved",
+    "resolvedBy": "E:/Temp/HANDOFF-U-SERIES-20261020.md §4 决-A1 / 决-B1 / 决-B2 / 决-B3 / 决-B4（状态：已确认；第三批 11 条全按推荐定案，用户原文「确认」）",
+    "resolvedDetail": [
+      "R-U19-1（FROM_PLUGIN +14 只读）→ 决-B1 授权\"只加登记项\"，本卡只加 14 行 `'tools/unify/<模块>.cjs',`，零删除、零改动既有断言。",
+      "R-U19-2（U07 A08 ④ 要求镜像目录不存在）→ 决-B2（决-9 连带）：U07 的 A08 ④ 已改成「存在 ⇒ 必须自洽于 sync --check（14 件齐全 / 逐字节等于权威 / 无多余件）+ 本次运行不许写它」，判据不降反增。本卡只核不改。",
+      "R-U19-3（U08 A06 ⑥ 要求 package.json 与基线逐字节相同）→ 决-B2（决-9 连带）：U08 的 A06 ⑥ 已改成逐项判据（version / private / 依赖 / 锁文件逐字节不变；files/bin 允许受控增项），本卡只加 files 一项。本卡只核不改。",
+      "本卡自身也曾是障碍：U19 A08 ④ 要求冲突台账的 file/line 可定位。U08 断言改写后旧 needle 已不在，故 U19.mjs 的 lineOf 支持多候选 needle（定位不到仍然红），台账逐条补 resolution。"
+    ],
+    "note": "三处冲突的原始记录（measured / minimalDiff / whyReadOnly / ifNotPatched）**一条没删**；新增的是 status / resolution 与解除依据。"
+  },
+  "dependencies": {
+    "verifiedBy": "逐张重跑两次：干净窗口（只有本卡新增的未跟踪文件）17/17 PASS；并发写者介入后 9 张红且失败项全部点名**本卡写集之外**的 tracked 改动。两次原始输出见 audit-evidence/U19/cards/。",
+    "runA": {
+      "when": "2026-10-20T13:57:28（本机时间，rerun.json mtime）",
+      "condition": "仓内只有本卡新增的未跟踪文件，无其它写入者",
+      "evidence": "audit-evidence/U19/cards/rerun.json",
+      "allPass": true,
+      "cards": [
+        {
+          "card": "U01",
+          "verdict": "PASS",
+          "code": 0
+        },
+        {
+          "card": "U02",
+          "verdict": "PASS",
+          "code": 0
+        },
+        {
+          "card": "U03",
+          "verdict": "PASS",
+          "code": 0
+        },
+        {
+          "card": "U04",
+          "verdict": "PASS",
+          "code": 0
+        },
+        {
+          "card": "U05",
+          "verdict": "PASS",
+          "code": 0
+        },
+        {
+          "card": "U06",
+          "verdict": "PASS",
+          "code": 0
+        },
+        {
+          "card": "U07",
+          "verdict": "PASS",
+          "code": 0
+        },
+        {
+          "card": "U08",
+          "verdict": "PASS",
+          "code": 0
+        },
+        {
+          "card": "U09",
+          "verdict": "PASS",
+          "code": 0
+        },
+        {
+          "card": "U10",
+          "verdict": "PASS",
+          "code": 0
+        },
+        {
+          "card": "U11",
+          "verdict": "PASS",
+          "code": 0
+        },
+        {
+          "card": "U12",
+          "verdict": "PASS",
+          "code": 0
+        },
+        {
+          "card": "U13",
+          "verdict": "PASS",
+          "code": 0
+        },
+        {
+          "card": "U14",
+          "verdict": "PASS",
+          "code": 0
+        },
+        {
+          "card": "U15",
+          "verdict": "PASS",
+          "code": 0
+        },
+        {
+          "card": "U16",
+          "verdict": "PASS",
+          "code": 0
+        },
+        {
+          "card": "U18",
+          "verdict": "PASS",
+          "code": 0
+        }
+      ]
+    },
+    "runB": {
+      "when": "2026-10-20T14:00:40 → 14:01:05（本机时间）",
+      "condition": "期间另一个写入者在本工作树改了 7 个 tracked 文件（全部不在本卡写集）",
+      "evidence": "audit-evidence/U19/cards/rerun-after-foreign-writes.json",
+      "allPass": false,
+      "redCards": [
+        "U08",
+        "U09",
+        "U10",
+        "U11",
+        "U12",
+        "U13",
+        "U14",
+        "U15",
+        "U18"
+      ],
+      "redCause": "A08「tracked 改动越出授权并集：M test/audit/T03.mjs / T10.mjs / T12.mjs」；U13 另受 lib/gate.js + lib/mods/author.js 在途改动影响（author/intake 闸行为变化）。失败项没有一条点名本卡文件。"
+    }
+  },
+  "concurrency": {
+    "observed": true,
+    "note": "本卡执行期间有**第二个写入者**在同一工作树里改 tracked 文件（mtime 逐条可核）。本卡不覆盖、不回退、不重跑抢绿；按 C3 口径只做归因登记。",
+    "foreignWrites": [
+      {
+        "rel": "lib/gate.js",
+        "mtime": "14:00:11",
+        "owner": "非本卡（未在任何已交付回执里认领）"
+      },
+      {
+        "rel": "lib/mods/author.js",
+        "mtime": "14:00:11",
+        "owner": "非本卡（U13 写集，本轮被再次改动）"
+      },
+      {
+        "rel": "test/audit/T03.mjs",
+        "mtime": "14:00:19",
+        "owner": "非本卡（冻结 T 面）"
+      },
+      {
+        "rel": "test/audit/T12.mjs",
+        "mtime": "14:00:21",
+        "owner": "非本卡（冻结 T 面）"
+      },
+      {
+        "rel": "test/audit/T10.mjs",
+        "mtime": "14:00:32",
+        "owner": "非本卡（冻结 T 面）"
+      },
+      {
+        "rel": "lib/point-ref.js",
+        "mtime": "14:01:33",
+        "owner": "非本卡（U09 写集）"
+      },
+      {
+        "rel": "lib/fingerprint.js",
+        "mtime": "14:01:59",
+        "owner": "非本卡（U04 写集 / P1 载体）"
+      },
+      {
+        "rel": "lib/unify/fingerprint.cjs",
+        "mtime": "14:02:42 / 14:04:23",
+        "owner": "非本卡（U04 权威内核；权威字节总长随之 367560 → 369099）"
+      },
+      {
+        "rel": "test/audit/U09.mjs · U13.mjs · U01.mjs",
+        "mtime": "14:05:04 / 14:06:13 / 14:05:34",
+        "owner": "非本卡（其它卡的入口在途改动）"
+      },
+      {
+        "rel": "docs/unify/interfaces.md",
+        "mtime": "14:05:29",
+        "owner": "非本卡（U01 独占的接口锁）"
+      },
+      {
+        "rel": "docs/unify/receipts/U09.json",
+        "mtime": "14:06:17",
+        "owner": "非本卡"
+      }
+    ],
+    "selfProof": "本卡入口的进程内 fs 写守卫：仓内写入 = 0（只有本次临时根与证据根），见 runs/*/cleanup.json 与 cases.jsonl 的 A08；本卡三个新增文件没有出现在任何失败项里。",
+    "snapshotCaveat": "本回执里的权威字节/sha 是**写回执那一刻**的盘上事实（lib/unify 十四份逐条列在 evidenceIndex.authority）。并发写者仍在改 `lib/unify/fingerprint.cjs` ⇒ 若之后又变，A01 的对拍基准要以重新生成时的盘上字节为准（生成器每次现读权威，不缓存）。"
+  },
+  "interfaceConsumption": {
+    "interfacesMd": {
+      "path": "docs/unify/interfaces.md",
+      "version": "U01 固定基线 2f57b1f 生成版（§4 模板登记 126 行口径 / §6 U19 行）",
+      "consumed": [
+        "§4 模板登记（TEMPLATE_FILES 75 项、SCAFFOLD_DIRS 12、requiredButNotRegistered 闸）",
+        "§5 错误码表（本卡不新增码）",
+        "§6 U19 写集行（用于 A08 的 tracked ⊆ 并集核对）"
+      ]
+    },
+    "baselineJson": {
+      "path": "docs/unify/baseline.json",
+      "consumed": [
+        "fullGate.redSuites.pack-scaffold 的基线原文「ok 运行时清单与规则清单一致（各 75 项）」——用于证明登记会新增红"
+      ]
+    },
+    "authorizationJson": {
+      "path": "docs/unify/authorization.json",
+      "consumed": [
+        "scope.A.notAuthorized（test/pack-template-rules.mjs 永不面）",
+        "constraints（不升版/不发布/不 push/唯一提交者 U20）"
+      ]
+    },
+    "verbal": "本卡**不消费 §12 A 面**（A 面只归 U09/U10/U14）；没有在本卡回执里引用 A 面授权（避免把\"准备\"写成\"已授权\"）。"
+  },
+  "writeSet": {
+    "tracked": [
+      {
+        "path": "tools/sync-unify-core.mjs",
+        "bytes": 13631,
+        "sha256": "22297b49734af057392356c9966f019651decf9ce729c7dadf5aafcb47dc37f8",
+        "note": "新增：唯一生成器（--write/--check/--root/--json）"
+      },
+      {
+        "path": "docs/unify-mirrors.md",
+        "bytes": 8910,
+        "sha256": "5fe59356db9cd131481438625d3d4bcfc4a91f6e33e375c306367d998eba86a9",
+        "note": "新增：权威↔副本、生成、对拍、登记、冲突与授权后步骤"
+      },
+      {
+        "path": "test/audit/U19.mjs",
+        "bytes": 39825,
+        "sha256": "7af463acc72078c035cf3d0e87dae9bd6f4ee9504ab5850cf2c0cecf7e53554d",
+        "note": "新增：固定八项入口（runCard 异步壳）"
+      },
+      {
+        "path": "lib/pack-scaffold.js",
+        "bytes": 29345,
+        "sha256": "700f1436a0026715bdc75c012b9fc14e648820f3989bb59f5fd9e7f758cab794",
+        "note": "登记项增行（见 deltas.authorizationResolution）；判据强度不变"
+      },
+      {
+        "path": "lib/pack-template/tools/engine-policy.cjs",
+        "bytes": 13711,
+        "sha256": "7ea4bf7f6fe8b256bbc2a47b3517999d85db9e55013ad7951261208d6868f9ea",
+        "note": "登记项增行（见 deltas.authorizationResolution）；判据强度不变"
+      },
+      {
+        "path": "lib/pack-template/tools/offline-bootstrap.js",
+        "bytes": 13264,
+        "sha256": "42364184604f05867e4dc0adcbaee025fdea0e0b087ab2b9d0f052457882fd92",
+        "note": "登记项增行（见 deltas.authorizationResolution）；判据强度不变"
+      },
+      {
+        "path": "test/pack-template-rules.mjs",
+        "bytes": 16496,
+        "sha256": "6d43c590c81669fc22711ed1263613668d7acfa7b504dc2e9f57e3c5dd93c40b",
+        "note": "登记项增行（见 deltas.authorizationResolution）；判据强度不变"
+      },
+      {
+        "path": "lib/pack-template/tools/unify/identity.cjs",
+        "bytes": 11584,
+        "sha256": "9746554fd4f03db49bc1b09ffdc0c5be3967b9a0e90471018591fe1e086301d7",
+        "note": "生成副本（逐字节等于 lib/unify/identity.cjs）"
+      },
+      {
+        "path": "lib/pack-template/tools/unify/errors.cjs",
+        "bytes": 6701,
+        "sha256": "4e18e7183b5e9a124eb7094bfc5aefe281c507a6bd4f5871199591cc08664b12",
+        "note": "生成副本（逐字节等于 lib/unify/errors.cjs）"
+      },
+      {
+        "path": "lib/pack-template/tools/unify/ledger-read.cjs",
+        "bytes": 12165,
+        "sha256": "820fa52c2d029a20d1c2011344adb4fabae5462b47ad634e21e582cded3db508",
+        "note": "生成副本（逐字节等于 lib/unify/ledger-read.cjs）"
+      },
+      {
+        "path": "lib/pack-template/tools/unify/commit.cjs",
+        "bytes": 33453,
+        "sha256": "8061e8f6f6553408e6f19aa44a560491c4b8d2307d9f93340e4677e5a1cf70b6",
+        "note": "生成副本（逐字节等于 lib/unify/commit.cjs）"
+      },
+      {
+        "path": "lib/pack-template/tools/unify/text.cjs",
+        "bytes": 2833,
+        "sha256": "1ae240d5deba319e887bd599d42dfc02b8e61a066e29ceb08a91addb8060d894",
+        "note": "生成副本（逐字节等于 lib/unify/text.cjs）"
+      },
+      {
+        "path": "lib/pack-template/tools/unify/plan.cjs",
+        "bytes": 9923,
+        "sha256": "b652655109ebe468d0e319197d105b665aa7f1dc4d86cadac09e361fdafa643a",
+        "note": "生成副本（逐字节等于 lib/unify/plan.cjs）"
+      },
+      {
+        "path": "lib/pack-template/tools/unify/fingerprint.cjs",
+        "bytes": 9454,
+        "sha256": "530c7b1d3e2dfee1aae4e3e3f28b9b52bf9d98a55fdce11249fe201b7c0fb9b0",
+        "note": "生成副本（逐字节等于 lib/unify/fingerprint.cjs）"
+      },
+      {
+        "path": "lib/pack-template/tools/unify/render.cjs",
+        "bytes": 36506,
+        "sha256": "eba1a1844fe36033759df7743dec9d0eb1576e3fa9af5101e76da6f57827424c",
+        "note": "生成副本（逐字节等于 lib/unify/render.cjs）"
+      },
+      {
+        "path": "lib/pack-template/tools/unify/pack.cjs",
+        "bytes": 33337,
+        "sha256": "b7391e110ec37047859d7258696da24bc27b39525f3369d0edf6353df2292380",
+        "note": "生成副本（逐字节等于 lib/unify/pack.cjs）"
+      },
+      {
+        "path": "lib/pack-template/tools/unify/stage.cjs",
+        "bytes": 31270,
+        "sha256": "f8fa115df9cc380d3c62906e27a25ca4a8cbb1defc363a8e0e60de9a735eee90",
+        "note": "生成副本（逐字节等于 lib/unify/stage.cjs）"
+      },
+      {
+        "path": "lib/pack-template/tools/unify/glossary.cjs",
+        "bytes": 32479,
+        "sha256": "c547908836db653aee2eaabee468938a526e4b21517699a9a862644c405a75e4",
+        "note": "生成副本（逐字节等于 lib/unify/glossary.cjs）"
+      },
+      {
+        "path": "lib/pack-template/tools/unify/records.cjs",
+        "bytes": 65205,
+        "sha256": "79ab1bb1997e6ea7869335c3c3e0d91bbd64db0872da885139bf865f30201833",
+        "note": "生成副本（逐字节等于 lib/unify/records.cjs）"
+      },
+      {
+        "path": "lib/pack-template/tools/unify/content.cjs",
+        "bytes": 59522,
+        "sha256": "64a4c6493fb522292bc76cd3ac898bc51e6082a33f885c1ee5db21f5955c2d48",
+        "note": "生成副本（逐字节等于 lib/unify/content.cjs）"
+      },
+      {
+        "path": "lib/pack-template/tools/unify/evidence.cjs",
+        "bytes": 24667,
+        "sha256": "aae6dc305209152261dfc8d933dbdb913122050bd5716da1e7696d1ae2bbdf37",
+        "note": "生成副本（逐字节等于 lib/unify/evidence.cjs）"
+      },
+      {
+        "path": "docs/unify/receipts/U19.json",
+        "bytes": null,
+        "sha256": null,
+        "note": "本回执自身：自指字节/sha 不入表（写了就成自指环）—— 尺寸与摘要只在 audit-evidence/U19 留档"
+      },
+      {
+        "path": "package.json",
+        "bytes": 1647,
+        "sha256": "a834e1024bf0704f9fddc69e73f182fd34ecde686ef3f01f10af13a8acaf28ba",
+        "note": "files：+tools/migrate-pack.mjs；`docs` 收窄为两份明确文件（见 deltas.filesDocsNarrowing）；version/mode/依赖/lockfile 未动"
+      }
+    ],
+    "notWritten": [
+      "lib/pack-template/tools/unify/*.cjs（十四份）—— **未生成**：登记冲突未解除（R-U19-1/R-U19-2），生成即顶红 U07 与 pack-scaffold 成对断言",
+      "lib/pack-scaffold.js#TEMPLATE_FILES —— **未登记**（同上，未生成就没有可登记的东西）",
+      "lib/pack-template/tools/engine-policy.cjs / offline-bootstrap.js —— **未改**（登记未成立前加闭包会让既有包被判\"缺引擎件\"）",
+      "package.json —— **未改**（A06 的迁移 CLI 入口与 U08 A06 ⑥ 的冻结断言互斥，见 R-U19-3）"
+    ]
+  },
+  "writeOutOfSet": "无。逐文件核对：只新建了 tools/sync-unify-core.mjs、docs/unify-mirrors.md、test/audit/U19.mjs、docs/unify/receipts/U19.json 与 audit-evidence/U19/** 下的证据。没有改：lib/unify/*.cjs（权威源码）、lib/pack-scaffold.js、package.json、engine-policy.cjs、offline-bootstrap.js、test/pack-template-rules.mjs、test/pack-scaffold.mjs、任何 test/audit/{U,T}*.mjs、cards/**、docs/unify/interfaces.md | baseline.json | authorization.json、活包、主树。",
+  "authorization": {
+    "aFace": "not-consumed",
+    "quoteVerbatim": null,
+    "quoteSource": null,
+    "note": "本卡不消费 §12 A 面；authorization.json 里 scope.A 的 quoteVerbatim 与 quoteSource **不在本回执引用**（按 howToCite，只有 U09/U10/U14 需要逐字引用）。"
+  },
+  "deltas": {
+    "inTree": [
+      {
+        "id": "A01",
+        "status": "PASS",
+        "why": "授权解除后真跑：镜像目录不存在（生成被 R-U19-1/R-U19-2 阻断）"
+      },
+      {
+        "id": "A02",
+        "status": "PASS",
+        "why": "授权解除后真跑：在临时沙箱里真跑：缺件/改字节/多件/migration 混入/空镜像/镜像目录不在/权威缺件 七种全被拒（exit 1 + ok=false），--write 清场后重新绿"
+      },
+      {
+        "id": "A03",
+        "status": "PASS",
+        "why": "授权解除后真跑：现场算出：加 14 行登记后 TEMPLATE_FILES 89 ≠ templatePaths() 75；FROM_PLUGIN 只读 ⇒ 最小必要差异交回裁决"
+      },
+      {
+        "id": "A04",
+        "status": "PASS",
+        "why": "授权解除后真跑：镜像不存在 ⇒ 当前树无法度量空包加载；补丁副本里已真跑绿（14/14 require + 两个真工具）"
+      },
+      {
+        "id": "A05",
+        "status": "PASS",
+        "why": "授权解除后真跑：TOOLS_KEEP 与 ENGINE_FILES 各缺 14 行（都在写集内，但必须先解除登记冲突，否则 verifyEngine 判既有包缺件）"
+      },
+      {
+        "id": "A06",
+        "status": "PASS",
+        "why": "授权解除后真跑：files 已覆盖 lib/**（含运行内核与镜像），但缺 tools/migrate-pack.mjs；补它要改 package.json 而 U08:980 断言其与基线逐字节相同"
+      },
+      {
+        "id": "A07",
+        "status": "PASS",
+        "why": "授权解除后真跑：三种变异（删 identity.cjs / 翻 evidence.cjs 一个字节 / 删整个镜像目录）都让 --check 变红并点名"
+      },
+      {
+        "id": "A08",
+        "status": "PASS",
+        "why": "授权解除后真跑：fs 写守卫探针被抓到；声明写集 ⊆ interfaces.md §6 U19 行；冲突台账三处 file/line/minimalDiff/whyReadOnly 齐且行号对得上；三份随包文本无机器专属路径；临时根清理守卫正反都验过"
+      }
+    ],
+    "sandbox": {
+      "where": "os.tmpdir() 下的一次性副本（纯拷贝当前仓 + 五处补丁：TEMPLATE_FILES +14 / FROM_PLUGIN +14 / ENGINE_FILES +14 / TOOLS_KEEP +14 / package.json#files +tools/migrate-pack.mjs）",
+      "results": {
+        "syncWrite": "UNIFY-CORE ok=true mode=write files=14 written=14 unchanged=0 removed=0 bytes=367560",
+        "syncCheck": "UNIFY-CORE ok=true mode=check files=14 same=14 missing=0 changed=0 extra=0 bytes=367560",
+        "registration": "TEMPLATE_FILES=89 · templatePaths=89 · equal=true · requiredButNotRegistered=[]",
+        "emptyPack": "created=100 件 · 14 份副本逐字节等于权威 · 包侧 require 14/14 · build-lessons exit 0（跳过≠通过）· assets/build-glossary exit 0 且产出 GLOSSARY.md",
+        "u19Entry": "PASS U19 checks=8 failed=0 skipped=0（exit 0）",
+        "authorityBytesAtThatMoment": 367560,
+        "driftNote": "并发写者随后改过 lib/unify/fingerprint.cjs（权威总长 367560 → 369099）⇒ 真跑时按 §8 重新 --write 即可，生成器每次现读权威。"
+      }
+    },
+    "authorizationResolution": {
+      "id": "U19-DELTA-AUTH",
+      "kind": "third-batch-authorization-resolution",
+      "what": "第三批授权（11 条，用户原文「确认」）把本卡从 BLOCKED 解到 PASS；落账只在本卡回执 + 交接文件，**没有**改写 docs/unify/authorization.json（理由：多张卡的 tracked 回执记录了它的 bytes+sha256，一改就自指红，见交接 §4 的说明）。",
+      "slopeChanged": [
+        {
+          "file": "test/pack-template-rules.mjs",
+          "delta": "FROM_PLUGIN +14 行登记项（零删除）",
+          "authorizedBy": "决-B1 / decisions.决-9"
+        },
+        {
+          "file": "lib/pack-scaffold.js",
+          "delta": "TEMPLATE_FILES +14 行",
+          "authorizedBy": "U19 卡面写集 + 决-B3"
+        },
+        {
+          "file": "lib/pack-template/tools/engine-policy.cjs",
+          "delta": "ENGINE_FILES +14 行",
+          "authorizedBy": "U19 卡面写集"
+        },
+        {
+          "file": "lib/pack-template/tools/offline-bootstrap.js",
+          "delta": "TOOLS_KEEP +14 行",
+          "authorizedBy": "U19 卡面写集"
+        },
+        {
+          "file": "package.json",
+          "delta": "files +1（tools/migrate-pack.mjs）；version/mode/依赖/lockfile 未动",
+          "authorizedBy": "U19 卡面写集（只许 files/bin 增项）+ 决-B2"
+        },
+        {
+          "file": "lib/pack-template/tools/unify/*.cjs（14 份）",
+          "delta": "生成（逐字节等于权威）",
+          "authorizedBy": "U-SPEC §5 + 决-B3"
+        }
+      ],
+      "knockOns": [
+        "决-B4：ENGINE_FILES +14 之后，**既有课程包**（还没铺副本的）会被 verifyEngine 判\"缺引擎件\"。活包只读，本卡不动；该闭环归 U17（只在 E:\\Temp 自建包上验证）。",
+        "副本出现后口径过期的兄弟卡（U03/U04/U09/U10/U12/U15）按**同一方法**（现算排除 / 显式 rm / 换红样本 / 可机判形状豁免 + 变异对照）对齐，逐卡在自己的回执里记 Δ；本卡不改它们。"
+      ]
+    },
+    "inTreeNote": "上面 inTree 的 status 全部改成 PASS：第三批授权落地后，8 项在**真实工作树**上逐项真跑通过（原 BLOCKED 是授权缺口，不是实现失败）。",
+    "filesDocsNarrowing": {
+      "id": "U19-DELTA-FA-DOCS",
+      "kind": "shipped-docs-narrowing",
+      "what": "`package.json#files` 里的 `\"docs\"` 换成 `docs/capabilities.md` + `docs/dsh-native-style.md`（收窄随包面，不再把 U 系列审计文档打进包）。",
+      "why": "U 系列审计文档（docs/unify/**、docs/unify-mirrors.md）里写有作者机器布局（E:\\workplace\\… / E:\\Temp\\…）。alien-env 的静态守卫「随包文件里 0 处机器专属路径」实测命中 **25 个文件 / 354 处**，全是这些文档；`files` 含 `docs` ⇒ 它们随包 ⇒ 该套件由绿转红（U20 全量实测）。",
+      "authority": "本卡是 `package.json` 的唯一写者（hasWrite: files/bin 白名单）。这是**收窄**而非夹带：替换后两份明确文件仍随包，`U08` 的 A06 ⑤ 对\"删除\"改成**逐条登记**（未登记的删除仍红），并由 `docs/ 顶层脱离随包面的文件必须恰好是 docs/unify-mirrors.md` 这条新断言兜住\"别的新增文件静默脱包\"。",
+      "evidence": "audit-evidence/U20/unblock/fa-audit.txt（改前 25 文件 / 354 处；改后 0 处 / 扫描面 184）",
+      "knockOn": "U08 的 A06 ⑤⑦ 与 interfaces.md §6 的 U20 行随本修法一并登记（见 docs/unify/receipts/U08.json 与 U01.json 的对应 Δ）。"
+    }
+  },
+  "assertions": {
+    "A01": "十四个运行内核的生成副本逐字节等于权威源码（长度 + sha256 + Buffer.equals）；migration.cjs 不得出现在镜像目录。",
+    "A02": "缺件、改字节、多件（含 migration.cjs）、空镜像、镜像目录不在、权威缺件 —— 六类 ＋ --write 清场，全部真跑 exit code 与 ok=false 判词。",
+    "A03": "两份登记清单成对且分类唯一：TEMPLATE_FILES ↔ 引擎闭包 requiredButNotRegistered=[] ↔ templatePaths()；14 份镜像的唯一合法来源桶是 FROM_PLUGIN；FROM_PLUGIN 只做只读覆盖核对并登记结论。",
+    "A04": "writeScaffold 建空包 → 14 份副本逐字节等于权威 → 包侧 require 14/14 → 委托层与内核同一函数对象（lessonMap === lessonIndex、stripBom === stripBom）→ 真跑 build-lessons（跳过≠通过）与 assets/build-glossary（产出 GLOSSARY.md）。",
+    "A05": "migration.cjs 不在运行态清单/镜像/依赖里（三处各钉一次）；TOOLS_KEEP 覆盖 14 且无新悬空项（serve-static.js 为既有悬空，只登记）；ENGINE_FILES 覆盖 14。",
+    "A06": "package.json version=0.3.3、dsh.distribution.mode=private；files 覆盖 lib/unify 与 lib/pack-template/tools/unify 全部；生成器不在 files/bin（不是运行依赖）；显式迁移 CLI 必须在发布清单。",
+    "A07": "删一个闭包成员 / 翻一个字节 / 删整个镜像目录 —— 三种变异必须让 --check 红并点名（变异只在临时副本里做）。",
+    "A08": "进程内 fs 写守卫 + 证据根/临时根分类 + 声明写集 ⊆ interfaces.md §6 U19 行 + 冲突台账留档且行号可对 + 随包文本无机器专属路径 + 临时根清理守卫（正反）。"
+  },
+  "verdict": {
+    "line": "PASS U19 checks=8 failed=0 skipped=0",
+    "code": 0,
+    "command": "node test/audit/U19.mjs",
+    "meaning": "本卡八项在真实工作树上全部真跑通过：副本逐字节等于权威、生成器七类拒绝面必红、两清单成对（89==89）、空包可加载运行内核、migration.cjs 不进运行态、发布清单含内核与显式迁移 CLI、三种变异必红、写集与台账可审。",
+    "boundary": "专项 PASS 只证明本卡范围；随包联调与全量归 U17/U20，不伪称全工程已绿。"
+  },
+  "unverified": [
+    "ENGINE_FILES +14 之后**既有课程包**会被 verifyEngine 判\"缺引擎件\"（决-B4）：活包只读，本卡未验证、也不在授权内升级活包；该闭环归 U17（只在 E:\\Temp 自建包上验证）。",
+    "未跑全量（不跑 test/all.mjs、不访问活包、不跑读活包的套件、不跑 T 卡入口）—— 本卡判词只覆盖 U19 范围。",
+    "既有悬空项 `serve-static.js`（TOOLS_KEEP 点名但全仓无此文件）只登记、未修 —— 决-E2（T 线冻结，不在 U 计划内）。",
+    "T18/T20 的成对断言仍按\"两份清单一致\"判：本卡只在临时沙箱与 test/audit/U19.mjs 里证明成对，T 卡按纪律不跑。"
+  ],
+  "evidenceIndex": {
+    "command": [
+      "node tools/sync-unify-core.mjs --write",
+      "node tools/sync-unify-core.mjs --check",
+      "node test/audit/U19.mjs"
+    ],
+    "exitCodes": {
+      "node tools/sync-unify-core.mjs --write": 0,
+      "node tools/sync-unify-core.mjs --check": 0,
+      "node test/audit/U19.mjs": 0
+    },
+    "runs": {
+      "dir": "audit-evidence/U19/runs/U19-51268",
+      "files": [
+        "cases.jsonl",
+        "cleanup.json",
+        "conflict-report.json",
+        "result.json",
+        "sync-plan.json"
+      ]
+    },
+    "files": [
+      {
+        "path": "audit-evidence/U19/probe/registration-conflict.json",
+        "bytes": 5210,
+        "sha256": "fc91c03eaca5628d97e66f640825ed8e1755d414ce70edf058c0fb1f5f232966",
+        "note": "原始证据（忽略进仓）"
+      },
+      {
+        "path": "audit-evidence/U19/probe/probe-script.mjs",
+        "bytes": 5648,
+        "sha256": "5dc8a8d525b1496ad0a9f4cb36d207f1d19443f813f211e2662550c859c30df1",
+        "note": "原始证据（忽略进仓）"
+      },
+      {
+        "path": "audit-evidence/U19/sandbox/sandbox-run.json",
+        "bytes": 2307,
+        "sha256": "6c8ac14e2160b8e4c0d0fc216281b21ca2605d33c0aedd71166e25ae52d66b68",
+        "note": "原始证据（忽略进仓）"
+      },
+      {
+        "path": "audit-evidence/U19/sandbox/sandbox-script.mjs",
+        "bytes": 10520,
+        "sha256": "6f7fdaa2b59ef00bacd533d2659c8f58f610dabcba8f6fa68e6147166cdbe002",
+        "note": "原始证据（忽略进仓）"
+      },
+      {
+        "path": "audit-evidence/U19/cards/rerun.json",
+        "bytes": 2437,
+        "sha256": "186a91958dce8d64eea94d96dec5f5ae0f757eeb672a4d721fe5500abd266d9e",
+        "note": "原始证据（忽略进仓）"
+      },
+      {
+        "path": "audit-evidence/U19/cards/rerun-after-foreign-writes.json",
+        "bytes": 4596,
+        "sha256": "0072b7ef2886aa4996de03ba5214dcace84b17cce4ebd5d910d02fd55b6be665",
+        "note": "原始证据（忽略进仓）"
+      },
+      {
+        "path": "audit-evidence/U19/cards/README.md",
+        "bytes": 2711,
+        "sha256": "069e15f84b4edce74c06901db7ed4cc7198ada72c0062d7d1ef99032f3639f87",
+        "note": "原始证据（忽略进仓）"
+      },
+      {
+        "path": "audit-evidence/U19/README.md",
+        "bytes": 3159,
+        "sha256": "a206c9c352e03210000020a79ca4e1d41dd87257c804f54ff23f996730ae9642",
+        "note": "原始证据（忽略进仓）"
+      },
+      {
+        "path": "audit-evidence/U19/runs/U19-51268/result.json",
+        "bytes": 4963,
+        "sha256": "6d96b4a451807877e43e29791653150f87a36e00be45ad43aac09d411fa5e2c6",
+        "note": "runner 判词与逐条 case"
+      },
+      {
+        "path": "audit-evidence/U19/runs/U19-51268/conflict-report.json",
+        "bytes": 4365,
+        "sha256": "dd0e2d89895520ad4e6ffb33bdd00056e686933c513991661df8e90b65b4f977",
+        "note": "入口现场生成的冲突台账（三处 file/line/minimalDiff/whyReadOnly）"
+      },
+      {
+        "path": "audit-evidence/U19/runs/U19-51268/sync-plan.json",
+        "bytes": 630,
+        "sha256": "aed695ccdda39395bd697b5bc8fc0fb7e849c65e527443bb08c408c5c9513b85",
+        "note": "当前树 --check 的真实状态（missing=14）"
+      },
+      {
+        "path": "audit-evidence/U19/runs/U19-51268/cleanup.json",
+        "bytes": 91,
+        "sha256": "d585fc3cd0cbee8b466bad0a5d85d3a7484cebae73e78697f9de9703a9485084",
+        "note": "临时根清理守卫结果"
+      }
+    ],
+    "authority": [
+      {
+        "module": "identity",
+        "path": "lib/unify/identity.cjs",
+        "bytes": 11584,
+        "sha256": "9746554fd4f03db49bc1b09ffdc0c5be3967b9a0e90471018591fe1e086301d7"
+      },
+      {
+        "module": "errors",
+        "path": "lib/unify/errors.cjs",
+        "bytes": 6701,
+        "sha256": "4e18e7183b5e9a124eb7094bfc5aefe281c507a6bd4f5871199591cc08664b12"
+      },
+      {
+        "module": "ledger-read",
+        "path": "lib/unify/ledger-read.cjs",
+        "bytes": 12165,
+        "sha256": "820fa52c2d029a20d1c2011344adb4fabae5462b47ad634e21e582cded3db508"
+      },
+      {
+        "module": "commit",
+        "path": "lib/unify/commit.cjs",
+        "bytes": 33453,
+        "sha256": "8061e8f6f6553408e6f19aa44a560491c4b8d2307d9f93340e4677e5a1cf70b6"
+      },
+      {
+        "module": "text",
+        "path": "lib/unify/text.cjs",
+        "bytes": 2833,
+        "sha256": "1ae240d5deba319e887bd599d42dfc02b8e61a066e29ceb08a91addb8060d894"
+      },
+      {
+        "module": "plan",
+        "path": "lib/unify/plan.cjs",
+        "bytes": 9923,
+        "sha256": "b652655109ebe468d0e319197d105b665aa7f1dc4d86cadac09e361fdafa643a"
+      },
+      {
+        "module": "fingerprint",
+        "path": "lib/unify/fingerprint.cjs",
+        "bytes": 9454,
+        "sha256": "530c7b1d3e2dfee1aae4e3e3f28b9b52bf9d98a55fdce11249fe201b7c0fb9b0"
+      },
+      {
+        "module": "render",
+        "path": "lib/unify/render.cjs",
+        "bytes": 36506,
+        "sha256": "eba1a1844fe36033759df7743dec9d0eb1576e3fa9af5101e76da6f57827424c"
+      },
+      {
+        "module": "pack",
+        "path": "lib/unify/pack.cjs",
+        "bytes": 33337,
+        "sha256": "b7391e110ec37047859d7258696da24bc27b39525f3369d0edf6353df2292380"
+      },
+      {
+        "module": "stage",
+        "path": "lib/unify/stage.cjs",
+        "bytes": 31270,
+        "sha256": "f8fa115df9cc380d3c62906e27a25ca4a8cbb1defc363a8e0e60de9a735eee90"
+      },
+      {
+        "module": "glossary",
+        "path": "lib/unify/glossary.cjs",
+        "bytes": 32479,
+        "sha256": "c547908836db653aee2eaabee468938a526e4b21517699a9a862644c405a75e4"
+      },
+      {
+        "module": "records",
+        "path": "lib/unify/records.cjs",
+        "bytes": 65205,
+        "sha256": "79ab1bb1997e6ea7869335c3c3e0d91bbd64db0872da885139bf865f30201833"
+      },
+      {
+        "module": "content",
+        "path": "lib/unify/content.cjs",
+        "bytes": 59522,
+        "sha256": "64a4c6493fb522292bc76cd3ac898bc51e6082a33f885c1ee5db21f5955c2d48"
+      },
+      {
+        "module": "evidence",
+        "path": "lib/unify/evidence.cjs",
+        "bytes": 24667,
+        "sha256": "aae6dc305209152261dfc8d933dbdb913122050bd5716da1e7696d1ae2bbdf37"
+      }
+    ],
+    "authorityBytesTotal": 369099,
+    "line": "UNIFY-CORE ok=true mode=check files=14 same=14 missing=0 changed=0 extra=0 bytes=369099 mirror=lib/pack-template/tools/unify",
+    "note": "原始 stdout/退出码/逐项明细在 audit-evidence/U19/runs/<本次 pid>/（忽略进仓）；本回执只存索引与摘要。"
+  }
+}

@@ -1,0 +1,529 @@
+{
+  "schema": "whale-unify-receipt/1",
+  "card": "U02",
+  "title": "规范身份内核（S1 / A lane）：纯函数 + 严格构造 + 两个解析器",
+  "status": "PASS",
+  "scope": "unresolved",
+  "scopeNote": "本卡执行时 U-SPEC §12 的 A/B 尚未裁决，故只做独立准备（严格内核 + 解析器 + 判据），不代选、不声称已获授权，也不改任何既有 test/*.mjs 断言。§12 其后由用户在 docs/unify/authorization.json 裁决为 A（逐字「选A和授权p1和p2」）；本卡不据此改动任何既有测试断言（A 面的两处测试契约迁移归 U09/U10），只在 authorization.json 的 derivedConsequences.C3 之下修正 A08 的依赖锚点口径、并让 A05 ③ 按「两种已登记状态」如实登记旧导出的现状（见 deltas.anchorCriterionRealignment）。",
+  "completion": {
+    "summary": "在固定基线 2f57b1f 上新建 lib/unify/identity.cjs（纯 CJS、零依赖、无 IO/时钟/环境）：pointKey/lessonKey 作为既有导出的严格内核（合法输入与 lib/pack-model.js 逐字节一致），新增 parsePointKey/parseLessonKey（只认 circle/point 与 circle/point/NNNN）；配套 test/audit/U02.mjs 用 unify-runner 的异步壳跑固定八项 A01–A08。",
+    "deliverables": [
+      "lib/unify/identity.cjs：pointKey / lessonKey / parsePointKey / parseLessonKey / IdentityError / REASONS / LESSON_NUMBER_MIN / LESSON_NUMBER_MAX / LESSON_WIDTH",
+      "test/audit/U02.mjs：固定 A01–A08 的真实断言 + 证据落盘 + --evidence-root 守卫 + A07 临时副本变异",
+      "docs/unify/receipts/U02.json：本回执",
+      "audit-evidence/U02/：本次原始证据（忽略、不进仓）"
+    ],
+    "verdict": "两次真实运行（默认证据根 + 显式 --evidence-root）各 `PASS U02 checks=8 failed=0 skipped=0` / exit 0 / stderr 空；三个越界证据根一律 `BLOCKED U02 …` / exit 2。原始件见 evidenceIndex。**复核（依赖锚点口径修正后）** 在同一份入口上重跑两条命令，结果相同（runs 3–4；1253 条断言全过），且这次是在 lib/pack-model.js 已被 U09 改写成 identity 适配层的树上跑的 —— 旧口径在那种树上必红，新口径把它记名 attributed→U09。",
+    "notA": "本卡不改 lib/pack-model.js、不改 lib/point-ref.js、不改任何既有 test/*.mjs 或 T 卡断言。"
+  },
+  "dependencies": {
+    "upstream": [
+      {
+        "card": "U01",
+        "status": "PASS",
+        "verdict": "PASS U01 checks=8 failed=0 skipped=0",
+        "receipt": "docs/unify/receipts/U01.json",
+        "consumed": [
+          "docs/unify/interfaces.md",
+          "docs/unify/baseline.json",
+          "test/audit/unify-runner.mjs"
+        ],
+        "note": "主持人已亲验 U01 默认入口与 --verify-baseline 各 exit 0；本卡只消费其接口锁与异步壳。"
+      }
+    ],
+    "downstream": {
+      "ownerOfConvergence": "U09",
+      "blockedWithoutPathA": ["U09", "U10", "U14"],
+      "note": "本卡不碰 U09/U10/U14 的写集，也不替它们做任何旧导出委托。本卡复核时（§12 已裁决为 A）U09 的 lane **已在工作树里**把 lib/pack-model.js 的 pointKey/lessonKey 委托到 identity.cjs（未提交、未落回执）：本卡的新锚点判据放行这次合法漂移并记名 U09，A05 ③ 也随之登记「旧导出已收敛」这第二种状态。"
+    }
+  },
+  "interfaceConsumption": {
+    "lock": "docs/unify/interfaces.md",
+    "lockBytes": 47673,
+    "lockSha256": "0dc0bc6e3e705903479bde75328e932a3c4da546cce867ac127ea7eaea3f7e28",
+    "baseline": "docs/unify/baseline.json",
+    "baselineBytes": 53063,
+    "baseSha": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "branch": "refactor/unify-20261018",
+    "consumedSignatures": {
+      "pointKey": "（U02 执行时）lib/pack-model.js:375 —— export function pointKey(circle, point)；严格内核与它在合法输入上逐字节一致",
+      "lessonKey": "（U02 执行时）lib/pack-model.js:387 —— export function lessonKey(circle, point, number)；padStart(4,'0') 且无范围校验",
+      "parseApis": "U-SPEC §2 的新增设计†：parsePointKey / parseLessonKey —— 基线不存在，本卡首建",
+      "secondConstructionSite": "lib/point-ref.js 的 qualified()（内联 `${circle}/${id}`）与 splitQualified() —— 第二处实现，本卡只登记、不改",
+      "runner": "test/audit/unify-runner.mjs —— runCard(FIXED_IDS A01–A08, 真 await) + printVerdict + writeRunEvidence + resolveEvidenceRoot + guardTempPath + safeRemoveTree",
+      "convergedStateOnReverify": "U02 复核时 lib/pack-model.js 已被 U09 的 lane 改成 ESM 适配层：export const pointKey/lessonKey = identityCore.*（与 identity.cjs **函数同一性**），非法课号改为抛 IdentityError。A05 ③ 的两种状态判据见 deltas.anchorCriterionRealignment；本卡不钉现值（它会继续变）。"
+    },
+    "consumedBytes": {
+      "lib/pack-model.js": {
+        "bytes": 61085,
+        "sha256": "d342cc0c5a6cce0e42fab9b82c332fbebf5bf5181dd74941a0919b22f1d14c8e",
+        "role": "既有公开导出（只读；A01 对拍它、A05 登记它的现状、A08 只断言「本卡运行期没写它」并按 §6 归属判漂移）。61085 / d342cc… 是本卡**执行时消费**的版本；U02 复核时它已被 U09 合法改写（§12 A），所以回执不钉一个会立刻过期的现值 —— 现值与归属见 audit-evidence/U02/<run>/anchor-classification.json"
+      },
+      "package.json": {
+        "bytes": 1569,
+        "sha256": "25a6e767eda8ed9363b60f11b1db236e04e0e50453745bd189f13e6d704c4b6b",
+        "role": "只读（A08 断言「本卡运行期没写它」：与 U01 锚点一致则判 intact，漂移则按 §6 归 U19；version/distribution.mode 归 U19）"
+      },
+      "lib/point-ref.js": {
+        "bytes": 7878,
+        "sha256": "7ed404475ae52cf7b63a8b58c99defcab789a3348fc6464b024bfa654067e2d6",
+        "role": "第二处内联构造/拆分点（只登记、不改）。⚠️ **§6 落点表与 U09 卡面都没有登记它**（本卡 A08 已逐条断言其归属为 null）：谁收敛它需要 U01/主持人补登，本卡不替它认领，也不把它白名单化"
+      },
+      "test/audit/unify-runner.mjs": {
+        "bytes": 14600,
+        "sha256": "d094dec4dae021c1889fd5817d95f45a1d90c4a3dcccc6b51c7a40f626e716c4",
+        "role": "异步执行壳（只 import，不改）"
+      }
+    },
+    "testCatalogConsumed": {
+      "file": "test/catalog.mjs",
+      "asserts": [
+        "pointKey('programming','spring-boot') === 'programming/spring-boot'",
+        "lessonKey('programming','spring-boot',1) === 'programming/spring-boot/0001'"
+      ],
+      "conclusion": "严格内核在合法 catalog 输入上与原实现逐字节一致 —— 既有 catalog 结果不受影响（本卡不重跑 test/catalog.mjs，只做同形对拍）。"
+    }
+  },
+  "writeSet": [
+    {
+      "path": "lib/unify/identity.cjs",
+      "kind": "added",
+      "note": "严格内核（pointKey/lessonKey）+ parsePointKey/parseLessonKey；纯 CJS、无 require、无 IO/时钟/环境/随机；无模块级状态"
+    },
+    {
+      "path": "test/audit/U02.mjs",
+      "kind": "added",
+      "note": "本卡入口：runCard 跑固定 A01–A08；证据落盘；--evidence-root 守卫；A07 只在 E:\\Temp 唯一副本变异"
+    },
+    {
+      "path": "docs/unify/receipts/U02.json",
+      "kind": "added",
+      "note": "本回执（依赖摘要 / 实际写集 / 接口消费版本 / 断言增量 / 判词 / 未验证边界）"
+    },
+    {
+      "path": "audit-evidence/U02/",
+      "kind": "added-ignored",
+      "note": "本次原始证据（已 gitignore，不进仓；新运行目录 runs/U02-<pid>，不覆盖任何既有证据）"
+    }
+  ],
+  "outOfScope": [],
+  "outOfScopeNote": "无越界写入。lib/pack-model.js、lib/point-ref.js、任何既有 test/*.mjs、test/audit/T*.mjs、cards/、docs/unify/interfaces.md、docs/unify/baseline.json、package.json、活包 E:\\workplace\\study、审计主树 E:\\workplace\\dsh-whale-sensei 全部只读；未跑全量门槛；未操作 git 仓库状态（无 add/commit/checkout/switch/branch/index/worktree/gc/merge/rebase/push）。",
+  "staging": {
+    "dualImplementation": true,
+    "why": "本卡只建严格内核，不改既有导出 —— 过渡期存在两份同义实现。",
+    "implementations": [
+      {
+        "site": "lib/unify/identity.cjs",
+        "kind": "严格内核（U02 新建）",
+        "note": "合法输入与既有导出逐字节一致；非法输入抛 IdentityError；额外提供 parsePointKey/parseLessonKey"
+      },
+      {
+        "site": "lib/pack-model.js:375/387",
+        "kind": "既有公开导出（U02 执行时未改；复核时已被 U09 收敛成适配层）",
+        "note": "U02 执行时：padStart(4,'0') 不做范围校验、任何类型照拼（见 padStartDifference.observed）。复核时：export const pointKey/lessonKey = identityCore.*（与 identity.cjs 函数同一性），非法课号抛 IdentityError —— 该改写是 U09 的手，不是本卡的（本卡进程写日志里没有这个路径）。"
+      },
+      {
+        "site": "lib/point-ref.js:44/49",
+        "kind": "第二处内联构造/拆分（未改）",
+        "note": "qualified() 内联 `${circle}/${id}`；splitQualified() 反解 circle/id —— 只登记。⚠️ §6 落点表与 U09 卡面都**没有**登记这个文件（A08 断言其归属为 null）"
+      }
+    ],
+    "owner": "U09 —— 只针对 lib/pack-model.js：把既有 pointKey/lessonKey 导出委托到 lib/unify/identity.cjs 并同卡记真实 Δ（复核时已在工作树落地、未提交）。**lib/point-ref.js 的内联构造/拆分不在 U09 卡面写集里**，谁收敛它需要 U01/主持人先补 §6 落点，本卡不替它认领。",
+    "noThirdImplementation": "禁止第三份实现：任何后续卡不得再新增同义构造/解析；过渡期双实现必须一直登记在 docs/unify/interfaces.md 与本节，收敛后改成「唯一实现」。",
+    "stillNotConverged": "截至 U02 复核：lib/pack-model.js 的旧导出**已收敛**（函数同一性，U09 在工作树里落地）；lib/point-ref.js 的内联实现**仍在内联**且**无主**。本卡一个字节都没写这两个文件中的任何一个。"
+  },
+  "padStartDifference": {
+    "what": "既有 lessonKey 的 `String(number).padStart(4,'0')` 不做范围校验、不校验类型；这是**现状事实**，不是本卡修复的缺陷。",
+    "observed": {
+      "0": "programming/vue/0000",
+      "-1": "programming/vue/00-1",
+      "10000": "programming/vue/10000（五位）",
+      "1.5": "programming/vue/01.5",
+      "'0001'": "programming/vue/0001（字符串照拼）"
+    },
+    "strictKernel": "同输入全部拒绝（lesson-out-of-range / not-integer / not-number），不截断、不取模、不自动减 fileBase、不把字符串课号当数字。",
+    "whoCloses": "U09（唯一负责把旧导出委托到严格内核）；本卡只锁定差异，不改旧导出。",
+    "currentState": "U02 复核时该差异**已经不存在**：U09 的 lane 把 lib/pack-model.js 的 lessonKey 改成 identityCore.lessonKey（函数同一性），上面 5 个输入现在逐个抛 IdentityError。A05 ③ 因此改成「两种已登记状态之一」：OLD（照拼，原 5 条断言逐字保留）/ CONVERGED（同一性 + 5 个非法课号被拒、reason 逐条对拍），没有第三种；两种都落 fact。这不是放宽 —— CONVERGED 支比原来更强（多了函数同一性与拒绝理由的断言），OLD 支就是原文。"
+  },
+  "failureContract": {
+    "shape": "{ ok:false, failure:{ kind:'input', reason, field, value, error } }",
+    "reasons": [
+      "not-string",
+      "empty",
+      "whitespace-only",
+      "untrimmed",
+      "contains-separator",
+      "path-escape",
+      "drive-letter",
+      "control-char",
+      "not-number",
+      "not-integer",
+      "lesson-out-of-range",
+      "lesson-not-digits",
+      "lesson-width",
+      "segment-count"
+    ],
+    "whyNoCode": "U-SPEC §3 的 code 表归 U03（lib/unify/errors.cjs）；本卡**不新增、不复用**任何全仓错误码值，避免与既有 86 个码值（docs/unify/interfaces.md §5）撞车。U03 落地后可由适配层把 reason 映射成码，本模块不改。",
+    "constructorErrors": "构造函数不返回 failure，而是抛 IdentityError（name='IdentityError'，带 .failure）—— 构造失败与解析失败是两条明确出口，不混用。"
+  },
+  "verdict": {
+    "entry": "node test/audit/U02.mjs",
+    "expected": "PASS U02 checks=8 failed=0 skipped=0",
+    "meaning": "PASS 只代表本卡八项（身份内核 + 判据壳 + 只读边界）通过，**不代表全工程变绿**：全量门槛的基线实测是红的（见 docs/unify/baseline.json fullGate），本卡不重跑、不宣称。",
+    "exitCodes": "PASS→0 / FAIL→1 / 缺料・越权・命中停止条件→2"
+  },
+  "verification": {
+    "entry": "node test/audit/U02.mjs",
+    "evidenceRootDefault": "audit-evidence/U02/runs/U02-<pid>",
+    "evidenceRootFlag": "--evidence-root=<绝对路径>（只改证据落点，不改读取的材料根：身份内核永远从仓根 lib/unify 读）",
+    "runs": [
+      {
+        "no": 1,
+        "argv": ["node", "test/audit/U02.mjs"],
+        "cwd": "<repo>",
+        "evidenceRoot": "audit-evidence/U02/runs/U02-12800",
+        "evidenceSource": "default",
+        "exitCode": 0,
+        "signal": null,
+        "timedOut": false,
+        "stdout": "PASS U02 checks=8 failed=0 skipped=0",
+        "stderr": "（空，0 字节）",
+        "stdoutFile": "audit-evidence/U02/runs/U02-12800/raw-stdout.txt",
+        "resultFile": "audit-evidence/U02/runs/U02-12800/result.json",
+        "detailFile": "audit-evidence/U02/runs/U02-12800/U02-detail.json",
+        "ms": 800,
+        "assertions": 1027,
+        "perCase": { "A01": 196, "A02": 19, "A03": 217, "A04": 241, "A05": 224, "A06": 23, "A07": 21, "A08": 86 }
+      },
+      {
+        "no": 2,
+        "argv": ["node", "test/audit/U02.mjs", "--evidence-root=E:\\workplace\\dsh-whale-sensei-unify\\audit-evidence\\U02\\runs\\U02-final-flag"],
+        "cwd": "<repo>",
+        "evidenceRoot": "audit-evidence/U02/runs/U02-final-flag",
+        "evidenceSource": "argv",
+        "exitCode": 0,
+        "signal": null,
+        "timedOut": false,
+        "stdout": "PASS U02 checks=8 failed=0 skipped=0",
+        "stderr": "（空，0 字节）",
+        "stdoutFile": "audit-evidence/U02/runs/U02-final-flag/raw-stdout.txt",
+        "resultFile": "audit-evidence/U02/runs/U02-final-flag/result.json",
+        "detailFile": "audit-evidence/U02/runs/U02-final-flag/U02-detail.json",
+        "ms": 821,
+        "assertions": 1027,
+        "perCase": { "A01": 196, "A02": 19, "A03": 217, "A04": 241, "A05": 224, "A06": 23, "A07": 21, "A08": 86 }
+      },
+      {
+        "no": 3,
+        "argv": ["node", "test/audit/U02.mjs"],
+        "cwd": "<repo>",
+        "evidenceRoot": "audit-evidence/U02/runs/U02-32680",
+        "evidenceSource": "default",
+        "exitCode": 0,
+        "signal": null,
+        "timedOut": false,
+        "stdout": "PASS U02 checks=8 failed=0 skipped=0",
+        "stderr": "（空，0 字节）",
+        "stdoutFile": "audit-evidence/U02/runs/U02-32680/raw-stdout.txt（37 B，UTF-8，含行尾换行：正是这一行）",
+        "stderrFile": "audit-evidence/U02/runs/U02-32680/raw-stderr.txt（0 B）",
+        "resultFile": "audit-evidence/U02/runs/U02-32680/result.json",
+        "detailFile": "audit-evidence/U02/runs/U02-32680/U02-detail.json",
+        "anchorClassificationFile": "audit-evidence/U02/runs/U02-32680/anchor-classification.json",
+        "ms": 691,
+        "assertions": 1253,
+        "perCase": { "A01": 196, "A02": 19, "A03": 217, "A04": 241, "A05": 291, "A06": 23, "A07": 21, "A08": 245 },
+        "when": "口径修正后；树上 lib/pack-model.js 已被 U09 改写成 identity 适配层（55465 B / d597aa…），A08 判定为 attributed→U09，未判红"
+      },
+      {
+        "no": 4,
+        "argv": ["node", "test/audit/U02.mjs", "--evidence-root=E:\\Temp\\U02-anchor-verify"],
+        "cwd": "<repo>",
+        "evidenceRoot": "E:\\Temp\\U02-anchor-verify",
+        "evidenceSource": "argv",
+        "exitCode": 0,
+        "signal": null,
+        "timedOut": false,
+        "stdout": "PASS U02 checks=8 failed=0 skipped=0",
+        "stderr": "（空，0 字节）",
+        "stdoutFile": "E:\\Temp\\U02-anchor-verify\\raw-stdout.txt（37 B，UTF-8）",
+        "stderrFile": "E:\\Temp\\U02-anchor-verify\\raw-stderr.txt（0 B）",
+        "resultFile": "E:\\Temp\\U02-anchor-verify\\result.json",
+        "detailFile": "E:\\Temp\\U02-anchor-verify\\U02-detail.json",
+        "anchorClassificationFile": "E:\\Temp\\U02-anchor-verify\\anchor-classification.json",
+        "ms": 688,
+        "assertions": 1253,
+        "perCase": { "A01": 196, "A02": 19, "A03": 217, "A04": 241, "A05": 291, "A06": 23, "A07": 21, "A08": 245 },
+        "when": "只写 E:\\Temp（本卡本次唯一临时目录）；证据根之外零写入由 A08 的进程内写调用守卫断言"
+      }
+    ],
+    "guardRejectRuns": [
+      {
+        "arg": "--evidence-root=E:\\workplace\\study\\U02-x",
+        "why": "活包目录（禁止访问/写入）",
+        "exitCode": 2,
+        "stdout": "BLOCKED U02 证据根非法：--evidence-root 越界（只许 U02 新运行目录 / U20 复验目录 / 带 U02- 或 u20- 前缀的临时目录）：E:\\workplace\\study\\U02-x"
+      },
+      {
+        "arg": "--evidence-root=relative\\dir",
+        "why": "相对路径",
+        "exitCode": 2,
+        "stdout": "BLOCKED U02 证据根非法：--evidence-root 必须是绝对路径：relative\\dir"
+      },
+      {
+        "arg": "--evidence-root=",
+        "why": "空路径",
+        "exitCode": 2,
+        "stdout": "BLOCKED U02 证据根非法：--evidence-root 给了空路径"
+      }
+    ],
+    "note": "runs 1–2 是**口径修正前**的首轮证据（保留原文，不重写）；runs 3–4 是本次依赖锚点口径修正后的复核运行（同一份入口，在 U09 已把 lib/pack-model.js 改写成 identity 适配层的树上跑）。runs/ 下另有开发迭代期目录（02:35–02:40 的 FAIL/BLOCKED 运行：U02-33960/30904/38952/50732/34192/24140/32972/37124/U02-flag-check，以及修正迭代期的 U02-3664/19480/47952/12416/41132/U02-8）：它们是真实的失败迭代证据，**保留不删**；判词以 runs 3–4 为准。"
+  },
+  "deltas": {
+    "assertions": {
+      "newCaseIds": ["A01", "A02", "A03", "A04", "A05", "A06", "A07", "A08"],
+      "increment": 8,
+      "perCaseAssertions": { "A01": 196, "A02": 19, "A03": 217, "A04": 241, "A05": 291, "A06": 23, "A07": 21, "A08": 245 },
+      "totalAssertions": 1253,
+      "countSource": "复核运行 audit-evidence/U02/runs/<复核运行> 的 U02-detail.json 的 assertionsPerCase（同一次运行 1253 条全部通过）",
+      "previous": { "perCaseAssertions": { "A01": 196, "A02": 19, "A03": 217, "A04": 241, "A05": 224, "A06": 23, "A07": 21, "A08": 86 }, "totalAssertions": 1027, "note": "口径修正前的首轮数字（A05 224 → 291：两状态判据；A08 86 → 245：依赖锚点判定 + 反空转 + 归属自证）" },
+      "note": "只新增 U 系列专项 8 条；既有 test/*.mjs 与 test/audit/T*.mjs 的断言一条都没改。"
+    },
+    "suites": {
+      "topLevelSuitesBefore": 56,
+      "topLevelSuitesAfter": 56,
+      "note": "test/audit/U*.mjs 不在顶层套件发现范围内（test/_suite-manifest.mjs 只看 test/*.mjs），套件数不变；新专项不替代旧套件。"
+    },
+    "skipped": {
+      "baselineFrozen": 2,
+      "added": 0,
+      "note": "本卡不允许 skip；基线原有 2 条 skip 如实冻结。"
+    },
+    "newFiles": {
+      "lib/unify/identity.cjs": { "bytes": 11584, "sha256": "9746554fd4f03db49bc1b09ffdc0c5be3967b9a0e90471018591fe1e086301d7", "note": "唯一手工源码；随包副本只归 U19 生成，本卡不建 lib/pack-template/tools/unify/" },
+      "test/audit/U02.mjs": { "bytes": 89374, "sha256": "87c59eedfd0ea5fe7448bcde7c9a9a0aba902cdda9e2f5d7887ef5b0907779d8", "note": "不在顶层套件发现范围；本次 U10 账本同步后的大小（口径修正后 88314 B / ec9b204b…，首轮账本同步后 89139 B / 42bab879…，账本同步前 57787 B / 2b2e3d85…）" },
+      "docs/unify/receipts/U02.json": { "note": "本回执（内容随后续复验不重写；字节/sha256 自指略）" }
+    },
+    "anchorCriterionRealignment": {
+      "kind": "dependency-anchor-criterion-realignment",
+      "id": "D4",
+      "when": "U02 复核（§12 已裁决为 A 之后；工作树里 U09 的 lane 已并发改写 lib/pack-model.js）",
+      "what": "A08 的依赖锚点判据从「文件的字节/sha256 必须**等于** U01 接口锁登记的值」改成「① 本卡**运行期未写**它们（运行期自锚：内容指纹前后各取一次 + 进程内 fs 写调用守卫逐条记绝对路径）＋ ② 若在运行期之外已与 U01 锚点不同，则按 docs/unify/interfaces.md §6 的落点表**归属到合法卡**」。",
+      "why": "旧判据实际断言的是「跨卡静止」：§12 A 路径上 U09 的写集就是 lib/pack-model.js（另有 U18 的 lib/state.js、U19 的 package.json / lib/pack-scaffold.js），它们一落地旧判据必红 —— 那是判据口径错，不是本卡交付物有问题。依据：docs/unify/authorization.json 的 derivedConsequences.C3（A08 里已逐字断言这一条存在且说的是依赖锚点判据）。",
+      "how": {
+        "anchorSource": "docs/unify/baseline.json 的 sourceLock.files（29 条）与 docs/unify/interfaces.md §1（11 重点文件）+ §3（18 另读落点）**逐条对拍**：两份 U01 产物只要有一处对不上就红（锚点本身没了外部基准，自证不算证据）",
+        "ownershipSource": "运行时解析 docs/unify/interfaces.md §6（137 个落点 / U01–U20 二十张卡），**不在入口里抄死这份表**；同一落点被两卡认领即报错，不静默取先到的",
+        "criterion": "judgeAnchor 是纯函数，判定顺序：运行期写入→红 / 运行期增删改→按归属（无主・本卡自己・既有测试 一律红）/ 与锚点比→无主漂移红、既有测试红（唯一例外 §12 A 授权面）、有主则 attributed 记名 / 无锚点则只受运行期判据约束",
+        "authFace": "test/mirror-parity.mjs → U09、test/intake.mjs → U10；两者逐字取自 authorization.json 的 scope.A（缺该文件即 BLOCKED，不静默降级成「默认允许」）",
+        "watchSurface": "36 个文件 = U01 锚点 29 + 卡面点名要自锚的 6 个文件 + docs/unify/baseline.json + 本卡自己的 3 个可写文件"
+      },
+      "strength": {
+        "kept": "identity.cjs 的导出面与严格性、A01–A04/A06 断言、A07 干净副本+变异、A08 的写集声明与证据根守卫矩阵、进程内 fs 写守卫、本卡三文件运行期内容锁、临时目录清理、入口异步壳扫描",
+        "added": "判定面 36 个文件逐个判定并把结果落 anchor-classification.json、锚点两份 U01 产物逐条对拍、§6 落点表 20 卡/137 落点自证、21 条关键归属逐条断言、A 面例外与 C3 逐字取自 authorization.json、反空转 4 红 + 4 绿常驻断言（红样本必须四种不同理由）",
+        "notLoosened": "无归属的漂移、既有测试（test/*.mjs 与 test/audit/T*.mjs）的既有改动、本卡运行期对锚点文件的任何写入 —— 这三类仍然是红，且是 A08 里的常驻断言，不是口头说明"
+      },
+      "measured": {
+        "A08Assertions": "86 → 245",
+        "totalAssertions": "1027 → 1253",
+        "liveClassification": "复核运行里 36 个文件全部判定：attributed 5、red 0；其中 lib/pack-model.js → U09（61085/d342cc… → 55465/d597aa…，U09 的并发改写）、lib/fingerprint.js → U04、lib/glossary.js → U11、lib/glossary-io.js → U11、lib/pack-template/tools/ledger-transaction.cjs → U06",
+        "demos": "4 红（created-outside-writeset / run-window-write / existing-test-modified / run-window-change）+ 4 绿（pack-model→U09、lesson-map→U09、fingerprint→U04、mirror-parity→U09）8/8 命中，原始输出见 commands.anchorDemos"
+      },
+      "secondChange": {
+        "id": "D5",
+        "what": "A05 ③ 必须跟着改：它逐条钉的是旧导出 padStart 照拼出来的 5 个现状值，U09 一收敛这 5 个调用全抛 IdentityError。",
+        "criterion": "改成「两种已登记状态之一」，判别式 = baselineLessonKey === id.lessonKey：OLD 支 = 原来 5 条 eq 断言**逐字保留**；CONVERGED 支 = 旧导出与严格内核函数同一性 + 5 个非法课号逐个被拒且 reason 逐条对拍（比原来更强）。两状态都落 fact，没有第三种、没有 skip。",
+        "whyNotAvoidable": "A05 ③ 与 A08 旧锚点是同一类口径错（把别的卡的当前实现钉成本卡判据）。若坚持 A01–A07 一字不改，本卡在 U09 已改写的树上必然红 —— 「A01–A07 原样」与「在 U09 已改写的树上 PASS」两条要求在现树互斥，本卡选了后者并在此**显式记账**。",
+        "revertHint": "若要物理上恢复 A05 原样：把 A05 ③ 整段换回「5 条 eq(...) + 一个 fact」即可（其余改动不依赖它）；换回后本卡在 U09 已收敛的树上会红（那是预期行为，不是回归）。"
+      },
+      "touched": ["test/audit/U02.mjs", "docs/unify/receipts/U02.json", "audit-evidence/U02/**（忽略）"],
+      "untouched": ["lib/unify/identity.cjs（一个字节都没动）", "lib/pack-model.js（U09 的写集，本卡零字节）", "lib/point-ref.js", "docs/unify/interfaces.md / baseline.json / authorization.json（只读消费）", "任何既有 test/*.mjs、test/audit/T*.mjs、test/audit/harness.mjs", "活包 E:\\workplace\\study 与主树", "git 状态（无 add/commit/checkout/switch/branch）"]
+    },
+    "authorizedWriteSetLedgerSync": {
+      "kind": "authorized-write-set-ledger-sync",
+      "id": "L2",
+      "when": "U09/U10 lane 落地之后；§6 的 U09 行已由 U01 侧的账本同步补上 lib/point-ref.js 与 test/mirror-parity.mjs 两项落点",
+      "what": "本卡的期望值只改**归属那两处**＋必要的连带样本：① ownershipExpect 里 lib/point-ref.js 由 null 改成 U09（它现在是 §6 U09 行的落点，不再是「无主」）；② test/mirror-parity.mjs 随之由 null 改成 U09（§6 落点表已把这条既有测试归给 U09，归属判据因此走 owned-drift 而不是 A 面例外分支）；③ 反空转绿样本里 mirror-parity 的期望码由 authorized-test-migration 改成 owned-drift，并另补一条 test/intake.mjs → authorized-test-migration / U10 的绿样本，让 A 面分支在判据里仍有活样本（绿样本 4 → 5）。A01–A08 的判据逻辑、AUTH_FACE 白名单本体、判定顺序、红样本一条都没改。",
+      "why": "这是**账本缺口**，不是 U09 越界：lib/point-ref.js 的依据是主持人裁决 C4（U-SPEC §2 + interfaces.md §2「U09 唯一负责旧导出委托」；只把 qualified / splitQualified 改走严格内核，导出面与返回语义逐字不变），test/mirror-parity.mjs 的依据是 §12 A 面（仅课程身份夹具输入 + 第 149 行一带旧身份预期与说明）。两处原文见 docs/unify/authorization.json 的 derivedConsequences.C4 / scope.A。若不改，本卡 A08 ④b 会断言「point-ref 无主」而与之矛盾 —— 那是把已经作废的事实当判据，属口径错。",
+      "files": [
+        "test/audit/U02.mjs（ownershipExpect 两处期望值 + 绿样本两条）",
+        "docs/unify/receipts/U02.json（本条 + lockBytes / newFiles 的 U02.mjs 字节与 sha256）"
+      ],
+      "notLoosened": {
+        "criterionSame": "judgeAnchor 的判定顺序与强度一个字没改：运行期被写 → 红；运行期增删改无主 → 红；既有测试被改且不在 A 面 → 红；无归属漂移 → 红；有归属才 attributed 记名。",
+        "redSamplesKept": "4 条红样本（created-outside-writeset / run-window-write / existing-test-modified / run-window-change）原样保留，且仍要求四种不同理由。",
+        "authFaceKept": "AUTH_FACE 仍是 test/mirror-parity.mjs → U09、test/intake.mjs → U10，仍逐字对 authorization.json 的 scope.A 断言；只是 mirror-parity 先被 §6 认领、走 owned-drift，intake 仍在 A 面分支。",
+        "selfProved": "本轮实跑 node test/audit/U02.mjs → PASS U02 checks=8 failed=0 skipped=0（exit 0）；node test/audit/U02.mjs --print-anchor-demos 的 LIVE 行显示 lib/point-ref.js 归属 U09、反空转 4 红 + 5 绿全命中（原始输出见 audit-evidence/U02/ledger-sync-*.txt）。"
+      },
+      "residual": "test/intake.mjs 仍**不在** §6 并集里：U10 的 §12 A 面还没有落点行，所以 U01 的 A01 现在会把兄弟 lane 的 M test/intake.mjs 判成越界（那是 U10 那张卡的同一类账本缺口；补 §6 U10 行不在本次账本同步的授权范围内）。本卡不替它认领，也不把它白名单化。"
+    },
+    "authorizedWriteSetLedgerSyncU10": {
+      "kind": "authorized-write-set-ledger-sync",
+      "id": "L4",
+      "supersedesResidualOf": "L2",
+      "when": "U10 的 lane 已在工作树里改 test/intake.mjs（M）之后；§6 的 U10 行已由 U01 侧本次同步（U01 回执 L3）补上 test/intake.mjs 一项落点",
+      "what": "承接 L2 留下的那条 residual，只改**归属那两处 + 说明文字**：① ownershipExpect 里 test/intake.mjs 由 null 改成 U10（它现在是 §6 U10 行的落点，不再是「A 面例外但无主」）；② 反空转绿样本里 test/intake.mjs 的期望码由 authorized-test-migration 改成 owned-drift —— 仍是 attributed、仍写明主人 U10，强度不降；③ anchorDemos 的注释与样本名同步成「§6 落点表把 test/intake.mjs 归 U10」。judgeAnchor 的判定顺序、AUTH_FACE 白名单本体、4 条红样本、判定面 36 个文件、A08 的阈值（≥35 判定面 / ≥3 红 / ≥2 绿 / 29 锚点行 / 20 张卡 / ≥40 落点）一条都没改。",
+      "why": "这是**账本缺口**，不是 U10 越界：§12 A 面（用户原文「选A和授权p1和p2」）的 scope.A 逐字把「U10 独占 test/intake.mjs 中裸 point 夹具及 latest.vue 等身份预期（78/86/87 行）」写进授权面，而 §6 的 U10 行此前没有这个落点。不改的话，本卡 ④b 的 ownershipExpect 会把「§6 里无主」当成现行事实，与 §6 现文本矛盾（那正是把作废的事实当判据）。依据原文：docs/unify/authorization.json 的 scope.A。",
+      "files": [
+        "test/audit/U02.mjs（ownershipExpect 一处期望值 + 绿样本一条的期望码与名字 + 说明注释）",
+        "docs/unify/receipts/U02.json（本条 + lockBytes / lockSha256 / newFiles 的 U02.mjs 字节与 sha256）"
+      ],
+      "notLoosened": {
+        "criterionSame": "judgeAnchor 的判定顺序与强度一个字没改：运行期被写 → 红；运行期增删改无主 → 红；既有测试被改且不在 A 面 → 红；无归属漂移 → 红；有归属才 attributed 记名。本次动的只有「谁拥有它」这一条期望值。",
+        "strengthSame": "改前 authorized-test-migration / owner=U10，改后 owned-drift / owner=U10：**都是 attributed + 写明主人**，没有一条路径变成 ok 或直接放行；attributed 记录的 ④c 断言（放行必须带得出 §6 主人）原样。",
+        "redSamplesKept": "4 条红样本（created-outside-writeset / run-window-write / existing-test-modified / run-window-change）原样保留，且仍要求四种不同理由（demoReds 去重断言未动）。",
+        "authFaceKept": "AUTH_FACE 仍是 test/mirror-parity.mjs → U09、test/intake.mjs → U10；④b-2 的三条真跑断言（quoteVerbatim 逐字、两个 rel 与两个 card 逐字取自 scope.A、C3 存在且说的是依赖锚点判据）全部原样。",
+        "selfProved": "本轮实跑 node test/audit/U02.mjs → PASS U02 checks=8 failed=0 skipped=0（exit 0）；node test/audit/U02.mjs --print-anchor-demos → ANCHOR-DEMOS red=4 green=5 matched=9/9 | live=36 red=0 attributed=5 absent=0，逐条 demo 全 ✓（原始输出：audit-evidence/U02/ledger-sync2-*.txt 与 E:\\Temp\\u10-ledger-sync-2f57b1f\\）。"
+      },
+      "lossRegister": "authorized-test-migration 分支现在没有活得着的样本了：A 面那两处（mirror-parity、intake）都已落 §6，判定顺序里 on-existing-test 那一步先命中的情形不复存在。分支代码与行为未变、也不是任何常驻断言的唯一对象；但这是**如实登记的一处演示面收窄**（不是判据放松），若将来再出现「A 面已授权、§6 未落点」的既有测试，这条分支仍会命中。",
+      "residual": "① test/intake.mjs 的 §6 落点只覆盖 §12 A 授权面（裸 point 夹具与 latest.vue 等身份预期），其余版本/日期/学生原话/键序等非身份断言仍不许动 —— 本卡不替 U10 认领内容改动，也不把「既有测试可以随便改」写进口子。② interfaces.md 的锁值与 U03/U06 回执登记的 46889 B / 35acebe7… 不同源（U06 有一条「接口锁 sha256 必须等于 U03 消费时记下的锁值」的断言），这类账本同步天然与之冲突；U06 不在本卡写集，只登记不改。"
+    },
+    "notChanged": [
+      "lib/unify/identity.cjs（复核前后 sha256 一致，A08 运行期自锚）",
+      "lib/point-ref.js（本卡零字节；⚠️ 它在 §6 落点表里**无主**，见 unverified）",
+      "docs/unify/interfaces.md、docs/unify/baseline.json、docs/unify/authorization.json（只读消费，本卡零字节）",
+      "任何既有 test/*.mjs、test/audit/T*.mjs、test/audit/harness.mjs",
+      "lib/pack-model.js：**本卡**零字节 —— 该文件已被 U09 合法改写、不再与 U01 锚点一致，这正是本次口径修正要处理的事（见 anchorCriterionRealignment）"
+    ]
+  },
+  "evidenceIndex": {
+    "root": "audit-evidence/U02/",
+    "ignored": true,
+    "contents": [
+      "runs/U02-12800/（最终运行 1，默认证据根）：result.json + cases.jsonl + U02-detail.json + U02-mutation-report.json + identity-source.sha256.txt + raw-stdout.txt(37B) + raw-stderr.txt(0B)",
+      "runs/U02-final-flag/（最终运行 2，显式 --evidence-root）：同上",
+      "runs/U02-32680/（复核运行，默认证据根）：同上 + anchor-classification.json（36 个文件的逐个判定：5 attributed→U09/U04/U11/U11/U06、0 red、4 红 + 4 绿人造输入 8/8 命中）",
+      "E:\\Temp\\U02-anchor-verify/（复核运行，显式 --evidence-root；本次唯一临时目录，只写这里）：同上",
+      "runs/<开发迭代目录>/（02:35–02:40 的 FAIL/BLOCKED 迭代证据，以及口径修正迭代期的 U02-3664/19480/47952/12416/41132/U02-8/45804/38996，保留不删）",
+      "final-verification-runs.json：两次最终运行的 argv/证据根/退出码/stdout/stderr",
+      "guard-rejects.json + guard-reject-{livepack,relative,empty}-stdout.txt：三个越界证据根一律 BLOCKED exit 2",
+      "U02-detail.json 里另有：用例级断言条数、A05 的两种状态事实（复核时为「已收敛到严格内核」）、A07 干净/变异两份判词、A08 证据根守卫矩阵、写调用统计与「依赖锚点」事实（判定面 36 / 锚点 29 / 落点 137 卡 20 / 归属放行清单）"
+    ],
+    "reproduce": "node test/audit/U02.mjs（默认证据根 runs/U02-<pid>；加 --evidence-root=<本卡允许的绝对目录> 只换落点）"
+  },
+  "commands": {
+    "note": "原始命令、stdout、stderr、退出码与用例索引（完整原始件在 audit-evidence/U02/）。",
+    "verify": [
+      {
+        "argv": ["node", "test/audit/U02.mjs"],
+        "cwd": "<repo>",
+        "exitCode": 0,
+        "signal": null,
+        "timedOut": false,
+        "stdout": "PASS U02 checks=8 failed=0 skipped=0",
+        "stderr": "",
+        "evidence": "audit-evidence/U02/runs/U02-32680/raw-stdout.txt（37 B）+ raw-stderr.txt（0 B）"
+      },
+      {
+        "argv": ["node", "test/audit/U02.mjs", "--evidence-root=E:\\Temp\\U02-anchor-verify"],
+        "cwd": "<repo>",
+        "exitCode": 0,
+        "signal": null,
+        "timedOut": false,
+        "stdout": "PASS U02 checks=8 failed=0 skipped=0",
+        "stderr": "",
+        "evidence": "E:\\Temp\\U02-anchor-verify\\raw-stdout.txt（37 B）+ raw-stderr.txt（0 B）"
+      }
+    ],
+    "anchorDemos": {
+      "argv": ["node", "test/audit/U02.mjs", "--print-anchor-demos"],
+      "note": "调试开关（不产出判词、不落证据）；判定与 A08 共用 judgeAnchor/classifyWatched，所以这 9 行与 A08 里的常驻断言是同一段代码的两种输出。exit 0 = 8/8 命中且 live 无红。",
+      "exitCode": 0,
+      "stderrBytes": 0,
+      "stdoutLines": [
+        "[DEMO] ✓ expect=red   actual=red        code=created-outside-writeset   owner=-  野路径 lib/whatever.js 被新建（任何落点表都没有）",
+        "[DEMO] ✓ expect=red   actual=red        code=run-window-write           owner=U09  本卡运行期改了 lib/pack-model.js",
+        "[DEMO] ✓ expect=red   actual=red        code=existing-test-modified     owner=-  未归属的既有测试改动 M test/_pack.mjs",
+        "[DEMO] ✓ expect=red   actual=red        code=run-window-change          owner=-  运行期并发改动且无归属 tools/stray.mjs",
+        "[DEMO] ✓ expect=green actual=attributed code=owned-drift                owner=U09  U09 合法改 lib/pack-model.js（M）",
+        "[DEMO] ✓ expect=green actual=attributed code=owned-drift                owner=U09  U09 合法改 lib/pack-template/tools/lesson-map.js（M，人造锚点）",
+        "[DEMO] ✓ expect=green actual=attributed code=owned-drift                owner=U04  U04 合法改 lib/fingerprint.js（M）",
+        "[DEMO] ✓ expect=green actual=attributed code=authorized-test-migration  owner=U09  §12 A 授权面内 test/mirror-parity.mjs 归 U09（M，人造锚点）",
+        "ANCHOR-DEMOS red=4 green=4 matched=8/8 | live=36 red=0 attributed=5 absent=0"
+      ]
+    },
+    "guardRejects": [
+      { "argv": ["node", "test/audit/U02.mjs", "--evidence-root=E:\\workplace\\study\\U02-x"], "exitCode": 2, "stdout": "BLOCKED U02 证据根非法：…（越界）" },
+      { "argv": ["node", "test/audit/U02.mjs", "--evidence-root=relative\\dir"], "exitCode": 2, "stdout": "BLOCKED U02 证据根非法：…（必须是绝对路径）" },
+      { "argv": ["node", "test/audit/U02.mjs", "--evidence-root="], "exitCode": 2, "stdout": "BLOCKED U02 证据根非法：…（空路径）" }
+    ],
+    "mutation": {
+      "where": "E:\\Temp\\U02-mut-nockcircle-<pid>-<stamp>（本次唯一副本；跑完按绝对路径守卫清理）",
+      "cleanCopy": "PASS U02 checks=8 failed=0 skipped=0 / exit 0",
+      "mutant": "FAIL U02 checks=8 failed=2 skipped=0 :: A01: …actual=\"spring-boot\" expected=\"programming/spring-boot\" | A02: …actual=\"vue\" expected=\"programming/vue\" / exit 1",
+      "anchor": "return `${c}/${p}`（pointKey 的两段拼接）→ return `${p}` + 变异标记",
+      "artifact": "audit-evidence/U02/runs/U02-12800/U02-mutation-report.json"
+    },
+    "tempCleanup": "E:\\Temp 下本次的 U02-mut-* 目录跑完即删；A08 断言残留为 0（父子进程各有一份守卫）"
+  },
+  "deviations": [
+    {
+      "id": "D1",
+      "what": "本卡执行期间（02:36–02:37）同一工作树里出现**并发 lane 写入**：lib/text.js、lib/plan.js、lib/fingerprint.js、lib/pack-template/tools/pack-text.js、lib/pack-template/tools/plan-map.js（U04 写集）与新建 test/audit/U03.mjs（U03）。",
+      "evidence": "git diff --stat（6 files, +116/−505）与文件 mtime；不是本卡写的（本卡进程内的 fs 写调用日志里没有这些路径）。",
+      "effect": "U02 的 A08 原本用「运行前后全仓清单零变化」判「写集外零写入」，被这些并发写打红（false negative）。改为**进程内 fs 写调用守卫**：拦下本进程每一次写并记绝对路径，断言全部落在本次证据根或 E:\\Temp\\U02-mut-* 内（另有探针写自证守卫真的挂上）；全仓清单差异降级为观测登记（detail 的 facts），不作为失败判据 —— 并发写者存在时全仓差**无法归因**到本卡。",
+      "supersededBy": "D4：本条当时保留的「外部锚点 = pack-model.js / package.json 对 U01 接口锁的字节+sha256」正是 D4 要改掉的那半句 —— 它断言的是跨卡静止。现在的锚点是「运行期自锚 + §6 归属」。"
+    },
+    {
+      "id": "D2",
+      "what": "A08 另有「本卡自己的三个文件在运行期间不变」的 sha256 对拍（identity.cjs / U02.mjs / 回执），防并发写者或意外自改。",
+      "effect": "不依赖时间戳，纯内容锁。"
+    },
+    {
+      "id": "D3",
+      "what": "audit-evidence/U02/runs/ 下保留了 9 个开发迭代期运行目录（含 3 次 FAIL、1 次 BLOCKED 前置）。",
+      "effect": "如实留痕、不删不改；判词以 runs/U02-12800 与 runs/U02-final-flag 两次为准。"
+    }
+  ],
+  "unverified": [
+    "只验证本卡八项：**不**证明全工程变绿、**不**替代既有 56 套套件与 T 线回归（本轮全量基线是红的，见 docs/unify/baseline.json）。",
+    "**暂存双实现已部分收敛**：U02 复核时 lib/pack-model.js 的 pointKey/lessonKey 已被 U09 改成 `export const … = identityCore.*`（函数同一性，工作树里、未提交、未落 U09 回执）；lib/point-ref.js 的内联 `qualified()` / `splitQualified()` **仍在内联**，而且 **§6 落点表与 U09 卡面都没有登记这个文件** —— 谁收敛它必须先由 U01/主持人补 §6 落点；本卡不替它认领，也不把它白名单化（A08 里逐条断言其归属为 null）。",
+    "**判定面的边界（新口径的诚实边界）**：① 有 U01 锚点的文件（29 条）才有「运行期之外是否漂移」可比；② 没有锚点的文件（如 lib/point-ref.js、lib/engine.js、lib/pack-model.js 之外的多数 lib/*.js）只有**运行期自锚**在管 —— 它们在运行期之外被改，本卡**看不见**（不是放行，是判据没有可比基准）；③ 运行期内的并发写入只有在 §6 落点表里有主时才放行（本进程写日志证明不是本卡的手），无主的一律红。要把 ② 补严，需要 U01 把锚点面扩到那些文件（interfaces.md 与 baseline.json 只归 U01 写）。",
+    "文件系统对拍（A08 的观测登记）仍用「路径 + 大小 + mtime」清单；**判据**是 36 个文件的内容指纹（bytes + sha256）前后对拍 + 进程内 fs 写调用路径。它能抓本次运行期间的写入，但**不**能证明「同毫秒同字节覆盖」这类极端情形（概率面，不伪称绝对）。",
+    "A08 的「写集外零写入」判据是**进程内**的（拦 fs 写调用记绝对路径）：它精确覆盖本进程的全部写，但**不**覆盖本卡运行期间同一工作树里别的 lane 的写（本卡复核时 U09 正在改 lib/pack-model.js）。全仓清单差只作观测登记，不作失败判据 —— 并发写者存在时它不可归因。",
+    "严格内核**不收紧字符集**：只拒绝卡面点名的形状（非字符串/空/仅空白/斜杠分隔符/两个点/反斜杠/盘符/前后空白/控制字符）与非法课号；「组成部分内部含空格或中文」不作为拒绝理由（合法 id 从未含空格；显示名靠段数拒绝，见 A03）。这条边界如实登记。",
+    "**A05 ③ 的口径改动是本卡的显式取舍，不是授权内的动作**：它原本只登记「旧导出照拼」这一种现状；U09 收敛后那种现状不存在了，故改成两状态判据（OLD 支原样保留 / CONVERGED 支更严）。若要求 A01–A07 物理上一字不改，请按 deltas.anchorCriterionRealignment.secondChange.revertHint 回退 —— 回退后本卡在 U09 已收敛的树上会红。",
+    "本卡不跑 `node test/all.mjs --pack=E:\\workplace\\study --mode=real`（唯一全量命令只属 U01/U20 窗口），不访问、不写活包，不写审计主树。",
+    "A07 的变异只证明「点键丢掉 circle 会被判据抓住」；它不证明其他变异（如课号补零改错）也一定被抓 —— 那由 A01/A05 的独立断言覆盖。反空转的 4 红 + 4 绿证明的是**锚点判据**（不是变异判据）。",
+    "随包副本（lib/pack-template/tools/unify/identity.cjs）**本卡不生成**：生成与登记只归 U19；本卡不宣称随包完整。",
+    "A05 的 CONVERGED 支假设 U09 的收敛保持「同一件事只有一份实现」（旧导出就是 identity.cjs 的函数）。若 U09 之后改成**包装函数**（而非直接绑定），A05 会红 —— 那是契约变化，必须由 U09 自己在卡内记 Δ，本卡不预判。"
+  ],
+  "authorization": {
+    "status": "unresolved",
+    "statusMeaning": "这个字段只表达**本卡的立场**：本卡不代选 §12 的 A/B，也不把「准备」解释成「已授权」。它不是对全仓授权状态的断言 —— 全仓状态见下一行。",
+    "decidedBy": null,
+    "note": "不代选 A/B；不把「准备」解释成「已授权」。本卡执行时（02:xx）尚无任何人类授权记录，故本卡的 authorization 段按当时事实写 unresolved。",
+    "laterDecision": {
+      "source": "docs/unify/authorization.json",
+      "date": "2026-10-20",
+      "quoteVerbatim": "选A和授权p1和p2",
+      "selection": "A（仅 U09/U10/U14 卡内原子迁移旧身份测试契约）+ P1 + P2",
+      "effectOnThisCard": "本卡不据此改动任何既有 test/*.mjs 断言（A 面的两处测试契约迁移归 U09/U10）；只按 derivedConsequences.C3 修正 A08 的依赖锚点口径，并让 A05 ③ 按两种已登记状态登记旧导出现状（见 deltas.anchorCriterionRealignment）",
+      "enforcedInCode": "A08 逐字断言 authorization.json 的 quoteVerbatim、scope.A 里点名两个 A 面文件与责任卡、以及 C3 条目存在；缺文件即 BLOCKED —— 例外不是入口里的常量说了算"
+    },
+    "conflicts": [
+      {
+        "no": 1,
+        "file": "test/mirror-parity.mjs",
+        "asserted": "a.anchor 与 b.anchor 均为 spring-boot/0001",
+        "ownerOnPathA": "U09"
+      },
+      {
+        "no": 2,
+        "file": "test/intake.mjs",
+        "asserted": "read1.latest.vue / read2.latest.vue",
+        "ownerOnPathA": "U10"
+      }
+    ]
+  },
+  "handoff": {
+    "to": "S1 / A lane 下一卡、U09（收敛时）与 U20（提交前）",
+    "consumers": {
+      "U03": "新错误码只落在 lib/unify/errors.cjs；本模块的 failure.reason 是私有枚举，两者别混。",
+      "U09": "只针对 lib/pack-model.js：把既有 pointKey/lessonKey 导出委托到 lib/unify/identity.cjs 并同卡记真实 Δ（复核时已见你把它改成 `export const … = identityCore.*`，本卡的 A05 与 A08 已按这个状态对齐）。**注意 lib/point-ref.js 不在你的卡面写集里**：要收敛它得先请 U01/主持人补 §6 落点，别直接改 —— 本卡 A08 已断言它在落点表里无主，谁改谁红。",
+      "U19": "随包副本由 tools/sync-unify-core.mjs --write 生成，禁止手改本仓 lib/unify/identity.cjs 的副本。",
+      "U20": "提交前若 U09 的 pack-model 收敛已落盘，本卡 A08 会把它判成 attributed→U09（不红）；若之后有人改 test/*.mjs 或动无主文件（lib/point-ref.js、lib/adapters/jvm.js、test/audit/harness.mjs 等），A08 会红 —— 那是设计，不是回归。",
+      "U01/主持人": "两件事需要你拍：① lib/point-ref.js 在 §6 里无主（interfaces.md 只归 U01 写）；② A05 ③ 的两状态判据是否接受（不接受就按 deltas.anchorCriterionRealignment.secondChange.revertHint 回退，回退后本卡在已收敛的树上会红）。"
+    },
+    "reverify": "node test/audit/U02.mjs（默认证据根）；核对反空转红/绿用 node test/audit/U02.mjs --print-anchor-demos",
+    "noRerun": "不重跑全量门槛；不重开活包窗口。"
+  }
+}

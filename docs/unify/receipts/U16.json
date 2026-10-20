@@ -1,0 +1,438 @@
+{
+  "schema": "whale-unify-receipt/1",
+  "card": "U16",
+  "title": "前端与调用边界：浏览器侧与工具调用侧不再自行截断身份，写请求送达正确实体",
+  "status": "PASS",
+  "base": {
+    "sha": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "branch": "refactor/unify-20261018",
+    "note": "执行窗口复核：HEAD 已是该提交，未切分支、未 checkout -B、未 add/commit、未写 index。"
+  },
+  "verdict": {
+    "command": "node test/audit/U16.mjs",
+    "line": "PASS U16 checks=8 failed=0 skipped=0",
+    "exitCode": 0,
+    "runner": "test/audit/unify-runner.mjs 的 runCard（真 await 的异步壳；固定 A01–A08，不许 skip / 恒真 / 吞错）",
+    "note": "本回执写于交付时；测试复跑不重写 tracked 回执（U-SPEC §6）。最终 PASS 与提交 hash 只进忽略证据与对话。PASS 只代表本卡八项通过，不代表全量已绿；全量基线与随包联调留 U17/U19/U20。"
+  },
+  "authorization": {
+    "quoteVerbatim": "选A和授权p1和p2",
+    "quoteSource": "docs/unify/authorization.json（用户在 U 系列统筹会话中的直接消息；本回执不转述、不改写）",
+    "consumedByThisCard": false,
+    "why": "§12 A 面只覆盖 U09/U10/U14 的旧身份测试契约迁移（mirror-parity 旧锚点 / intake 裸 point 预期 / U14 新专项）。本卡 U16 **不消费 A 面**：没有修改任何既有 test/*.mjs、test/audit/T*.mjs 的断言，也没有在 test/audit/U16.mjs 里放宽任何旧预期。",
+    "readOnlyConstraintsHonored": [
+      "test/intake.mjs（U10 的 M）与 test/mirror-parity.mjs（U09 的 M）一行未碰",
+      "lib/pack-model.js / lib/pack.js / lib/point-ref.js / lib/gate.js 未碰（只读消费）",
+      "lib/intake.js / goal-io.js / teaching-io.js / ask.js / ask-io.js / notes-io.js / adjust-io.js / author.js / rebuild-job.js / evidence.js / evidence-io.js / state.js / state-scan.js 未碰",
+      "lib/render.js / lib/engine.js / lib/pack-scaffold.js / package.json / 其它 lib/pack-template/** / tools/unify/ 未碰",
+      "活包 E:\\workplace\\study 与审计主树 E:\\workplace\\dsh-whale-sensei 只读且**未访问**（A08 的读守卫把这两棵树列为禁止读根，运行期一次都没命中）"
+    ]
+  },
+  "completion": {
+    "A01": "跨圈同名知识点（programming/vue 与 math/vue，显示名都叫 Vue）两次选择分别发出 pointId=programming/vue / math/vue、circleId=programming / math —— 发送目标不同，且宿主两段归属行各带自己的规范身份。",
+    "A02": "同一门课的四个面用同一个规范身份：开课弹窗 pointId = catalog 的 programming/vue；课程目录「导出」body.lesson = 该课的 circle/point/NNNN；宿主 resolveExportTarget 按身份解出**这一课自己的**源侧文件；课程页 ask.js 的 page = lessons/<该课 file>（页面没自报路径时也不再截成末段）；课后 adjust.js 的 lesson = 同一条规范课次键；门禁读口回 pointId/circle。",
+    "A03": "显示文字不作为身份重新解析：把某知识点的显示名写成**另一个知识点的规范 id**，宿主 POST 的归属行仍按 pointId 走（归属：编程 / programming/spring-boot（programming/vue）），客户端发出去的 pointId 仍是 programming/vue，门禁查询也用规范 id。",
+    "A04": "失败结构转为可见错误、不显示成功：宿主歧义身份 → ok:false + failure{kind:'input',code:'ID_AMBIGUOUS'} 且**不带正文**；导出不存在课次 → ok:false + failure{code:'ID_NOT_ALLOWED'}；浏览器收到失败后界面里出现「[input] [ID_AMBIGUOUS] …」，且 composer 一次都没被调用（drafts=0 / submits=0）。",
+    "A05": "工具名、端点与宿主装载方式保持：6 条路由的 path+methods 逐字不变；whale_goal / whale_intake / whale_lessonpack 工具名不变；lib/mods/index.js 的启用清单 25 项逐字不变；client 模块 id=dsh-whale-sensei、inject=['slots']、5 个坐位（settings.section:whale-sensei / conversation.input.left:whale-bridge / shell.overlay:whale-new-course-dialog / sidebar.panellist:whale-sensei-pack / main:whale-sensei-pack）全在；client.js 无 ESM 语法。",
+    "A06": "普通记录写入不新增重复确认：whale_intake/whale_goal/whale_lessonpack 的入参 schema 里没有 confirm；一次 op=record 恰好落 1 行、一次「点卡片开课」恰好 1 次 POST 且请求体无 confirm；不可恢复的圆圈删除仍要求 confirm:true（既有确认流程没被抹掉）。",
+    "A07": "E:\\Temp 本卡唯一目录里做干净副本 + 变异副本对照：把 client.js 的 pointId 恢复成 split('/').pop()（身份末段截断）后，同一条行为探针由 distinct=true（programming/vue vs math/vue）变成 distinct=false（两个都成了 vue）—— 变异副本必红、干净副本必绿。",
+    "A08": "无浏览器环境不冒充真实验收 + 守卫有效：本机没有真 document/模块加载器，桩一律带 __simulated；探针跑完把全局还原；写守卫对非写集文件（lib/render.js）的越界写**在写之前**拒绝且目标字节未变；运行期读写零越界（未触活包/主树）；写集 ⊆ 运行时解析出的 interfaces.md §6 U16 授权并集；写集运行前后 sha256 自锚一致；回执 verification.realBrowser='unverified'。"
+  },
+  "dependencies": {
+    "entryRule": "依赖 U12/U13/U14 均由主持人亲跑 exit 0（真实 PASS，见各自 tracked 回执），本卡不重跑它们、也不复述其判据强度。",
+    "U12": {
+      "status": "PASS",
+      "line": "PASS U12 checks=8 failed=0 skipped=0",
+      "consumed": [
+        "lib/pack-template/tools/offline-server.js（只读，未碰）",
+        "端点命名/路由风格的既有事实（本卡不改端点）"
+      ]
+    },
+    "U13": {
+      "status": "PASS",
+      "line": "PASS U13 checks=8 failed=0 skipped=0",
+      "consumed": [
+        "lib/author.js / lib/rebuild-job.js 的生命周期与作业语义（只读）",
+        "本卡对 /api/whale/rebuild 轮询的既有 client 实现未改"
+      ]
+    },
+    "U14": {
+      "status": "PASS",
+      "line": "PASS U14 checks=8 failed=0 skipped=0",
+      "consumed": [
+        "lib/unify/records.cjs 的记录形状与提交/回滚（只读；assets 写口未改其契约）",
+        "lib/ask.js / ask-io.js / notes-io.js / adjust-io.js（只读）"
+      ]
+    },
+    "U18": {
+      "status": "PASS",
+      "line": "PASS U18 checks=8 failed=0 skipped=0",
+      "consumed": [
+        "lib/gate.js 的 challengeGate 已认规范 circle/point（lessonScope）；本卡只把 starter 门禁路由改成**传规范身份**，gate.js 未改",
+        "U18 登记的已知上游 Δ：lib/mods/starter.js 只传裸点 pid → 本卡已修（见 upstreamDeltaFix）"
+      ]
+    },
+    "U02": {
+      "status": "PASS",
+      "line": "PASS U02 checks=8 failed=0 skipped=0",
+      "consumed": [
+        "lib/unify/identity.cjs 的 pointKey/lessonKey/parsePointKey/parseLessonKey（只读消费，未改）"
+      ]
+    },
+    "U03": {
+      "status": "PASS",
+      "consumed": [
+        "lib/unify/errors.cjs 的 makeFailure（只读消费；失败结构只此一份）"
+      ]
+    },
+    "U09": {
+      "status": "PASS",
+      "consumed": [
+        "lib/point-ref.js 的 resolvePointRef/describePointRef（已收敛到严格内核；本卡只读调用）"
+      ]
+    },
+    "U06": {
+      "status": "PASS",
+      "consumed": [
+        "lib/unify/commit.cjs / 包级事务件（下游写入路径经它们；本卡未改）"
+      ]
+    }
+  },
+  "interfaceConsumption": {
+    "docs/unify/interfaces.md": {
+      "sections": "§2 身份边界与单一实现（身份只写 circle/point、课次只写 circle/point/NNNN；显示文字不作身份）、§5 错误码（本卡不新增码值，复用 identity 内核 reason 与既有 kebab 码族）、§6 落点表（U16 行 = 本卡授权并集，运行期由 A08 逐条解析）、§9 无影响",
+      "bytes": 47673,
+      "sha256": "0dc0bc6e3e705903479bde75328e932a3c4da546cce867ac127ea7eaea3f7e28"
+    },
+    "docs/unify/authorization.json": {
+      "bytes": 8207,
+      "sha256": "9323ccbcb98b233f4edfe19d1104fbd736685a32d5cc35c1a41870a863405811",
+      "consumed": "只读引用（不消费 A 面）"
+    },
+    "docs/unify/baseline.json": {
+      "consumedOnly": true,
+      "base": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+      "note": "不覆盖、不重新采集"
+    },
+    "lib/unify/identity.cjs": {
+      "bytes": 11584,
+      "sha256": "9746554fd4f03db49bc1b09ffdc0c5be3967b9a0e90471018591fe1e086301d7",
+      "used": "parseLessonKey（导出目标）/ pointKey 语义（catalog 的规范 id 形状）"
+    },
+    "lib/unify/errors.cjs": {
+      "used": "makeFailure（mods/starter.js、mods/pack.js、mods/goal.js、mods/lessonpack.js 的失败回执）"
+    },
+    "lib/point-ref.js": {
+      "used": "resolvePointRef / describePointRef（mods/starter.js 门禁与开课 POST、mods/lessonpack.js、mods/goal.js）"
+    },
+    "lib/gate.js": {
+      "used": "challengeGate（已认规范 circle/point）；本卡不改它"
+    },
+    "test/audit/unify-runner.mjs": {
+      "used": "runCard / printVerdict / writeRunEvidence / resolveEvidenceRoot / safeRemoveTree / Blocked / REPO"
+    }
+  },
+  "writeSet": [
+    {
+      "path": "lib/client.js",
+      "bytes": 184109,
+      "sha256": "4823851f03e76d89287c1313d0a144da57e97c62d7de91669317adaf308992a8",
+      "change": "开课发送带 circleId+pointId（身份原样取自 catalog）；导出改发规范 lesson 键；去掉 doCreatePoint 的 split('/').pop()；知识组裸 id 改用宿主声明的 points[].bare（不再自行拆段）；新增 visibleError（kind/code 进可见文案）与 ambiguous-point 的可见说明"
+    },
+    {
+      "path": "lib/mods/catalog.js",
+      "bytes": 4795,
+      "sha256": "f3a011cd4ffc57963e92b17a1b12f9155a70563df3a467e4e5d78b719d1afdce",
+      "change": "points[] 增加宿主声明的身份字段 pointId / circleId / bare（浏览器不再靠字符串手术还原身份）"
+    },
+    {
+      "path": "lib/mods/starter.js",
+      "bytes": 26367,
+      "sha256": "8ff47fbed1485f12d05010cd689092b655ca3e493e178e2b327822d97e255d01",
+      "change": "开课 POST 身份只认 pointId 并严格解析（歧义/未知 → ok:false + failure，不拼正文）；门禁路由不再 point.split('/').pop()，传规范身份给 challengeGate，回应新增 pointId/circle"
+    },
+    {
+      "path": "lib/mods/pack.js",
+      "bytes": 16487,
+      "sha256": "7ada846d4cb1e9c6a2d33a22ca3de02a2f0ebed77f992aaf6dbd60fbcc06df86",
+      "change": "导出新增 canonical lesson 身份入口 resolveExportTarget（parseLessonKey + 课程包核验），身份优先于调用方给的路径；失败 → ok:false + failure"
+    },
+    {
+      "path": "lib/mods/lessonpack.js",
+      "bytes": 4985,
+      "sha256": "06381c692ce1f321fec896dcb69f08e139d98f26adff6c408eb2da88fc0be79d",
+      "change": "point 过滤改走 resolvePointRef（唯一匹配才认；歧义/未知 → 明确失败），课次按 circle+point 两段筛，回执带 pointId/circleId/bare"
+    },
+    {
+      "path": "lib/pack-export.js",
+      "bytes": 15023,
+      "sha256": "27c8cae72d63976d5373765b48f93539002d214a3fbe2cabc498045dc0a4a58f",
+      "change": "决策 决-3 收编：导出链路的身份构造/解析改走 lib/unify/identity.cjs —— ① collectPrereqs 的 seen 初值 `${circle}/${point}` → identity.pointKey；② 前置引用解析 target.split('/') → identity.parsePointKey（只认规范两段；畸形引用跳过）；③ exportLesson 新增 const pointId = identity.pointKey(circle, point)；④ pack.json 的 id → pointId；⑤ lessons/<圆>/<点>/point.json 的落点/清单项 → lessons/<pointId>/point.json。zip 同名加课号的 padStart(4,'0') 是**文件名**不是身份，保留并加注释。导出面/参数/默认值/返回形状逐字不变。"
+    },
+    {
+      "path": "lib/mods/goal.js",
+      "bytes": 10839,
+      "sha256": "6665ea594f9d0cde4c5a90026df74e326aa6c640909559af5cc93d085da7bf53",
+      "change": "新增可选 halo（给了就严格解析、错圈/歧义拒写）+ 身份不唯一时回执带 warning/candidates 并在 render 里可见；resolvePointId 的既有口径**逐字保留**（旧契约，见 knownConflicts）"
+    },
+    {
+      "path": "lib/pack-template/assets/ask.js",
+      "bytes": 17045,
+      "sha256": "e04aa6b316b0f0d9c45cc38415246c132bdbd90439b05540acb51eb3cadfbaf3",
+      "change": "页面没自报 data-ask-page 时不再把 pathname 截成末段（保留整条路径）"
+    },
+    {
+      "path": "test/audit/U16.mjs",
+      "bytes": 67523,
+      "sha256": "042b79e0d331952fdee5b6ae5b74fe307d741bb367be77ef724062efc97fac47",
+      "change": "新增本卡入口：迷你 React/模块加载器驱动 client.js、声明式 DOM 桩驱动课程包页面脚本、真路由装宿主模块、E:\\Temp 唯一目录变异对照、进程内 fs 写守卫 + 只读世界读守卫 + interfaces §6 授权并集解析 + 写集自锚；探针期间 console 收进证据（判词行是 stdout 唯一一行）"
+    },
+    {
+      "path": "docs/unify/receipts/U16.json",
+      "bytes": null,
+      "sha256": null,
+      "change": "本回执（自指：不登记自身 sha）"
+    }
+  ],
+  "writeSetUnchanged": [
+    {
+      "path": "lib/starter.js",
+      "bytes": 17000,
+      "sha256": "a940d4d86e4067fbd7ad180fdf819665688f90ec157204e711f4e2cb02c45f26",
+      "why": "纯函数层（模板/协议/归属行拼装）逐字读过后确认无需改：身份由路由层严格解析后传入，正文只做显示排版。"
+    },
+    {
+      "path": "lib/mods/intake.js",
+      "bytes": 11106,
+      "sha256": "d4fa9e751c74994cec88989986bfa2e127869a67c99abd7e44992c7264b9e8c8",
+      "why": "U10 起已经走 resolvePointRef（唯一匹配才认、歧义拒写并带候选），没有第二套解析；本卡无 Δ。"
+    },
+    {
+      "path": "lib/pack-template/assets/adjust.js",
+      "bytes": 6145,
+      "sha256": "7f9ca87716a22948e8d4f39ad0a4fc455d577ac0b63e83cf88ae290ee2495377",
+      "why": "已经发 `data-lesson`（= 规范课次键 LESSON_ID）；A02 的探针实测其 lesson 与 catalog 课次键逐字相同，无需改。"
+    },
+    {
+      "path": "lib/pack-template/assets/notes.js",
+      "bytes": 12486,
+      "sha256": "f53a4b7590d569eac939602372afed78be24e1589cfb3a2ec9c7f0e409b55af7",
+      "why": "笔记的 `anchor` 按 U14 交接**就是** data-note-lesson 的显示名，归一化在写入口（lib/notes-io.js，不属本卡写集）。浏览器侧不做课次推导这条明确写在文件头，本卡保留并登记（见 boundaries）。"
+    },
+    {
+      "path": "lib/pack-template/starmap/main.js",
+      "bytes": 92421,
+      "sha256": "3dc72abfce9c9743926f02c74ffd314bfd0c31a9c1f0e0fa939f19ea034b26cd",
+      "why": "星图的点/课 id 由 `starmap/data-layer.js` 构造（`ptById` 以裸点 id 为键），规范身份那一层不在本卡写集；main.js 自己没有身份构造/解析代码。深链解析的已知模糊点登记在 boundaries，不在本卡引入第二份身份实现。"
+    }
+  ],
+  "writeOutOfSet": [],
+  "deltas": [
+    {
+      "where": "lib/client.js#send()",
+      "before": "{ circle: 名称, point: 名称, pointId: 点.id }",
+      "after": "{ circleId: 圆圈.id, pointId: 点.id, circle: 名称, point: 名称 }",
+      "why": "身份与显示名分开；A01 靠 circleId/pointId 两处不同。"
+    },
+    {
+      "where": "lib/client.js#doCreatePoint()",
+      "before": "d.id.split('/').pop() 后再与 catalog 的 p.id 比",
+      "after": "d.id 原样，与 p.id / p.pointId 逐字比",
+      "why": "去掉浏览器侧的身份截断（旧写法在规范 catalog 上根本匹配不到）。"
+    },
+    {
+      "where": "lib/client.js#GroupPanel",
+      "before": "String(pt.id).indexOf(c.id+'/')===0 ? slice(...) : pt.id",
+      "after": "pt.bare（宿主声明）或 pt.id",
+      "why": "知识组要裸 id，但**不在这里拆**——由 catalog 声明。"
+    },
+    {
+      "where": "lib/client.js#doExport()",
+      "before": "{ file }",
+      "after": "{ lesson: 规范课次键, file? }",
+      "why": "导出与选课/提问用同一目标身份（A02）。"
+    },
+    {
+      "where": "lib/mods/starter.js#/api/whale/gate",
+      "before": "pid = point.split('/').filter(Boolean).pop()，回应 point=裸 id",
+      "after": "resolvePointRef → 规范 key 传给 challengeGate；point 仍是裸 id（老调用方逐字在用），新增 pointId/circle",
+      "why": "U18 登记的已知上游 Δ：以前只传裸点，跨圈同名只能 ambiguous-point。"
+    },
+    {
+      "where": "lib/mods/starter.js#POST /api/whale/starter",
+      "before": "circle/point/pointId 一起当身份用，全部原样拼正文",
+      "after": "身份只认 pointId（有目录时严格解析）；歧义/未知 → ok:false + failure；显示名只排版",
+      "why": "A03/A04：显示名与身份分开；含糊身份不许当成功。"
+    },
+    {
+      "where": "lib/mods/pack.js#POST /api/whale/pack/export",
+      "before": "只用 body.file 定位这一课",
+      "after": "有 body.lesson 时按规范课次键核验并解出课自己的 file；没有则保持既有 file 语义",
+      "why": "A02：导出的目标由身份决定，不再由一条路径字符串决定。"
+    },
+    {
+      "where": "lib/mods/lessonpack.js#point 过滤",
+      "before": "lessons.filter(l => l.point === args.point)",
+      "after": "resolvePointRef（唯一匹配）+ circle/point 两段筛；歧义/未知明确失败",
+      "why": "跨圈同名不再把两个实体的课混成一张清单。"
+    },
+    {
+      "where": "lib/mods/catalog.js#points[]",
+      "before": "{ id, name, label, fileBase, nextNumber, lessons }",
+      "after": "另加 pointId / circleId / bare（均为声明字段，纯加法）",
+      "why": "让浏览器侧不必自行拆身份。"
+    },
+    {
+      "where": "lib/pack-template/assets/ask.js#pagePath",
+      "before": "location.pathname.replace(/^.*[\\\\/]/,'')（截成文件名）",
+      "after": "保留整条 pathname（去开头斜杠）",
+      "why": "不再把页面身份截成末段。"
+    },
+    {
+      "id": "decision-3-pack-export-ownership",
+      "kind": "decision (ownership + identity convergence)",
+      "where": "lib/pack-export.js",
+      "decision": "决-3（用户逐字授权「全按推荐」）：`lib/pack-export.js` 收编给 U16 —— 导出链路的身份构造/解析归本卡",
+      "basis": {
+        "authorization": "docs/unify/authorization.json 的 decisions.approvedChanged，quoteVerbatim = 「全按推荐」",
+        "section6": "docs/unify/interfaces.md §6 的 U16 行 +1 项 `lib/pack-export.js`（本卡写集常量与 §6 逐条对拍）",
+        "before": "收编前该文件在 §6 里**无主**（U09 只能按「文件 + 痕迹」在回执里钉上限，R3 待裁决）"
+      },
+      "changes": [
+        {
+          "spot": "约第 106 行 / collectPrereqs 的 seen 初值",
+          "before": "`${circle}/${point}` 内联构造",
+          "after": "`identity.pointKey(circle, point)`"
+        },
+        {
+          "spot": "约第 115 行 / collectPrereqs 的前置引用解析",
+          "before": "`const [h, p] = target.split('/')` 自拆",
+          "after": "`identity.parsePointKey(target)`（只认规范 `circle/point`；畸形引用跳过）"
+        },
+        {
+          "spot": "约第 221 行 / exportLesson 的知识点身份",
+          "before": "`id: `${circle}/${point}``（pack.json）",
+          "after": "`const pointId = identity.pointKey(circle, point)`；`id: pointId`"
+        },
+        {
+          "spot": "约第 233 行 / 知识点目录段（落点 + 清单项）",
+          "before": "`lessons/${circle}/${point}/point.json`",
+          "after": "`lessons/${pointId}/point.json`"
+        },
+        {
+          "spot": "约第 248 行 / zip 同名加课号",
+          "before": "`padStart(4, '0')`",
+          "after": "**保留**（这是文件名不是身份键），加注释说明不换成内核的 lessonKey/LESSON_WIDTH"
+        }
+      ],
+      "unchangedSurface": "exportLesson(body, hctx) / collectPrereqs(packRoot, circle, point) / safeName(raw, fallback) 的导出面、参数、默认值、返回形状（ok/zip/name/bytes/files/circle/point/prereqs/number/title/dialog/note 与各 error 文案）逐字不变；没有新增 code 值（本文件不产出错误码）。",
+      "parity": {
+        "how": "改前/改后各跑一次同一份纯函数 + 真导出快照（E:\\Temp\\d3-pack-export-12828-7b5645/snapshot.mjs）：safeName 12 例、collectPrereqs 5 个知识点（含跨圈全名、缺失、环形 requires）、exportLesson 真打包 3 次（首次 / 同名加课号 / 第三次如实拒绝）+ 5 条报错文案；快照里不含时间戳/绝对路径/zip 字节数",
+        "result": "主快照 before.main.json 与 after.main.json **逐字节相同**（4925 字节）",
+        "edge": "唯一差别在\"非法 requires\"的边缘口径：`demo/beta/c`、`math/alge/0001` 这类三段引用旧写法会拼出非规范键（`demo/beta/c`），新写法按内核 `parsePointKey` 判不合法并跳过 —— 与内核「非法输入一律拒绝」的登记口径一致（见 parity.edge 文件）",
+        "edgeFile": "E:\\Temp\\d3-pack-export-12828-7b5645/before.edge.json → after.edge.json"
+      },
+      "strength": "只升不降：① 身份构造/解析从\"本文件内联\"收敛到**唯一内核**（全仓不再有第二处 `${circle}/${point}` 或 `split('/')` 自拆产生导出的身份）；② 非法输入从\"拼出一个可能是非规范的键\"改成\"拒绝/跳过\"，不再让畸形身份流进 pack.json 或前置链；③ 合法输入的字节级行为用快照证明未变（zip 名、清单、pack.json、前置链、文案全同）；④ 收编让该文件从\"§6 无主、只能按痕迹钉上限\"变成\"有主、可归因到 U16\"，U09 的钉子随之清空 —— 责任与判据都更硬，而不是更松。",
+      "verification": {
+        "U16": "node test/audit/U16.mjs → PASS U16 checks=8 failed=0 skipped=0（exit 0；§6 授权并集断言把 lib/pack-export.js 收进来之后仍绿）",
+        "U09": "node test/audit/U09.mjs → PASS U09 checks=8 failed=0 skipped=0（exit 0；pack-export 归因为 OWNED-OTHER-CARD/U16[section6-auto]，钉子 0 条）",
+        "U01": "node test/audit/U01.mjs / --verify-baseline → PASS（§6 自检逐卡比对通过）",
+        "exportPack": "test/export-pack.mjs 在本中间态（U19 尚未生成包侧 tools/unify/*.cjs）跑不起来，与本次改动无关；改用带 R1 最小替代的同一套夹具做真打包对拍（见 parity）"
+      }
+    }
+  ],
+  "upstreamDeltaFix": {
+    "registeredBy": "U18（已知上游 Δ）",
+    "what": "lib/mods/starter.js 的门禁路由只把**裸点 pid** 传给 challengeGate，跨圈同名知识点因此只能得到 ambiguous-point 判词。",
+    "fix": "改为先经 lib/point-ref.js 的 resolvePointRef 求规范身份（唯一匹配才认），把规范 `circle/point` 交给 challengeGate（gate.js 的 lessonScope 本来就认）；prerequisiteGaps 继续用裸 id（它按 pack.points[].id 找点，这是它的入参形状）。回应保留 point=裸 id 的老形状，另加 pointId/circle。",
+    "libGateTouched": false,
+    "evidence": "A02 ⑥（GET /api/whale/gate?point=programming/vue → pointId=programming/vue、circle=programming）与 A01 的门禁 URL 记录。"
+  },
+  "knownConflicts": [
+    {
+      "file": "test/intake-id-resolve.mjs",
+      "line": 470,
+      "assertion": "ok(ambGoal.ok === true, '歧义 id 下 whale_goal 不炸')",
+      "wouldBeRed": "若把 whale_goal 的裸点歧义改成**拒写**（这是「写请求送达正确实体」的理想口径），这条会红 —— 它钉的正是「歧义不带 halo 时按既有补全继续落盘」。",
+      "whyNotChanged": "§12 A 面只授权 U09/U10/U14 的旧身份测试契约；这条不在其中。改它就是擅自改既有断言（本卡禁令）。",
+      "minimalUnblock": "由用户在 U17/U20 或单独一卡上授权：把该用例改成「歧义 → ok:false + failure{code:'ID_AMBIGUOUS'}」，同时把 §6 写集的授权扩到该行。授权后本卡改动只需把 pointIdentityWarning 分支换成拒写（已预留 makeFailure 调用形状）。",
+      "currentMitigation": "落盘口径逐字不动，但回执带 warning+candidates 并在 render 里以 ⚠️ 可见（不再静默）。"
+    },
+    {
+      "file": "test/intake-id-resolve.mjs",
+      "line": 464,
+      "assertion": "ok(!!ambSummary && ambSummary.have === 0 && ambSummary.missing.length === 2, …)",
+      "wouldBeRed": "同样依赖「裸歧义不报错」的既有口径（brief 侧），本卡未改那条路径。",
+      "whyNotChanged": "同上：不在 A 面授权内。",
+      "minimalUnblock": "与 470 行的授权同批处理（它们说的是同一条口径）。"
+    }
+  ],
+  "boundaries": [
+    {
+      "what": "lib/pack-template/assets/notes.js 的 anchor 仍是显示名（data-note-lesson）",
+      "why": "文件头写明「前端不做课次推导，归一成星图课次键是写入口的事」（U14 交接裁定），写入口是 lib/notes-io.js（不在本卡写集）。浏览器侧不新增第二份身份实现是本卡硬约束。",
+      "owner": "U14（写入口）/ 后续如需页面侧直传规范键，需要改 NOTES.html 生成器（U15/U19），本卡无权。"
+    },
+    {
+      "what": "lib/pack-template/starmap/main.js 的深链解析 `nodes.find(id) || pts.find(p.id) || halos.find(id)`",
+      "why": "星图数据层的 `ptById` 以**裸点 id** 为键（starmap/data-layer.js 不在本卡写集）。要让跨圈同名点在星图里也不互相顶替，需要 data-layer 同时给出规范键 —— 那属 U15/U19 的范围。本卡不在这里另造一份身份逻辑。",
+      "owner": "U15 / U19"
+    },
+    {
+      "what": "lib/mods/intake.js 的读取视图（byKey 合并）",
+      "why": "U10 已交付；本卡读过后确认没有第二套解析，无需 Δ。",
+      "owner": "U10"
+    },
+    {
+      "what": "真实浏览器 / 真实宿主验收",
+      "why": "本机没有可用浏览器与宿主装载路径（见 verification）；所有浏览器侧判据都是**桩**上的行为断言，不冒充真实验收。",
+      "owner": "U20（随包联调）/ T13·T16·T25（终态 blocked 原样保留，本卡未重开、未改其证据）"
+    },
+    {
+      "what": "既有 live-pack 套件与入口（panel / new-course-wizard / settings-catalog / challenge-gate / catalog / goal-tool / intake-id-resolve / export-pack / tool-smoke 等，以及 `node lib/mods/starter.js --selftest`——它按 test/_pack.mjs 同一顺序找真包并做真包守卫）未在本卡运行",
+      "why": "它们默认读活包 E:\\workplace\\study（test/_pack.mjs 的默认值 / selftest 的 realPack 解析），本卡禁令是「不访问/不写活包、不跑读活包的套件」。改动对它们的兼容性靠：只加字段/不删字段、只在失败分支变严、端点与工具名逐字不动（见 deltas），以及 A05 的静态+装配级断言；另在语料里逐条核过 panel.mjs 的影副本 POST（空目录 ⇒ resolvePointRef 走 unverified，正文逐字不变）与 challenge-gate.mjs 门禁读口的 `point==='spring-boot'` 旧形状（本卡回应保留 `point` 裸 id）。复验归 U20。",
+      "owner": "U20"
+    },
+    {
+      "what": "执行窗口里观察到**别的 lane 的并发改动**：test/audit/T26.mjs（mtime 2026-10-20 13:12:24，diff = P2 授权的「单一 PROBE_VERSION 源码」改写）与 lib/render.js（更早、非本卡）",
+      "why": "T26 的改动不在本卡写集，也不由本进程写出：本卡 fs 写守卫的 journal 只含 {本卡写集 ∪ 证据根 ∪ E:\\Temp 本卡唯一目录} 的路径（证据里可逐条核）。这里登记是为了不把别人的改动算到自己账上，也不反过来替别人背书。",
+      "owner": "P1/P2 集成 lane（主持人统筹）"
+    }
+  ],
+  "risks": [
+    "lib/mods/starter.js 的开课 POST 现在会**拒**歧义/未知的 pointId（原来一律拼正文）。若有调用方一直传含糊 id，行为会从「拼出来」变成「明确报错」——这是本卡要的方向（送达正确实体），但属行为变更，已在 deltas 里列明。",
+    "lib/mods/lessonpack.js 的 point 过滤对「给了 circle 但点不在该圈」从静默空清单变成显式拒绝（halo-mismatch）。",
+    "mods/pack.js 导出新增一次 readPack（身份核验）；导出本来就要读包与产物，量级不变。"
+  ],
+  "verification": {
+    "realBrowser": "unverified",
+    "realHost": "unverified",
+    "simulatedDom": true,
+    "simulatedReact": true,
+    "note": "A08 断言本机没有真 document/模块加载器（否则口径要重定），并断言所有桩都带 __simulated、探针结束后全局已还原。真实浏览器/真实宿主的证据本卡一律标未验证，不重开 T13/T16/T25 终态 blocked。",
+    "environment": "Node + 进程内 Request/Response + E:\\Temp 唯一临时目录；未绑端口、未起服务、未联网。"
+  },
+  "evidence": {
+    "dirs": [
+      "audit-evidence/U16/runs/（每次运行一个本卡新目录：result.json / cases.jsonl / probes.json / summary.json / errors.txt，均 gitignore）",
+      "E:\\Temp\\U16-<pid>-<hex>\\（本卡唯一临时目录；A07 的 clean/mutated 副本与两个合成课程包都在这儿，运行结束按 guardTempPath 核对绝对路径与归属后递归删除）"
+    ],
+    "files": [
+      "result.json（判词+逐用例状态）",
+      "cases.jsonl（每条用例的 note/耗时）",
+      "probes.json（A01–A06 抓到的请求体/回执/可见文案 + A07 变异对照 + 守卫命中 + 授权并集解析结果 + 写集自锚）",
+      "summary.json（同上汇总 + browserVerified:false）",
+      "errors.txt（仅失败时）"
+    ],
+    "selfVerification": "node -e \"require('./docs/unify/receipts/U16.json')\" → 合法 JSON；A08 本身也解析本文件并要求 verification.realBrowser === 'unverified'。"
+  },
+  "changeSummary": {
+    "filesTouched": 7,
+    "filesReadOnlyInWriteSet": 5,
+    "outOfSet": 0,
+    "newFiles": [
+      "test/audit/U16.mjs",
+      "docs/unify/receipts/U16.json"
+    ]
+  }
+}

@@ -1,0 +1,384 @@
+{
+  "schema": "whale-unify-receipt/1",
+  "card": "U10",
+  "title": "学情台账统一（B lane · 摸底/目标/教学记录共用读取与提交基础，知识点归并走完整身份）",
+  "status": "PASS",
+  "scope": "U-SPEC §12 选项 A（仅 U09/U10/U14 卡内原子迁移旧身份测试契约）",
+  "verdictLine": "PASS U10 checks=8 failed=0 skipped=0",
+  "verdictNote": "本判词只由入口 `node test/audit/U10.mjs` 产出：checks=8 指固定用例集合 A01–A08 全部实跑并通过（无 skip、无恒真、无吞错）。不宣称全工程绿：活包/全量/随包闭包/迁移后的产品全链路读回归都不在本卡判据内（见 unverified）。登记同步史：本轮 A 面补完（267/272）后复跑曾红在 **A08 ⑧**（不是 A 面 diff 断言 A08 ⑤）——并发 lane 于 2026-10-20 08:41:57 把 `test/intake.mjs` 并入 docs/unify/interfaces.md §6 的 U10 行（与本卡 A 面迁移无关，反事实见 deltas[test-intake-identity-migration-completion].crossLaneBoundary）。主持人裁决「§6 是 U 卡授权落地台账的唯一来源，A 面那一项必须带「仅 §12 A 授权面」限定语」之后，本卡按裁决同步 A08 ⑧ 的登记（见 deltas[a08-s6-ledger-sync]）：§6 U10 逐条等于 7 项、A 面标注必须存在且只标一个文件、A 面的权威仍锚在 authorization.json 的人类原文上。同步后复跑：PASS U10 checks=8 failed=0 skipped=0（exit 0）。",
+  "verdict": {
+    "command": "node test/audit/U10.mjs",
+    "line": "PASS U10 checks=8 failed=0 skipped=0",
+    "exitCode": 0,
+    "checks": 8,
+    "failed": 0,
+    "skipped": 0,
+    "evidence": "audit-evidence/U10/runs/U10-<pid>/result.json + cases.jsonl + detail.json（原始证据，gitignore）"
+  },
+  "authorization": {
+    "section": "U-SPEC §12",
+    "state": "authorized",
+    "decidedBy": "用户",
+    "quoteVerbatim": "选A和授权p1和p2",
+    "quoteSource": "用户在 dsh 会话（U 系列统筹会话）中的直接消息，原文逐字如上；本文件不转述、不改写、不补全。",
+    "scope": "scope.A：仅 U09/U10/U14 卡内原子迁移旧身份测试契约；本卡独占 test/intake.mjs 中的裸 point 夹具与 latest.vue 等身份预期（78/86/87 行一带），保留版本、日期、学生原话、键序及所有非身份语义断言。",
+    "statement": "本卡只按 scope.A 执行：除 test/intake.mjs 的身份语义同卡原子迁移之外，没有改动任何既有测试断言、没有删/放宽/跳过任何断言、没有把授权扩写成用户未说过的内容。",
+    "grants": [
+      "U10 独占 test/intake.mjs 中裸 point 夹具及 latest.vue 等身份预期（78/86/87 行）",
+      "须补：旧形状拒绝、歧义拒绝、显式迁移断言",
+      "须逐条记录真实 Δ（断言增量/替换/失败差异）",
+      "保留版本、日期、学生原话、键序及所有非身份语义断言"
+    ],
+    "notAuthorized": [
+      "把既有测试修改范围扩大到 U09/U10/U14 之外（本卡没有碰 test/mirror-parity.mjs / test/pack-template-rules.mjs / 其它 test/*.mjs）",
+      "把 §12 A 解释为“可以削弱既有断言”（本卡对 test/intake.mjs 的改动是 6 处知识点身份替换 + 2 处课次身份迁移（267/272 的 missing 断言期望值与 progress.json 夹具），逆替换可逐字节回到 HEAD）",
+      "长期双读双写或兼容层（运行态仍只认 circle/point；历史解码只在 lib/unify/migration.cjs）"
+    ]
+  },
+  "blockedHistory": {
+    "priorStatus": "BLOCKED",
+    "priorReceipt": "docs/unify/receipts/U10.json（占位回执）",
+    "priorReceiptBytes": 3790,
+    "priorReceiptSha256": "d5f55b01d4b3e8091828227b4485a9b056ddb6429c2c230e9abbd103b6c8de50",
+    "priorReason": "U-SPEC §12 未裁决：用户尚未以任何可信消息明示选择 A 或 B；卡面停止条件「现有 latest.vue 等断言冲突未裁决时返回 BLOCKED U10」。原占位回执的 verdictLine=null，不含任何运行报告。",
+    "releasedBy": "选A和授权p1和p2",
+    "releasedEvidence": "docs/unify/authorization.json（quoteVerbatim=「选A和授权p1和p2」，date=2026-10-20，scope.A 明列 U10 独占 test/intake.mjs 的裸 point/latest.vue 身份预期）",
+    "releasedHow": "人类 A 授权解除阻塞后，本卡按 scope.A 重跑并整体改写为真实回执；上列 priorReason/priorReceiptSha256 是“曾 BLOCKED”的追溯证据，不是当前状态。"
+  },
+  "completion": {
+    "kernel": "新增 lib/unify/stage.cjs（纯 CJS）：① 五态读取走 U03 readLedger（missing/empty/ok/invalid/io-error；io-error 不折成空态）；② 写入与版本分配走 U06 planCommit/applyCommit（三闸 + 既有包锁与 whale-txn/1；锁内再核一次台账五态，坏账本拒写）；③ 知识点归并走完整身份（circle/point 经 identity.pointKey/parsePointKey 构造与解析），严格面拒绝旧形状裸点（MIGRATION_REQUIRED）、跨圈同名歧义（ID_AMBIGUOUS）、非法形状（LEDGER_INVALID）。",
+    "adapters": "lib/intake.js / lib/goal-io.js / lib/teaching-io.js 改为适配 + 委托：导出面、参数、默认值、返回形状逐字保持（A08 逐键核对改前导出面），latest 仍按原始 point 键、byKey 仍按规范 id；只加法字段 status/exists/failure/errorCode/latestValid/validEntries/valid。",
+    "semantics": "不改教学规则（TIERS/取值域/教学纪律/自由补充上限原样）、不改目标版本链语义（v=maxV+1、replaces=现行 v、from 自动拷 intake.start）、不写任何时间字段、append-only 前缀逐字节保留。",
+    "aFace": "test/intake.mjs 共 8 行身份迁移：首轮 6 行（71/78/81/86/87/90）知识点身份——裸 point 'vue' → 'programming/vue'，latest.vue → latest['programming/vue']，intakeStatus(tmp,'vue') → intakeStatus(tmp,'programming/vue')；补完 2 行（267/272）**课次**身份——前置闸断言期望值与 progress.json 夹具 learned 里的旧 2 段 'spring-boot/0001' → 规范 3 段 'programming/spring-boot/0001'（断言强度不降：仍要求 error 文案含 'spring-boot' 且 missing 含该规范课次键）。逆替换与 HEAD 逐字节相同。",
+    "newAssertions": "旧形状拒绝 / 跨圈歧义拒绝 / U05 真 CLI 迁移后回读+追加，全部写在 test/audit/U10.mjs（A08 ⑫），没有往 test/intake.mjs 里加任何断言。",
+    "gate": "新增 test/audit/U10.mjs：A01–A08 固定八项，每项都是真断言（含 A07 的 E:\\Temp 变异与干净副本对照）。"
+  },
+  "dependencies": {
+    "required": ["U02", "U03", "U05", "U06"],
+    "status": {
+      "U02": "PASS（lib/unify/identity.cjs：pointKey/lessonKey/parsePointKey/parseLessonKey/REASONS/IdentityError）",
+      "U03": "PASS（lib/unify/ledger-read.cjs 五态 readLedger + lib/unify/errors.cjs makeFailure/isFailure/NEW_CODES）",
+      "U05": "PASS（lib/unify/migration.cjs 三入口 + tools/migrate-pack.mjs CLI；本卡 A08 用**真 CLI** plan→apply 验证迁移后可读可追加）",
+      "U06": "PASS（lib/unify/commit.cjs planCommit/applyCommit：三闸、七态、planDigest、锁内真实字节摘要）"
+    },
+    "interfaces": {
+      "lib/unify/identity.cjs": { "bytes": 11584, "sha256": "9746554fd4f03db49bc1b09ffdc0c5be3967b9a0e90471018591fe1e086301d7" },
+      "lib/unify/errors.cjs": { "bytes": 6701, "sha256": "4e18e7183b5e9a124eb7094bfc5aefe281c507a6bd4f5871199591cc08664b12" },
+      "lib/unify/ledger-read.cjs": { "bytes": 12165, "sha256": "820fa52c2d029a20d1c2011344adb4fabae5462b47ad634e21e582cded3db508" },
+      "lib/unify/commit.cjs": { "bytes": 33453, "sha256": "8061e8f6f6553408e6f19aa44a560491c4b8d2307d9f93340e4677e5a1cf70b6" },
+      "lib/unify/migration.cjs": { "bytes": 90061, "sha256": "aaaa27769bdcb5c9cd9bc25859fa0a023fb65541fd8100658a2c781c6cc97722" },
+      "tools/migrate-pack.mjs": { "bytes": 7045, "sha256": "3c43a364e4a98d88abc7754ce25639b9540590e26fe12b7ba50ec20cf73fb615" },
+      "lib/pack-template/tools/ledger-transaction.cjs": { "bytes": 38268, "sha256": "e338abf02dfb5125b3a407185e00921937b0263776df59ddab9d5efad7726614" }
+    },
+    "note": "上列摘要只是**消费时的接口摘要**（记录依赖版本）；运行期以 A08 的现场自锚为准（本次进程开始时 sha256，收口前再比一次必须相同），不把它们的固定字节数当判据、不覆盖兄弟 lane 的合法改动。"
+  },
+  "interfaceConsumption": {
+    "docs/unify/interfaces.md": { "section": "§2 身份 / §3 台账·失败·提交 / §6 落点表", "bytes": 47673, "sha256": "0dc0bc6e3e705903479bde75328e932a3c4da546cce867ac127ea7eaea3f7e28", "note": "消费者摘要按本次复跑时的现值登记（旧值 47450B/5731874… 是并发 lane 改 §6 之前的快照）；该文件的 §6 U10 行现在含 `test/intake.mjs`（带「仅 §12 A 授权面」限定语）。本卡只读、一个字节都没写它。" },
+    "docs/unify/authorization.json": { "quoteVerbatim": "选A和授权p1和p2", "bytes": 8207, "sha256": "9323ccbcb98b233f4edfe19d1104fbd736685a32d5cc35c1a41870a863405811" },
+    "docs/unify/baseline.json": { "consumedOnly": true, "bytes": 60232, "sha256": "cf53c0c41d5b55b090ed6503fda59ffc2f52372f7629f8924f8e97efd35f36e1" },
+    "note": "三份 U01/授权材料全部只读消费；本卡不写 docs/unify/interfaces.md、baseline.json、authorization.json。"
+  },
+  "writeSet": [
+    "lib/unify/stage.cjs",
+    "lib/intake.js",
+    "lib/goal-io.js",
+    "lib/teaching-io.js",
+    "test/audit/U10.mjs",
+    "docs/unify/receipts/U10.json",
+    "test/intake.mjs"
+  ],
+  "writeOutOfSet": "无。逐文件核对：lib/unify/stage.cjs（新）、lib/intake.js（改）、lib/goal-io.js（改）、lib/teaching-io.js（改）、test/audit/U10.mjs（新）、docs/unify/receipts/U10.json（改：占位→真实回执，本轮再追加 deltas[a08-s6-ledger-sync] 与 A08 登记同步）、test/intake.mjs（改：仅 §12 A 授权的 8 行身份）；audit-evidence/U10/ 下新增 pre-change.json / fixtures.mjs / capture-baseline.mjs / runs/（gitignore 的原始证据）。没有碰：其它 lib/unify/*.cjs、lib/pack-model.js / pack.js / point-ref.js / text.js / plan.js / fingerprint.js / render.js、各 lib/pack-template/**、lib/pack-scaffold.js、package.json、docs/unify/interfaces.md|baseline.json|authorization.json、test/pack-template-rules.mjs、test/mirror-parity.mjs、其它任何既有 test/*.mjs 与 test/audit/T*.mjs、cards/**、活包、主树。",
+  "deltas": [
+    {
+      "kind": "identity-migration",
+      "file": "test/intake.mjs",
+      "lines": [71, 78, 81, 86, 87, 90],
+      "from": "裸 point 夹具 'vue' / 身份预期 latest.vue / 查询入参 intakeStatus(tmp,'vue')",
+      "to": "circle/point 夹具 'programming/vue' / 身份预期 latest['programming/vue'] / 查询入参 intakeStatus(tmp,'programming/vue')",
+      "asserted": "5 处身份替换 + 1 处查询入参替换；断言条数、断言语义、日期 '2026-09-21'/'2026-09-22'、原文 '零基础'/'有基础'/'精通'/'能独立写前端'、键序断言一条都没动（逆替换逐字节回到 HEAD；A08 ⑤ 实测通过）",
+      "failureDifference": "首轮观测（U10 第 1 轮）：改前 latest 的键是裸 'vue'（与运行态规范身份不一致，A 授权前的旧契约）；改后键是 'programming/vue'（= 运行态规范身份）。除此之外执行结果不变：node test/intake.mjs 首轮改前 75 通过/2 失败、首轮改后 75 通过/2 失败，失败行逐字相同。那两条失败**不是归 U09 的**——它们是本卡 A 面内的课次身份预期/夹具（267/272），已在同一 A 面内原子迁移，见 deltas[test-intake-identity-migration-completion]；迁移后 node test/intake.mjs = 77 通过/0 失败。"
+    },
+    {
+      "kind": "behavior-tightening",
+      "file": "lib/intake.js",
+      "from": "读台账 catch { 返回空 entries/latest/problems }（读取故障伪装成“从来没有台账”）",
+      "to": "走 U03 readLedger 五态：io-error 如实上报（errorCode 保留 EISDIR/EACCES…，failure.code=IO_ERROR），invalid 带 LEDGER_INVALID；null/数组/标量行不进 entries",
+      "asserted": "A01 三类台账五态；A02 null 不进有效 latest",
+      "failureDifference": "改前：台账路径是目录时 readIntake 返回空态且 problems=[]；改后 status='io-error'、problems 有读取故障、errorCode='EISDIR'。老调用方读的 entries/latest/problems 形状不变（只加字段）。"
+    },
+    {
+      "kind": "behavior-tightening",
+      "file": "lib/goal-io.js",
+      "from": "recordGoal 在坏台账（有 bad JSON 行）上仍然读好行算版本并追加",
+      "to": "版本分配前在共同提交边界内复核台账五态：invalid/io-error 一律拒写（LEDGER_INVALID），一次事务都不进",
+      "asserted": "A06 ④（坏账本 → LEDGER_INVALID + 事务调用 0 + 台账逐字节未变）",
+      "failureDifference": "改前：坏账本上追加会成功（版本只按好行算，等于在坏台账上继续追加）；改后：拒绝且零写。既有“写后回读自检”的失败措辞（写后回读不一致，已回滚：…）保持在前，test/goals.mjs 的该条判据仍绿。"
+    },
+    {
+      "kind": "behavior-tightening",
+      "file": "lib/teaching-io.js",
+      "from": "读台账 catch { 返回空台账 }；写入时遇到有问题的台账仍按好行算版本",
+      "to": "读取走五态（io-error/invalid 如实上报）；写入前若 parseTeachingText 有任何 problems（含取值域不合规）一律拒写",
+      "asserted": "A01/A02（三态五态与 null 行）+ A06 的共同边界",
+      "failureDifference": "改前：读不动 = 空台账；有坏行仍能追加。改后：五态如实、坏账本拒写。test/teaching-io.mjs 的 ⑧（坏行进 problems 且好行一条不少）语义不变。"
+    },
+    {
+      "kind": "additive-fields",
+      "file": "lib/intake.js | lib/goal-io.js | lib/teaching-io.js",
+      "from": "{ file, entries, latest, problems[, byKey] }",
+      "to": "同名同语义 + status/exists/failure?/errorCode?（五态）；intake/goals 另加 latestValid/validEntries，teaching 另加 valid:{entries,global,circles}",
+      "asserted": "A02（有效面 ×原文保留面各自可判）+ A08 ②（导出面逐键与改前一致）",
+      "failureDifference": "只加法，老键一个都没改名/改形：test/goals.mjs 的 rf.entries.length===2 / rf.latest.react?.tier===999 两条既有断言保持绿（坏值行仍“原文保留”，但不再污染 latestValid）。"
+    },
+    {
+      "kind": "commit-boundary",
+      "file": "lib/intake.js | lib/goal-io.js | lib/teaching-io.js",
+      "from": "各自 require 事务件并直接 PACK_TXN.withPackTransaction(root, build) 读旧账→算版本→追加",
+      "to": "STAGE.appendRecord → planCommit/applyCommit（三闸）→ 事务；版本只由锁内写前字节算，计划过期 PLAN_STALE 拒绝，冲突时重读重算（有限次重试）",
+      "asserted": "A06 ①②③（每次恰好一次事务 / PLAN_STALE 零覆盖 / 并发重试后版本唯一连续）",
+      "failureDifference": "改前：版本在事务 build 里算，但**没有**“计划→锁内复核”的两段摘要，多写者只能靠事务锁本身；改后：多一道锁内重建复核（计划生成后目标被改 ⇒ 拒绝而不是覆盖），并内建重试以免把正常并发变成失败。"
+    },
+    {
+      "kind": "new-rejection-surface",
+      "file": "lib/unify/stage.cjs",
+      "from": "无（不存在该层）",
+      "to": "严格面：裸点 → MIGRATION_REQUIRED（拒绝理由点名 tools/migrate-pack.mjs）、跨圈同名裸点 → ID_AMBIGUOUS（附候选）、两段以外的非法形状 → LEDGER_INVALID；严格写入在碰事务之前就拒",
+      "asserted": "A08 ⑫①② + A06 ⑤",
+      "failureDifference": "改前没有这个面（运行态只有 point-ref 的解析宽容面）；改后新层提供严格面，适配层默认仍走兼容面（见 unverified 的兼容性边界）。"
+    },
+    {
+      "kind": "registered-conflict",
+      "file": "test/audit/T10.mjs",
+      "lines": "1038-1055（T10-source-wired）",
+      "from": "该冻结用例断言 lib/intake.js / lib/goal-io.js / lib/teaching-io.js 的源码（剥注释后）各自包含字面量 `withPackTransaction(`",
+      "to": "本卡把提交边界收进 lib/unify/stage.cjs：三个适配层仍 require 事务件路径（`pack-template/tools/ledger-transaction.cjs` 字面量保留）并把 transaction 能力注入 stage，但**不再直接调用** `withPackTransaction(`",
+      "mustRed": "若重跑 node test/audit/T10.mjs，T10-source-wired 的 `code.includes('withPackTransaction(')` 这一条会红（其余两条：事务件路径字面量、保留 export function recordXxx 仍绿）",
+      "minimalUnblock": "T10 属冻结证据、任何卡不许改 test/audit/T*.mjs（U-SPEC §6/§2.4）。解除条件只有两条之一：① 由人类授权把该条断言对象改成“经由 lib/unify/stage.cjs 触达事务件”（需新授权，因为 T 卡冻结）；② 让适配层继续直接调用 withPackTransaction（与本卡“写入/版本分配走 U06 planCommit/applyCommit”的卡面要求冲突）。本卡选择登记冲突、不改测试。",
+      "impact": "T10 无自动入口（interfaces.md §7 清清楚楚：无 `--auto`），T 线冻结且不再重跑，所以这条冲突不改变任何已签收判词；但它是一条真实的旧测试契约冲突，如实登记。"
+    },
+    {
+      "kind": "test-intake-identity-migration-completion",
+      "file": "test/intake.mjs",
+      "lines": [267, 272],
+      "discovered": [
+        "node test/intake.mjs 在 U01 基线里是绿的，§12 A 路径之后变成 75 通过 / 2 失败（exit 1），两条新红逐字为：",
+        "✗ 拒绝理由点名缺的是哪一课（实得 [\"programming/spring-boot/0001\"]）  ← test/intake.mjs:267-268",
+        "✗ 前置点亮后放行，改由摸底闸接手  ← test/intake.mjs:272-274"
+      ],
+      "rootCause": "不是运行态坏了，是**身份预期过时**：U09/U10 把 pointKey/lessonKey 收敛到 lib/unify/identity.cjs 的规范身份（circle/point/NNNN）之后，① 第 267 行断言仍要求 pg1.missing 含旧 2 段 'spring-boot/0001'，而运行态如实给出规范 3 段 'programming/spring-boot/0001'；② 第 272 行的夹具把 progress.json 写成 learned: ['spring-boot/0001']（旧 2 段夹具），规范身份下它不再算“点亮”，于是第 274 行「前置点亮后放行」自然不成立。",
+      "from": "test/intake.mjs:267 `(pg1.missing || []).includes('spring-boot/0001')` ／ :272 夹具 `learned: ['spring-boot/0001']`",
+      "to": "test/intake.mjs:267 `(pg1.missing || []).includes('programming/spring-boot/0001')` ／ :272 夹具 `learned: ['programming/spring-boot/0001']`",
+      "scopeOfChange": "只做身份迁移，非身份语义一字不动：第 267 行仍要求 `String(pg1.error).includes('spring-boot')` 且 missing 仍必须**含这门课的那一课**（没有改成“只判非空”）；第 272 行仍是在“前置点亮”这一个语义位置写 learned。除这 2 行外 test/intake.mjs 一个字符没动。",
+      "nonIdentityUntouchedProof": "① 反向证明（本次亲跑，E:\\Temp 本次临时目录）：把 267/272 的规范键逆替换回 'spring-boot/0001' 后，与“本次修改前”快照**逐字节相同**——20917 字节、sha256=3084ccb1b3a938604d3f46f90f73099d020a284bef175b983cc2f3f1a3623c4e、0 行差异；现文件 20941 字节、sha256=09a5f216283ad9433f79050956d603a2f3f06b7c9d90399d71bbc1877f84f8c6，净增 24 字节 = 2 × 'programming/'。② 同口径的 HEAD 逆替换由 A08 ⑤ 每次运行实测（A_FACE_ROWS 已登记 8 个位点、逆替换链已加 'programming/spring-boot/0001' 一条）。③ 日期 / 原文 / 键序 / 计数 / force 留痕 / 文案等断言的行号与字节全部未变，因此逆替换才能逐字节回到 HEAD。",
+      "assertionStrength": "断言条数不变（仍是 77 条）、断言强度不降（缺课点名这条仍点名具体课次，不是“非空即可”）；变化只是“点名的课次键从旧 2 段换成规范 3 段”。",
+      "failureDifference": "改前（本次修改前）：=== 75 通过 / 2 失败 ===，exit 1；改后：=== 77 通过 / 0 失败 ===，exit 0。两处替换各救回 1 条：267-268 的缺失课次断言、274 的前置点亮放行断言。",
+      "correctedAttribution": {
+        "supersededClaim": "[已作废，不再成立] U10 首轮回执 knownRed[0] 与 regressionRuns 曾把这两条红写成「属 U09 的写集与 A 面，不归 U10，本卡不动」。",
+        "correctedTo": "已被本次裁定更正为「属本卡 A 面，已在本卡内原子迁移」。理由：两处都在 test/intake.mjs（§12 A 授权 U10 独占的 A 面文件）里，且都是**身份预期/夹具**（旧 2 段课次键），正是 scope.A 授予 U10 的那一类；U09 的 A 面是 test/mirror-parity.mjs，与此无关。首轮的归属判断是错的，本回执已按更正后的说法改写。"
+      },
+      "receiptEdits": [
+        "deltas[identity-migration].failureDifference：补“那两条不是归 U09 的”，并指向本条 Δ；75/2 → 77/0。",
+        "knownRed：整条作废（两条已收），改为 knownRedResolved 并写明更正后的归属；不再保留“归 U09”的旧说法。",
+        "regressionRuns：node test/intake.mjs 由 exit 1 / 75 通过 2 失败 改写为 exit 0 / 77 通过 0 失败（本次亲跑）；goals / intake-id-resolve 同样刷新为本次亲跑的实测条数。",
+        "completion.aFace：6 行 → 8 行（补 267/272 的课次身份迁移）。",
+        "testContractMigration：nowBytes/nowSha256/changedLines/changedLineCount/inverseProof 按 8 个位点刷新。",
+        "authorization.notAuthorized[1]：处数描述由“5 处身份替换 + 1 处查询入参替换”改为“6 处知识点身份 + 2 处课次身份”。"
+      ],
+      "gateSync": "test/audit/U10.mjs 的 A 面登记（唯一一处必要更新，属同一 A 面）：A_FACE_ROWS 由 6 行扩到 8 行（+267/+272），逆替换链 +1 条 'programming/spring-boot/0001' → 'spring-boot/0001'，期望位点串由 '71,78,81,86,87,90' 改为 '71,78,81,86,87,90,267,272'。这是“登记跟着 A 面走”的同步，不是放宽断言：A08 ⑤ 仍然要求逆替换逐字节回到 HEAD、行数不变、非身份语义一条不少。同步前实测该断言确实红（『A 面只许替换身份…（实得 false / 期望 true）』），证明它不是恒真。",
+      "crossLaneBoundary": {
+        "what": "node test/audit/U10.mjs 在本轮复跑时红在 A08 ⑧（不是 A08 ⑤）：『§6 里 U10 的落点必须逐条等于本卡的 6 项』实得含 'test/intake.mjs'。",
+        "cause": "并发 lane 改了 docs/unify/interfaces.md（**不在本卡写集、明令不得改**）：文件 mtime 2026-10-20 08:41:57，其 §6 的 U10 行现在多出 `✅ test/intake.mjs（仅 §12 A 授权面：…；落账见 authorization.json 的 scope.A）`，U09 行同样多出 `test/mirror-parity.mjs`。而该文件 §9 仍写着「§12 未裁决：两处旧测试冲突」——文档自身前后矛盾，是飞在半空的中间态。",
+        "evidence": "08:39:14 存在一个 U10 的 PASS 运行（audit-evidence/U10/runs/U10-51520，line=PASS U10 checks=8 failed=0 skipped=0），2 分 43 秒后 interfaces.md 才被改；本回执 interfaceConsumption 登记的 interfaces.md sha256=5731874…，现值 0dc0bc6…。",
+        "counterfactual": "在 E:\\Temp 用 U10.mjs 自己导出的 parseSection6 / proveScopeBoundary 做反事实：把 §6 U10 行里那段 A 面子句去掉后重新解析 → §6 U10 == STAGE_SET（绿）、不含 A_FACE（绿）、『抽掉 §12 A 授权面后 test/intake.mjs 应被拒』→ got=reject（绿），failures=[]；带上该子句则三条全红。⇒ 这条红与本次 A 面两行身份迁移**无关**，且该 §6 改动还顺带让“§12 A 对 test/intake.mjs 承重”这条自证失效（§6 自己就给了它）。",
+        "notFixedBy": "[当时状态，已被主持人裁决取代] 当时本卡没有改 interfaces.md（写集外），也没有去改 A08 ⑧ 的 §6 登记（超出本卡被授权的“变化位点集合”那处同步，需主持人裁决）。",
+        "needsDecision": "[已裁决] 二选一：① 由 interfaces.md 属主撤掉 §6 里 A 面子句（恢复「A 面只由 authorization.json 授权」的设计）；② 授权本卡把 A08 ⑧ 的登记同步到新 §6 形状（§6 U10 = 7 项含 A 面），并把“§12 A 承重”的自证改挂到仍只由授权面放行的路径上。",
+        "resolution": {
+          "ruling": "主持人裁决：docs/unify/interfaces.md §6 是「U 卡授权落地台账」的**唯一来源**（§12 A 的 A 面落点也登记在里面），但 A 面那一行**必须带「仅 §12 A 授权面」限定语**；A 面授权的权威来源仍是 docs/unify/authorization.json 的 quoteVerbatim + scope.A。等效于选项 ②。",
+          "who": "整合 lane 负责把 A 面限定语写进 §6（U10 行 7 项、U09 行补 test/mirror-parity.mjs 与 lib/point-ref.js），test/audit/U01.mjs / U02.mjs 已同步且 PASS；本卡只做**判据登记同步**（A08 ⑧ 三条红点），不改 interfaces.md。",
+          "thisCard": "见 deltas[a08-s6-ledger-sync]：STAGE_SET 6→7；§6 断言改为「7 项逐条相等 + A 面限定语必须存在且只标 A 面一个文件」；原「抽掉 scope.A 后 test/intake.mjs 必须被拒」的红样本换成「不在任何落地台账里的既有测试改动必须被拒」；新增 A 面权威链（authorization.json 原文缺失/无 quoteVerbatim/scope.A 未点名 → 必红）。"
+        }
+      },
+      "verificationRuns": [
+        { "command": "node test/intake.mjs", "exit": 0, "line": "=== 77 通过 / 0 失败 ===" },
+        { "command": "node test/intake-id-resolve.mjs", "exit": 0, "line": "=== 101 通过 / 0 失败 ===" },
+        { "command": "node test/goals.mjs", "exit": 0, "line": "=== 107 通过 / 0 失败 ===" },
+        { "command": "node test/audit/U10.mjs", "exit": 1, "line": "FAIL U10 checks=8 failed=1 skipped=0 :: A08 · §6 里 U10 的落点必须逐条等于本卡的 6 项（A 面那一条不在这里）", "note": "红因见 crossLaneBoundary；A08 ⑤（A 面 diff 断言）已通过。" }
+      ]
+    },
+    {
+      "kind": "a08-s6-ledger-sync",
+      "file": "test/audit/U10.mjs | docs/unify/receipts/U10.json",
+      "trigger": "主持人裁决：docs/unify/interfaces.md §6 是「U 卡授权落地台账」的**唯一来源**，§12 A 的 A 面落点也登记在里面，但 A 面那一行**必须带「仅 §12 A 授权面」限定语**；A 面授权的权威来源仍是 docs/unify/authorization.json。整合 lane 已把 `✅ test/intake.mjs（仅 §12 A 授权面：…）` 写进 §6 的 U10 行（现 7 项），并把 `test/mirror-parity.mjs` / `lib/point-ref.js` 写进 U09 行；test/audit/U01.mjs / U02.mjs 已同步且 PASS。本卡只做**判据登记同步**，不动 interfaces.md。",
+      "redPoints": [
+        "① test/audit/U10.mjs:1376（STAGE_SET 硬编码 6 项）：sameJson(§6 的 U10 行, STAGE_SET) 红 —— 实得 7 项（多出 test/intake.mjs）/ 期望 6 项。",
+        "② test/audit/U10.mjs:1377 断言「§6 的 U10 落点本来就不含 A 面」：该断言的前提已被裁决作废（§6 现在就是唯一落地台账，A 面必须登记在里面）。",
+        "③ test/audit/U10.mjs:583 红样本「抽掉 scope.A 后 test/intake.mjs 必须被拒」：§6 自己就收了 test/intake.mjs，bareUnion 会 allow → 该行 got=allow 而期望 reject → wProof.failures.length!==0 → :1370 红。"
+      ],
+      "from": "§6 U10 = 6 项（A 面只在 §12 A）；A08 ⑧ 用「§6 不含 A 面」+「抽掉 extras 后 A 面必被拒」两条自证 A 面承重。",
+      "to": "§6 U10 = 7 项（含 A 面，且 A 面那一条必须带「仅 §12 A 授权面」）；A08 ⑧ 改为三条硬断言：① §6 U10 逐条等于本卡落点表 7 项（含顺序）；② A 面限定语必须存在且紧跟在 test/intake.mjs 之后、该行其它落点一个都不许带；③ A 面权威链锚在 authorization.json（quoteVerbatim 逐字 =「选A和授权p1和p2」+ quoteSource 非空 + scope.A.authorized 有一条同时点名 U10 与 test/intake.mjs）。",
+      "changes": [
+        "STAGE_SET 由 6 项扩到 7 项（第 5 项 = test/intake.mjs，顺序与 §6 该行逐条一致）；WRITE_SET 改为「STAGE_SET 去掉 A 面 + A 面排最后」的去重形式，仍是 7 项、顺序与回执 writeSet 逐字一致。",
+        ":1376 断言改为「§6 里 U10 的落点必须逐条等于本卡的 7 项（逐条 + 顺序；A 面那一项必须在其中）」，仍是 sameJson 硬对拍。",
+        ":1377 旧断言（§6 不含 A 面）删除，换成新的可证伪断言 proveSection6Qualifier(lockText, 'U10')：A 面落点恰好一条 + 必须带「仅 §12 A 授权面」+ 限定语必须紧跟该路径 + 除 test/intake.mjs 外的落点都不许带；并在 A08 内做**变异自证**（把限定语抹掉 → 必红；把限定语挪到 lib/intake.js 上 → 必红）。",
+        ":583 红样本换成 `M test/pack-template-rules.mjs`（真实既有测试，§6 与 authorization.json 都不收它）→ 必须 reject；语义仍是「不在任何授权落地台账里的既有测试改动必须被拒」。同时新增红样本 `M docs/unify/authorization.json`（授权原文不是任何卡的落点 → 必须 reject），红样本 15 条 one() + 1 条 MIX = 16 行（原 14 条 one() + 1 条 MIX = 15 行，条数不减反增）。",
+        "新增 proveAfaceAuthority（A 面权威链）+ 四向变异自证：抽掉 quoteVerbatim → 红；抽掉 quoteSource → 红；抽掉 scope.A 里点名 U10 的那条 → 红；只剩 §6 标注、没有人类原文 → 至少两条同时红（证明 §6 标注不能替代授权原文）。",
+        "A08 的 detail.json 明细（DETAIL.comparisons.authorizedUnion）新增 section6Row（该行原文/分段/限定语/两种变异的失败清单）与 afaceAuthority（quoteVerbatim/quoteSource/named/四种变异），让“为什么绿”可复查。",
+        "回执：追加本条 Δ；verdictNote 把“待裁决”改成裁决后的登记同步说明；interfaceConsumption.interfaces.md 摘要由并发 lane 改前的 47450B/5731874… 刷新为现值 47673B/0dc0bc6…；writeOutOfSet 的“6 行身份”更正为 8 行；crossLaneBoundary 增加 resolution（裁决要点与本卡范围）。"
+      ],
+      "strength": {
+        "stronger": [
+          "§6 落点条目数：6 → 7 且仍逐条 + 顺序硬对拍 ⇒ A 面被漏登记/删登记立刻红（原来这条根本不管 A 面）。",
+          "新增「A 面限定语必须存在且紧跟该路径、其它落点不许带」：抹掉限定语 / 挪到 lib/intake.js 上 / 整段删掉，三种变异实测都红 ⇒ “台账里 A 面是被显式标注的”可证伪地钉住；旧断言（§6 不许含 A 面）在裁决后已不成立。",
+          "新增 A 面权威链（authorization.json）：quoteVerbatim 逐字 + quoteSource + scope.A 原文点名 + 四向变异 ⇒ A 面不再是“§6 说有就有”，必须链到人类授权原文（原来只判 authorizationExtras 解析结果含 test/intake.mjs，无原文缺失的变异自证）。",
+          "红样本新增 2 条真实路径（test/pack-template-rules.mjs、docs/unify/authorization.json），并且都对 live §6 ∪ authorization.json 现场判定（不是硬编码并集）⇒ 边界更宽（覆盖“既有测试”与“授权原文”两类）。"
+        ],
+        "equal": [
+          "proveScopeBoundary 仍然 failures 必须 0，`M test/_pack.mjs` / `D test/all.mjs` / R 改名 / A cards/U10.md / MIX 这些反样本原样保留（语义不变）。",
+          "A08 其它子断言（①–⑦、⑨–⑬：改前材料、导出面、依赖自锚、委托形态、A 面逆替换=HEAD 且只改 8 行、写守卫探针、内容锁、--evidence-root 守卫、迁移 CLI、回执五项）一个字没动。",
+          "回执 writeSet 仍是 7 项且顺序逐字不变（A 面排最后），因此 :1568 的对拍与 :1397 的内容锁条数都没动。"
+        ],
+        "weaker": "无。“抽掉 §12 A 授权面后 test/intake.mjs 必须被拒”这条自证在 §6 收了 A 面之后已无法承重（bareUnion 会 allow），但它承重的命题（A 面凭什么能动）改由更硬的 authorization.json 权威链 + 四向变异承担；A08 红样本条数 15 → 16，未减少。"
+      },
+      "authority": "A 面授权的权威来源仍是 docs/unify/authorization.json：quoteVerbatim=「选A和授权p1和p2」（人类原话逐字）+ quoteSource + scope.A.authorized 点名「U10 独占 test/intake.mjs」；docs/unify/interfaces.md §6 只是**落地台账**。A08 ⑧ 现在显式钉住这条链：原文缺失 / 无 quoteVerbatim / 无 quoteSource / scope.A 抽掉 U10 那条 → 一律红（不静默放行）。",
+      "notChanged": [
+        "docs/unify/interfaces.md（写集外，只读消费；A 面限定语由整合 lane 写入）",
+        "A01–A07 与 A08 的其它子断言、test/intake.mjs（已定稿，77 通过 / 0 失败）、其它 test/audit/U*.mjs、既有 test/*.mjs、lib/**、cards/**、package.json、活包、主树"
+      ],
+      "verificationRuns": [
+        { "command": "node test/audit/U10.mjs", "exit": 0, "line": "PASS U10 checks=8 failed=0 skipped=0" },
+        { "command": "node test/intake.mjs", "exit": 0, "line": "=== 77 通过 / 0 失败 ===" },
+        { "command": "node -e \"require('./docs/unify/receipts/U10.json')\"", "exit": 0, "line": "回执 JSON 合法（require 成功）" },
+        { "command": "node E:\\Temp\\u10-ledger-sync-46572\\self-proof.mjs", "exit": 0, "line": "RESULT: ALL PROOFS GREEN (0 fail) —— ①M test/pack-template-rules.mjs reject ②抹掉/挪走/删掉 §6 限定语三种变异都红 ③authorization.json 无 quoteVerbatim/无 scope.A 点名/整份缺失 都红 ④正常树两套件绿" }
+      ],
+      "boundary": "本轮只同步登记判据：不跑全量、不访问/不写活包、不跑读活包的套件、不做 git 写、不提交、不升版。身份收敛可能给别的既有套件带来的新红见 unverified 与 suiteContextBoundary（只报不改）。"
+    },
+    {
+      "kind": "single-source-codes",
+      "file": "lib/unify/stage.cjs",
+      "lines": "改前 99-105（STAGE_CODES 三个字面量码表）/ 97（RETRY_CODES 成员集，未动）；改后 100-112",
+      "discoveredBy": "U03 的 A04（拟新增码只许 lib/unify/errors.cjs 一份定义）在真实工作树上红：FAIL U03 checks=8 failed=1 skipped=0（exit 1），判词逐字『[真实工作树] 拟新增码出现了第二份定义（重名/语义冲突必须阻断；只许 lib/unify/errors.cjs 一份）：lib/unify/records.cjs:810 LOCK_BUSY（object-key） | lib/unify/stage.cjs:102 ID_AMBIGUOUS（object-key） | lib/unify/stage.cjs:103 LEDGER_INVALID（object-key） | lib/unify/stage.cjs:97 LOCK_BUSY（object-key） | lib/unify/stage.cjs:101 MIGRATION_REQUIRED（object-key）：actual=5 expected=0』。其中归本卡的 4 处 = stage.cjs:101/102/103（码表）+ stage.cjs:97（成员集，见 retryCodesUntouched）；records.cjs:810 不属本卡写集（同一类成员集键，由 U03 分类器修正覆盖）。",
+      "defect": "stage.cjs 的 STAGE_CODES 把 U03 已登记在 lib/unify/errors.cjs 的三个码**又写了一遍字面量**（键=值='MIGRATION_REQUIRED' / 'ID_AMBIGUOUS' / 'LEDGER_INVALID'）。这正是 U-SPEC §3「拟新增码只许在 lib/unify/errors.cjs 定义一份」要拦的漂移源：只要有一处改值/改名，另一处不会跟着变，同一个码值就有两个真相（静态查不出、运行期按路径分叉）。",
+      "from": "const STAGE_CODES = Object.freeze({ MIGRATION_REQUIRED: 'MIGRATION_REQUIRED', ID_AMBIGUOUS: 'ID_AMBIGUOUS', LEDGER_INVALID: 'LEDGER_INVALID', IO_ERROR: 'IO_ERROR' })",
+      "to": "const { makeFailure, NEW_CODES } = require('./errors.cjs')（errors.cjs 的真实导出形状：module.exports = { FAILURE_KINDS, FAILURE_KEYS, NEW_CODES, makeFailure, isFailure }，NEW_CODES = { ID_AMBIGUOUS, MIGRATION_REQUIRED, LEDGER_INVALID, LOCK_BUSY, RECOVERY_REQUIRED }）；STAGE_CODES 的**键与值都从 NEW_CODES 取**：{ [NEW_CODES.MIGRATION_REQUIRED]: NEW_CODES.MIGRATION_REQUIRED, [NEW_CODES.ID_AMBIGUOUS]: NEW_CODES.ID_AMBIGUOUS, [NEW_CODES.LEDGER_INVALID]: NEW_CODES.LEDGER_INVALID, IO_ERROR: 'IO_ERROR' }。IO_ERROR 是**既有旧码**（不在 NEW_CODES 里），按旧语义留字面量；errors.cjs 一个字节没改。",
+      "whyComputedKeys": "键写成 [NEW_CODES.X]、值写 NEW_CODES.X，是为了让 stage.cjs 里**连码名都不再作为键出现**（不只是值），于是本文件是否「定义了第二份码」不依赖任何分类器对对象键的宽松解释。",
+      "retryCodesUntouched": "RETRY_CODES（stage.cjs:98 `Object.freeze({ PLAN_STALE: true, LOCK_BUSY: true })`）**原样未动**：它是**成员集**（拿码名当查找键、值是布尔），不是码表；A04 原始判词里 stage.cjs:97 的 LOCK_BUSY 是分类器把对象键一律当定义的误判。本卡不改它、也不改判据（test/audit/U03.mjs 是 U03 的交付物）；U03 在本次修复期间已把分类器修正为「值是 true/false 的成员集 = 使用」。records.cjs:810 的同形成员集同理，不属本卡写集。",
+      "asserted": "行为逐字不变：A01（invalid→LEDGER_INVALID、io-error→failure.code=IO_ERROR + errorCode=EISDIR）、A06（过期计划 PLAN_STALE / 坏账本 LEDGER_INVALID / 裸点 MIGRATION_REQUIRED）、A08（裸点 MIGRATION_REQUIRED、非法形状 LEDGER_INVALID、跨圈歧义 ID_AMBIGUOUS）全部保持原 code 字符串；A01–A08 全绿。",
+      "behaviorInvarianceProof": {
+        "method": "改前先落快照：同一份探针 probe-codes.cjs（只 require lib/unify/stage.cjs 与 errors.cjs，不写仓内）把 STAGE_CODES 的键序/值、buildCatalogue+classifyPoint 的 12 个场景（null / 数字 / 空串 / 带空白 / canonical / 裸点唯一 / 无目录裸点 / 跨圈歧义 / 歧义+halo 命中与未命中 / 三段 / 空段）的 (ok, code, reason, failure.code, failure.kind, key)、verifyIdentities 5 个场景的 (status, rejected[].code, rejected[].failure.code, keys)、assertWritableLedger 坏账本的 (code, failure.code, failure.kind, 逐字 message)、以及常量面（IO_ERROR_STATUS / BLOCKING_STATUSES / RETRY_CODES / DEFAULT_RETRIES / STAGE_LEDGERS / 导出面）打成一份 JSON；改后用同一条命令再打一份。",
+        "result": "改前快照、改后快照、以及「把改后文件里的 STAGE_CODES 块逐字还原成改前字面量」的反向副本快照，**三份 JSON 逐字节相同**：sha256=d3eed2ac60e049039112fb5d7dd06a7731ba2be6be26b896b0027d3caa883976（每份 6251 字节 / 0 行差异）。",
+        "codeValues": [
+          "STAGE_CODES = [['MIGRATION_REQUIRED','MIGRATION_REQUIRED'],['ID_AMBIGUOUS','ID_AMBIGUOUS'],['LEDGER_INVALID','LEDGER_INVALID'],['IO_ERROR','IO_ERROR']]（键序也相同）",
+          "classifyPoint：null / 123 / '' / ' vue ' → LEDGER_INVALID（reason not-string / empty / untrimmed）；'programming/vue' → ok；'vue'（目录里唯一）→ MIGRATION_REQUIRED（bare-point）；'x'（a/x、b/x 两圈）→ ID_AMBIGUOUS（ambiguous-point）；halo 命中 → ok、halo 未命中 → MIGRATION_REQUIRED；'a/b/c' 与 'a/' → LEDGER_INVALID（unparsable-point）",
+          "verifyIdentities：ok / ambiguous / migration-required / invalid（混合时 invalid 优先），rejected[].code 与 rejected[].failure.code 逐条相同",
+          "assertWritableLedger：坏 JSONL → code=LEDGER_INVALID、failure.kind=input、message 逐字不变",
+          "A01：三类台账 invalid→'LEDGER_INVALID'；io→errorCode 'EISDIR' + failure.code 'IO_ERROR'；五态 missing/empty/ok/invalid/io-error",
+          "A06：过期计划 'PLAN_STALE'、坏账本 'LEDGER_INVALID'、裸点 'MIGRATION_REQUIRED'（被拒时零写）",
+          "A08：裸点 'MIGRATION_REQUIRED'、三段非法形状 'LEDGER_INVALID'、跨圈歧义 'ID_AMBIGUOUS'、严格面写裸点 'MIGRATION_REQUIRED'"
+        ],
+        "u03ReverseProof": "同一份 U03 判据拿两份 E:\\Temp 副本各跑 `node test/audit/U03.mjs --code-ownership-check=<副本>`（副本里只放本次复制的 lib/）：① 现树副本 → 『CODE-OWNERSHIP OK』exit 0；② 只把 STAGE_CODES 块还原成改前字面量（其余逐字节同）→ 『CODE-OWNERSHIP FAIL [副本] … lib/unify/stage.cjs:102 ID_AMBIGUOUS（alias-code-table） | :103 LEDGER_INVALID（alias-code-table） | :101 MIGRATION_REQUIRED（alias-code-table）：actual=3 expected=0』exit 1。行号 101/102/103 与原始判词逐字对上 ⇒ 缺陷是真的，这次改动正好把它清掉（不是把判据喂绿）。"
+      },
+      "verificationRuns": [
+        { "command": "node test/audit/U10.mjs", "exit": 0, "line": "PASS U10 checks=8 failed=0 skipped=0" },
+        { "command": "node test/intake.mjs", "exit": 0, "line": "=== 77 通过 / 0 失败 ===" },
+        { "command": "node test/goals.mjs", "exit": 0, "line": "=== 107 通过 / 0 失败 ===" },
+        { "command": "node test/intake-id-resolve.mjs", "exit": 0, "line": "=== 101 通过 / 0 失败 ===" },
+        { "command": "node test/audit/U03.mjs --evidence-root=E:\\Temp\\u10fix-51208-cbabd9b8\\U03-after", "exit": 0, "line": "PASS U03 checks=8 failed=0 skipped=0（A04 码表归属由红转绿；证据根落本次临时目录，未写 audit-evidence/U03）" },
+        { "command": "node -e \"require('./docs/unify/receipts/U10.json')\"", "exit": 0, "line": "回执 JSON 合法（require 成功）" }
+      ],
+      "failureDifference": "改前改后行为**零差异**（见 behaviorInvarianceProof 三份探针快照逐字节相同 + A01–A08 全绿）；唯一区别就是缺陷本身消失（stage.cjs 不再持有第二份码值字面量）。没有放宽任何断言、没有改判据文件、没有改 errors.cjs。",
+      "boundary": "只改 lib/unify/stage.cjs 一个源文件（+ 本回执 delta + audit-evidence/U10 与 E:\\Temp 本次临时目录）。未改：lib/unify/errors.cjs（U03 交付物）、test/audit/U03.mjs（U03 交付物）、其它 lib/unify/*.cjs（含 records.cjs:810 的同形成员集，属别的卡）、lib/intake.js|goal-io.js|teaching-io.js、任何既有 test/*.mjs、test/audit/U*.mjs|T*.mjs、docs/unify/interfaces.md|baseline.json|authorization.json、cards/**、package.json、活包、主树。不跑全量、不 git 写、不提交、不升版。"
+    },
+    {
+    "what": "audit-evidence 第一层白名单从硬编码「U 卡目录 + T23」改为「U 卡目录 + T23 + 真实存在的 T 卡」。决-1/决-2/决-5/决-6/决-9/P2 之后，T 卡（T01/T03/T10/T12/T26…）由别的 lane 合法运行并把证据目录留在仓内，旧硬编码口径会把**别人的合法产物**算成本卡越界（结构性假红）。",
+    "rule": "isRealT(d) = /^T\\d{2}$/.test(d) && fs.existsSync(test/audit/<d>.mjs) —— 只有盘上真有入口的 T 卡才放行。",
+    "antiVacuity": "同处追加反空转自证：unexpectedOf([U01, T23, T01, TXX-nobody]) === [TXX-nobody]（真实存在的 T 卡放行；没有入口的 TXX-nobody 仍必须被判出来，任何非 T 非 U 目录仍红）。",
+    "strength": "判据只增不减：原放行面 {U\\d\\d, T23}，新放行面 {U\\d\\d, T23, 真实存在的 T\\d\\d}，同时新增 TXX-nobody 反空转断言。不是「T 一律放行」。",
+    "outOfSet": "无。只改本卡自己的入口 test/audit/U10.mjs 与本卡 tracked 回执 docs/unify/receipts/U10.json。",
+    "movedOutOfRepo": "E:\\Temp\\stray-T01-T03-evidence\\ —— T01 25 件/18623 B、T03 41 件/49068 B，**移出仓但保留、不删**（处置前后逐文件数/字节数一致）。",
+    "evidence": "移出 + 白名单修改后本卡复验：PASS checks=8 failed=0 skipped=0（exit 0）。",
+    "source": "E:\\Temp\\HANDOFF-U-SERIES-20261020.md §3 根因 / §4 决-A1（状态：已确认）。",
+    "kind": "stray-t-evidence-allowlist"
+    }
+  ],
+  "testContractMigration": {
+    "file": "test/intake.mjs",
+    "headBytes": 20836,
+    "headSha256": "ded45c7e374473765de8ea6a31a8c0563adcfde3dbebf4f928fe516c09e6e318",
+    "nowBytes": 20941,
+    "nowSha256": "09a5f216283ad9433f79050956d603a2f3f06b7c9d90399d71bbc1877f84f8c6",
+    "changedLines": [71, 78, 81, 86, 87, 90, 267, 272],
+    "changedLineCount": 8,
+    "inverseProof": "把新身份逆替换（latest['programming/vue'] → latest.vue；'programming/spring-boot/0001' → 'spring-boot/0001'；'programming/vue' → 'vue'）后与 git HEAD:test/intake.mjs **逐字节相同**（A08 ⑤ 每次运行都实测；本次另用 E:\\Temp 副本对「本次修改前快照」做了一次同口径核对：20917B / sha256=3084ccb1… / 0 行差异）。这一条同时证明：断言条数、断言文本、日期、原文、键序、注释一个字符都没动；净增 24 字节 = 2 × 'programming/'（两处课次键规范化）。",
+    "newAssertions": "旧形状拒绝 / 跨圈歧义拒绝 / U05 真迁移后回读+追加 → 只写在 test/audit/U10.mjs，没有往 test/intake.mjs 里新增断言。"
+  },
+  "assertions": {
+    "A01": "三类台账均区分五态：intake/goals/teaching 各造 missing/empty/ok/invalid/io-error 五个夹具真跑；五态集合恰好是 missing,empty,ok,invalid,io-error；io-error 保留 errorCode=EISDIR 且 failure.code=IO_ERROR；invalid 的 failure.code=LEDGER_INVALID；ok 态至少一条记录。",
+    "A02": "null 和坏记录不进入有效 latest：摸底台账混入 null/[1,2]/\"str\"/123 → entries 只 2 条真记录、latest/latestValid 同键、status=invalid、problems≥4 且不抛；目标台账 null 行不进 entries/validEntries、坏值行仍按原文保留进 latest（既有契约）但不进 latestValid；教学台账 null 行同理。",
+    "A03": "跨圈同名点的摸底和目标版本互不影响：a/x 与 b/x 各记一条摸底后 byKey 各给各的、latest 键是 a/x,b/x（都含 /）；裸 x 在两圈都有 → resolvePointRef 给 ambiguous、entry=null、done=false；目标台账 a/x v1,v2 与 b/x v1 两条版本线互不推进；a/vue 没摸过底 → done=false。",
+    "A04": "目标学生原话逐字保留、文件不引入时间戳：artifact.what/reason/acceptance.deliverable 与输入逐字 ===；GoalRecord 键序钉死；整份 goals.jsonl 不命中 ISO 时间戳且递归无 at/ts/generatedAt/updatedAt/createdAt/mtime；同输入两次写产出逐字节相同文件；第 1 行前缀逐字节保留且只出现一次；v/replaces 链 1→2、2→1。",
+    "A05": "既有版本链和教学分节语义保持：改前 pre-change.json（旧实现观测）↔ 改后同一份 observe() 观测**逐字段 0 差异**（含 intake 键序/日期、goals 三版 v/replaces/键序/台账 sha256、teaching 四条记录的 circle/kind/v/分节/生效参数/台账 sha256、裸点容忍、拒写错误措辞）；并用“故意改一个字段必须报差异”证明对拍器不恒真。",
+    "A06": "读改写与版本分配在共同提交边界内：连续三次 appendRecord 各进恰好一次事务、回执带 planDigest；planAppend 之后目标被改 → applyAppend 返回 PLAN_STALE 且台账保持“别人写过之后”的样子；模拟抢先写 → 重读重算后 attempts≥2、版本 1,2,3 唯一连续、两边写入都在；坏账本 → LEDGER_INVALID 且事务调用 0、台账逐字节未变；严格面裸点 → MIGRATION_REQUIRED 且事务调用 0、不留台账。",
+    "A07": "变异有效性（只在 E:\\Temp 副本）：干净副本上五态判据与跨圈判据都必须绿；变异①恢复裸点归并（mergeCanonical 按裸点名当键）→ 跨圈判据必须红且点名串记录；变异②吞 IO 错误（statusOf 把 io-error 折成 empty）→ 五态判据必须红且点名 io-error 被折成空态；仓内 stage.cjs / goal-io.js 字节未受影响；副本必须落在 E:\\Temp。",
+    "A08": "证据及范围守卫有效 + §12 A 授权面本体：改前材料与 git HEAD 逐字节相同、导出面逐键保持、依赖运行期自锚、4 个既有文件真被改且委托形态、内核反空转记号；A 面逆替换=HEAD、只改 8 行（71/78/81/86/87/90/267/272）、非身份语义一条不少；进程内 fs 写守卫（探针写自证、零越界、覆盖 mkdir/write/cp/rm）；授权并集=interfaces.md §6（20 张卡；U10 行 7 项，含 A 面）∪ authorization.json 现场解析的 §12 A（test/intake.mjs→U10、test/mirror-parity.mjs→U09、lib/point-ref.js→C4/U09）；§6 的 A 面标注必须带「仅 §12 A 授权面」、必须紧跟 test/intake.mjs、且该行其它落点一个都不许带（抹掉 / 挪到 lib/intake.js / 整段删掉 三种变异实测都红）；A 面的权威链锚在 authorization.json（quoteVerbatim 逐字「选A和授权p1和p2」+ quoteSource + scope.A 点名 U10 与 test/intake.mjs；缺原文 / 缺 quoteVerbatim / 缺 quoteSource / scope.A 抽掉 U10 那条 → 一律红，§6 标注不能替代原文）；边界红样本 16 条都对 live 并集现场判定（`M test/pack-template-rules.mjs`、`M docs/unify/authorization.json` 必须被拒；A 面文件必须放行）；交付物内容锁；--evidence-root 守卫；临时目录归属清理；tracked 回执五项与授权逐字引用；旧形状拒绝、跨圈歧义拒绝、U05 真 CLI 迁移（plan→apply）后逆替换=迁移前、可读、可追加、两条版本链不合并。"
+  },
+  "evidenceIndex": [
+    "audit-evidence/U10/pre-change.json（改前采集：4 个既有文件的字节/sha256 与 HEAD 核对、三个适配层的改前导出面、依赖摘要、既有语义观测快照；运行期只读）",
+    "audit-evidence/U10/fixtures.mjs（观测函数：改前采集与改后对拍同一份；夹具可指定落点，A05 落在本次临时根）",
+    "audit-evidence/U10/capture-baseline.mjs（改前采集入口；已存在 pre-change.json 时拒绝重采）",
+    "audit-evidence/U10/runs/U10-<pid>/result.json（判词与逐例状态）",
+    "audit-evidence/U10/runs/U10-<pid>/cases.jsonl（逐例原始记录：status/note/ms）",
+    "audit-evidence/U10/runs/U10-<pid>/detail.json（用例明细：五态观测、跨圈观测、A05 对拍结果、A06 attempts/versions、A07 变异结果、A08 守卫/授权/内容锁/迁移 CLI stdout）",
+    "audit-evidence/U10/deltas/single-source-codes/（本轮 Δ single-source-codes 的证据：改前/改后/改前字面量反向副本三份探针快照 + stage-codes.diff.txt + 改前形态 stage.cjs + U03 A04 修复前后原始 stdout + U03 自己的 --code-ownership-check 双副本判词 + 四条验收完整 stdout；见该目录 README.md）"
+  ],
+  "knownRed": [],
+  "knownRedResolved": [
+    {
+      "suite": "node test/intake.mjs",
+      "before": "75 通过 / 2 失败（U10 首轮改前实测）",
+      "resolved": "77 通过 / 0 失败（本次 A 面补完实测，exit 0）",
+      "failures": [
+        "✗ 拒绝理由点名缺的是哪一课（实得 [\"programming/spring-boot/0001\"]）",
+        "✗ 前置点亮后放行，改由摸底闸接手"
+      ],
+      "cause": "身份预期过时（不是运行态缺陷）：U09 把 pointKey/lessonKey 收敛到 lib/unify/identity.cjs 的规范身份后，第 267 行仍按旧 2 段 'spring-boot/0001' 断言 missing，第 272 行夹具仍把 learned 写成旧 2 段，于是「点名缺哪一课」与「前置点亮后放行」两条不再成立。",
+      "correctedAttribution": "首轮曾判这两条「属 U09 的写集与 A 面，不归 U10，本卡不动」——该说法已被本次裁定更正为「属本卡 A 面（test/intake.mjs 第 267/272 行的身份预期与夹具），已在本卡内原子迁移」。U09 的 A 面是 test/mirror-parity.mjs，与这两条无关。",
+      "fixedIn": "deltas[test-intake-identity-migration-completion]"
+    }
+  ],
+  "regressionRuns": [
+    {
+      "command": "node test/goals.mjs",
+      "exit": 0,
+      "line": "=== 107 通过 / 0 失败 ===",
+      "note": "终点契约既有套件（版本链 / 无时间戳 / append-only / 拒写回滚 / 读侧容错）全绿；它不读活包，可在本卡窗口安全重跑。"
+    },
+    {
+      "command": "node test/intake-id-resolve.mjs",
+      "exit": 0,
+      "line": "=== 101 通过 / 0 失败 ===",
+      "note": "Bug5 兼容面全绿：复合/裸 id 互通、a/x 与 b/x 隔离、歧义拒写、byKey 与 latest 各自独立、历史老行照旧、author/brief/goal 的读路径都认。这是本卡“运行态兼容面仍接受裸点”的实测证据（严格面在新层，见 unverified）。"
+    },
+    {
+      "command": "node test/intake.mjs",
+      "exit": 0,
+      "line": "=== 77 通过 / 0 失败 ===",
+      "note": "见 deltas[test-intake-identity-migration-completion]：第 267/272 行的课次身份迁移后全绿（首轮 75 通过 / 2 失败的两条新红已在本卡 A 面内收掉）。"
+    },
+    {
+      "command": "node test/audit/U10.mjs",
+      "exit": 0,
+      "line": "PASS U10 checks=8 failed=0 skipped=0",
+      "note": "§6 登记同步（deltas[a08-s6-ledger-sync]）后本次亲跑：A08 ⑧ 改为「§6 U10 逐条等于 7 项 + A 面限定语必存在且只标一个文件 + 权威链锚在 authorization.json」，全绿；A 面 diff 断言 A08 ⑤ 仍绿（8 个位点逆替换=HEAD）。"
+    }
+  ],
+  "suiteContextBoundary": "以下套件需要全量闸门的包上下文（--pack=<绝对路径> 或 test/_fixture.mjs 的 createFixture；没有上下文时 packRoot() 直接抛错），按“不跑读活包的套件”纪律本卡**没有**运行：test/teaching-io.mjs、test/teaching-apply.mjs、test/teaching-view.mjs、test/settings-teaching.mjs、test/brief.mjs、test/goal-tool.mjs、test/panel.mjs、test/preset.mjs。它们在 goals/teaching/intake 上的既有语义由 A05 的逐字段对拍（改前快照 ↔ 改后同一份观测，含台账字节 sha256）覆盖，但“整份套件仍然绿”未经本卡验证，属 U20。",
+  "unverified": [
+    "R1（既登记）：lib/pack-template/tools/ 下的模板工具已委托 ./unify/*.cjs，而 lib/pack-template/tools/unify/ 的十四份副本只由 U19 生成 ⇒ 需要铺模板/跑包侧工具的套件仍会 MODULE_NOT_FOUND。本卡没有在仓内生成副本、也没有宣称随包闭包完整；package.json 的 files/manifest 归 U19。",
+    "U17（边界）：本卡只证明「U05 真 CLI 迁移 → 本模块可读 / 可追加 / 版本链不合并」。迁移后**产品全链路**（brief / author / goal-tool / teaching 视图 / 页面重建）的读回归不归本卡、也没跑；不伪称全工程已绿。",
+    "T10-source-wired（新发现旧测试冲突，已登记）：test/audit/T10.mjs:1038-1055 断言三个适配层源码里各自有 `withPackTransaction(` 字面量；本卡把提交边界收进 lib/unify/stage.cjs 后该条会红。T10 冻结、无自动入口、不再重跑；解除条件见 deltas[registered-conflict]。本卡**没有**改它。",
+    "兼容性边界（刻意保留、不是遗漏）：三个适配层的**运行态兼容面**仍接受裸点（test/intake-id-resolve.mjs / test/goals.mjs / T10 夹具与 brief 的既有契约都依赖它）。严格面（拒绝裸点/歧义）在新层 lib/unify/stage.cjs，由 A08 ⑫ 实测；把适配层也切成严格面需要另一次「测试契约迁移」授权（会把 test/intake-id-resolve.mjs 等既有断言打红），本卡无权做。",
+    "不跑全量 / 不访问活包：没有跑 node test/all.mjs，没有读写 E:\\workplace\\study；因此“全量套件仍然 38/38·56 套、无新红”这件事**未经本卡验证**，属 U20。",
+    "包侧（pack-template）没有引用 lib/unify/stage.cjs：本卡只交付宿主内核与三个宿主适配层；包侧要不要共用 stage 归 U19（副本生成）与 U17（闭环）判断，本卡没有新增包侧引用、也没有手改生成目录。",
+    "并发语义只做到“计划过期拒写 + 有限次重读重算”，没有做跨进程压测：A06 用注入事务在锁前插入竞争写来复现 PLAN_STALE 与重试路径，属确定性模拟；真实双进程高竞争下的重试预算是否足够，留给 U20 的全量并发用例（T10/T12 有既有覆盖，但那是冻结证据、本卡不重跑）。"
+  ]
+}

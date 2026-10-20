@@ -89,7 +89,7 @@ const INPUT = {
     fs.copyFileSync(path.join(ROOT, 'progress.json'), path.join(tmp, 'progress.json'))
     fs.writeFileSync(path.join(tmp, a.file), a.text, 'utf8')
     const pack = readPack(tmp)
-    const found = pack.lessons.find((l) => l.id === 'spring-boot/0009')
+    const found = pack.lessons.find((l) => l.id === 'programming/spring-boot/0009')
     ok(!!found, `readPack 认得新骨架（${found ? found.label + ' · ' + found.href : '没找到'}）`)
     ok(found?.termCount === 0, '骨架的 termCount = 0（terms 为空）')
   } finally { fs.rmSync(tmp, { recursive: true, force: true }) }

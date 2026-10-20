@@ -1,0 +1,346 @@
+{
+  "card": "U12",
+  "title": "离线旧库迁移适配：写入复用共同三闸（D lane / S3）",
+  "status": "PASS",
+  "scope": "unresolved",
+  "scopeNote": "U-SPEC §12 的 A/B 仍处于未裁决（docs/unify/authorization.json 的 quoteVerbatim 是「选A和授权p1和p2」，但 scope.A 只点名 U09/U10/U14）。**本卡不消费 A 面**：U12 没有改任何既有测试；工作树里 M test/intake.mjs / M test/mirror-parity.mjs 分别是 U10 / U09 的 A 面归属（authorization.json scope.A 逐字点名），A08 按逐条点名做归属而不是整类放行/整类判红。此处沿用 unresolved 只为跨卡字段一致。",
+  "base": {
+    "sha": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "branch": "refactor/unify-20261018",
+    "head": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "headAtRun": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "note": "HEAD 与执行基线一致；本卡没有切分支 / 没有 index 操作 / 没有提交（git status 里本卡只动 lib/pack-template/tools/offline-server.js 一件 tracked 落点）。"
+  },
+  "completion": {
+    "threeGates": "offline-server 的旧库迁移**写入**改走 U06 的共同三闸：planCommit（有效计划：rel 在包根内、排序去重、计划自身 planDigest 自洽）→ applyCommit（显式确认 + 回引同一份 planDigest）→ **锁内**真实字节摘要（写前字节 + 重建输出摘要双复比）。锁与 whale-txn/1 日志复用同目录既有事务件 ledger-transaction.cjs，**没有**第二套计划 / 锁 / 日志：本件只提供 build（把「要写什么」算成计划）与人的确认回引。",
+    "transactionInjection": "包侧适配层**显式注入**同目录事务件（applyCommit 的 transaction 选项）。理由：包侧副本位于 tools/unify/commit.cjs 时，commit.cjs 自己的默认相对路径（../pack-template/tools/ledger-transaction.cjs）在随包布局下不成立（与 U08 回执 regressionsDiscovered[1] 同因）。",
+    "codeValuesKept": "六个既有码值逐字保留并**全部被真跑到达**（A05 收口断言）：MIGRATION_NOT_CONFIRMED / MIGRATION_PLAN_REQUIRED / MIGRATION_PLAN_STALE / MIGRATION_NOTHING / MIGRATION_DONE / MIGRATION_FAILED。阶段失败（锁内摘要不符）映射回 MIGRATION_PLAN_STALE；包锁被占、缺共同内核等其它失败映射回 MIGRATION_FAILED —— 共同协议的码（PLAN_STALE / LOCK_BUSY / …）只落在 failure 字段里，**不改顶层 code、不新增同义码**。",
+    "digestStaysPublic": "planLegacyMigration 的对外形状一字未动（{ok, lib, library, libraryExists, plan, count, digest, note}），digest 仍是 'whale-legacy-migration/v1' 口径的 32 位十六进制；/api/migration 与 POST /api/migrate 的参数/返回保持。回执只在**失败/阻断**时追加可选字段 failure / blocked。",
+    "identityGate": "身份不在 offline-server 新建/解码：只调严格内核 lib/unify/identity.cjs 的构造器（pointKey / lessonKey）判形状；旧形状（裸 point 没有圆圈、旧平铺 lessons/<x>/<file>.html、课号不是 1–9999 的数字）一律**整次拒绝**，码值 MIGRATION_REQUIRED，并在 error 里逐字给出可照抄的指路：node tools/migrate-pack.mjs --root=\"<旧课程包目录>\" --plan。**没有** require 迁移专用模块 migration.cjs，**没有** LEGACY_HALO 之类的兜底解码，**没有**自己拼 circle/point（A06 四条源码断言 + 三组行为断言）。",
+    "stageFailure": "任何一闸不过：一个字节都不落位（事务件在写入之前 reject/回滚），收尾三件（旧包进 .trash / 迁移台账 .migrated.json / 重建）一条都不做。A04 用「计划之后另一个写者改了目标」真造出阶段失败：被外部改过的那一件保留外部内容，库里其它文件逐字节不变，旧包还在原位，无回收站、无台账、无锁残留、rebuild=null。",
+    "singleMergeImplementation": "清单合并只剩一份实现 mergeLessonsIndex（纯函数）：导入路径的 mergeIndex 与迁移的 planCommit build 都调它。库里现有清单若是坏形状则抛错拒合并（不拿「读不动的清单」当空清单把已有课冲掉）。",
+    "r1Intermediate": "lib/pack-template/tools/unify/ 副本（U19 生成）此时不存在。接线用**延迟 require**（unifyCore）—— 模块加载面与改动前一致（顶层 require 一件没加），只有真去迁移时才要副本；缺副本时模块照样加载、/api/health 与静态面不受影响，迁移如实拒绝 MIGRATION_FAILED 且一个字节不写（A08 ⑧）。"
+  },
+  "dependencies": {
+    "upstream": [
+      {
+        "card": "U03",
+        "what": "lib/unify/errors.cjs（makeFailure 唯一工厂）",
+        "status": "PASS（主持人亲跑）",
+        "consumedSha256": "4e18e7183b5e9a124eb7094bfc5aefe281c507a6bd4f5871199591cc08664b12"
+      },
+      {
+        "card": "U02",
+        "what": "lib/unify/identity.cjs（严格身份内核：pointKey / lessonKey）",
+        "status": "PASS",
+        "consumedSha256": "9746554fd4f03db49bc1b09ffdc0c5be3967b9a0e90471018591fe1e086301d7"
+      },
+      {
+        "card": "U06",
+        "what": "lib/unify/commit.cjs（planCommit / applyCommit）",
+        "status": "PASS",
+        "consumedSha256": "8061e8f6f6553408e6f19aa44a560491c4b8d2307d9f93340e4677e5a1cf70b6"
+      },
+      {
+        "card": "U06",
+        "what": "lib/pack-template/tools/ledger-transaction.cjs（withPackTransaction / 包锁 / whale-txn/1）",
+        "status": "既有件，未改",
+        "consumedSha256": "e338abf02dfb5125b3a407185e00921937b0263776df59ddab9d5efad7726614"
+      },
+      {
+        "card": "U05",
+        "what": "tools/migrate-pack.mjs（身份迁移 CLI —— 本卡只把路指向它，不代跑）",
+        "status": "PASS",
+        "consumedSha256": "3c43a364e4a98d88abc7754ce25639b9540590e26fe12b7ba50ec20cf73fb615"
+      },
+      {
+        "card": "U08",
+        "what": "同样把三闸接到包侧/升级路径的做法与 R1-b 登记（handoff.U12 三条）",
+        "status": "PASS"
+      },
+      {
+        "card": "U09",
+        "what": "pack 侧只读依赖（本卡不改 pack-model / pack / point-ref）",
+        "status": "PASS"
+      }
+    ],
+    "note": "准入核对依据主持人提供的「U08、U09 均已真实 PASS（亲跑 exit 0）」；本卡没有复跑任何依赖卡入口。"
+  },
+  "interfaceConsumption": {
+    "lock": "docs/unify/interfaces.md",
+    "lockBytes": 47673,
+    "lockSha256": "0dc0bc6e3e705903479bde75328e932a3c4da546cce867ac127ea7eaea3f7e28",
+    "baseline": "docs/unify/baseline.json",
+    "baselineBytes": 60232,
+    "baselineSha256": "cf53c0c41d5b55b090ed6503fda59ffc2f52372f7629f8924f8e97efd35f36e1",
+    "authorization": "docs/unify/authorization.json",
+    "authorizationBytes": 8207,
+    "authorizationSha256": "9323ccbcb98b233f4edfe19d1104fbd736685a32d5cc35c1a41870a863405811",
+    "baseSha": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "commitInterface": "lib/unify/commit.cjs（schema=whale-commit/1）的 planCommit(root, build, {fs}) 与 applyCommit(root, plan, {confirm, planDigest, build, transaction, fs})；本卡按基线源码逐字核对后接线，未改 commit.cjs。",
+    "codesConsumed": [
+      "MIGRATION_NOT_CONFIRMED",
+      "MIGRATION_PLAN_REQUIRED",
+      "MIGRATION_PLAN_STALE",
+      "MIGRATION_NOTHING",
+      "MIGRATION_DONE",
+      "MIGRATION_FAILED",
+      "PLAN_STALE",
+      "LOCK_BUSY",
+      "RECOVERY_REQUIRED",
+      "IO_ERROR"
+    ],
+    "newCodesConsumed": [
+      "MIGRATION_REQUIRED"
+    ],
+    "newCodesLandedWhere": "MIGRATION_REQUIRED 的字面量落在 U03 的 lib/unify/errors.cjs#NEW_CODES（本卡只消费，不在 offline-server 里另立码表）；offline-server 只把它当作**对外码值**用一次（身份闸），并同时通过 makeFailure 产出失败面。",
+    "probeConsumers": "测试侧用 require.cache 把夹具里的 tools/unify/commit.cjs 与 tools/ledger-transaction.cjs 换成计数包装（仍转发真实现）—— 本卡**没有**为测试在被测件里加钩子/开关。"
+  },
+  "writeSet": [
+    {
+      "path": "lib/pack-template/tools/offline-server.js",
+      "action": "modify",
+      "before": {
+        "bytes": 67783,
+        "sha256": "9fa1f72a8a82f653d0b8fff391661e1b2d1341ac9586ef11732235dc6a35757e"
+      },
+      "after": {
+        "bytes": 80857,
+        "sha256": "49d62f774338c6ae89d62bf24c2344a65a82f509dafa9634e6abd9795187ed43"
+      },
+      "what": "旧库迁移的写入接共同三闸；身份闸（只问严格内核 + 拒绝 + 指路 CLI）；mergeLessonsIndex 单一实现；延迟 require + 显式注入事务件；六个既有码值逐字保留。"
+    },
+    {
+      "path": "test/audit/U12.mjs",
+      "action": "create",
+      "after": {
+        "bytes": 71475,
+        "sha256": "8654374072cdee30b1ba14c578761d1193cd4b372c06fef7e1f394a2660456de"
+      },
+      "what": "固定八项 A01–A08 的真断言（自建夹具 + 计数探针 + 写守卫 + §6 授权并集 + 四面逐条归属（写集 / §6 主人 / scope.A|P1|P2 / decisions.approvedChanged）+ deny 覆盖 allow + E:\\Temp 变异）。"
+    },
+    {
+      "path": "docs/unify/receipts/U12.json",
+      "action": "create",
+      "what": "本回执（tracked 出口，唯一）。"
+    }
+  ],
+  "writeSetIgnored": {
+    "root": "audit-evidence/U12/",
+    "runs": "每次运行的原始证据（run.json / result.json / cases.jsonl / cases/A01..A08.json / cleanup.json）；不覆盖任何既有 U/T 证据。",
+    "supplementary": "无手工补件（本卡没有往证据目录塞产品源码或手抄结果）。"
+  },
+  "writeSetOutOfScope": [],
+  "outOfScope": [
+    "既有测试一个都没改：test/intake.mjs / test/mirror-parity.mjs 是 U10 / U09 的 §12 A 面；test/audit/T*.mjs 全部只读（T 线冻结）。",
+    "不新建 / 不修改 lib/unify/*.cjs（commit / identity / errors / ledger-read 全按交付字节消费）。",
+    "不改 lib/pack-model.js / lib/pack.js / lib/point-ref.js / lib/render.js / lib/author.js / lib/rebuild-job.js / lib/mods/** / package.json / lib/pack-scaffold.js / 其它 lib/pack-template/**。",
+    "不创建 lib/pack-template/tools/unify/**（那只有 U19 的生成器能写）。",
+    "不跑全量（node test/all.mjs）、不跑任何 T 卡入口、不读不写活包 E:\\workplace\\study、不操作 git 写/index/分支/提交、不升版不发布。",
+    "身份迁移的**执行**（tools/migrate-pack.mjs --apply）不在本卡：本卡只负责「需要时拒绝并指路」，真实迁移闭环归 U05/U17。"
+  ],
+  "verdict": {
+    "entry": "node test/audit/U12.mjs",
+    "expected": "PASS U12 checks=8 failed=0 skipped=0",
+    "exitCode": 0,
+    "stdout": "PASS U12 checks=8 failed=0 skipped=0",
+    "runs": 11,
+    "runsFailed": 2,
+    "runsScope": "实现期（本回执定稿前的 11 次运行：9 PASS / 2 FAIL）；定稿后再复跑一次验证，按纪律**不**回写本回执。",
+    "sameVerdictEachRun": true,
+    "authoritativeRun": "audit-evidence/U12/runs/U12-10500",
+    "failPath": "实现期真 FAIL / exit 1 两次（保留在 audit-evidence/U12/runs/U12-44372 与 runs/U12-51056）。第一轮：A05 在旧包已被搬走后还去读源文件（ENOENT）、A07 的变异只绕过了一条摘要比较（另一条仍挡住，判据没变红）、A08 的写守卫抓到依赖件 http-security.cjs 在模块求值时把运行期秘密写到 %LOCALAPPDATA%/鲸师课件/runtime（已用 WHALE_RUNTIME_DIR 指进夹具）。第二轮：回执定稿时 writeSet 形状与 A08 的读取口不一致（A08 已改成两种既有形状都认，并要求回执明写 writeSetOutOfScope=[]）。每一条都是真缺陷，修完复跑才 PASS。",
+    "blockedPath": "node test/audit/U12.mjs --evidence-root=E:\\workplace\\not-allowed → stderr「BLOCKED U12 --evidence-root 越界（…）」/ exit 2（实测）；--evidence-root=E:\\Temp\\U12-evcheck → PASS / exit 0（实测，只换写入根）。",
+    "meaning": "PASS 只表示本卡八项判据通过：迁移的计划只读、未确认时零提交调用、缺摘要/过期摘要的原码、阶段失败不替换既有产物、六个既有码值逐字保留且全被真跑到达、身份旧形状拒绝并指路显式 CLI、绕过摘要闸后判据必红、探针/证据/夹具/授权并集自洽。**不表示**全工程已绿：全量对账属 U20，随包副本属 U19，真实旧库迁移闭环属 U17，T 卡（尤其 T05）在 U19 之前有已登记的必红项。",
+    "caseIndex": {
+      "A01": "计划只读：夹具整树 sha256 跑前=跑后、进程内零写调用、不建包锁 / .whale-txn / .trash / .migrated.json；两次计划摘要相同、32 位十六进制、与空计划摘要不同（不是恒真）。",
+      "A02": "未确认：MIGRATION_NOT_CONFIRMED，且计数探针 planCommit=0 / applyCommit=0 / withPackTransaction=0、树不变、零写、无锁无日志；随后同一夹具做**正控**（确认+真摘要 ⇒ 三个计数都 +1、MIGRATION_DONE），证明 0 不是恒 0。",
+      "A03": "缺摘要 ⇒ MIGRATION_PLAN_REQUIRED；过期摘要 ⇒ MIGRATION_PLAN_STALE（回执仍带新鲜计划与新鲜 digest）；两次都树不变、applyCommit=0、不建锁。",
+      "A04": "阶段失败：在计划之后由另一个写者改掉 lessons/lessons.json ⇒ 锁内字节闸拒，码值 MIGRATION_PLAN_STALE，failure.code=PLAN_STALE；被改过的那件保留外部内容、库里其它文件逐字节不变、迁移的课程页一件没落位、旧包还在原位、无回收站/无台账/无锁无日志残留、rebuild=null。",
+      "A05": "码值保留：MIGRATION_DONE（两旧包逐字节进库、清单=独立复算、回收站两件、.migrated.json=[olda,oldb]、重建缺脚本如实报但**不改成功码**、成功后无锁无日志残留）；MIGRATION_NOTHING（幂等、树不变、rebuild=null）；MIGRATION_FAILED（包锁被占 ⇒ failure.code=LOCK_BUSY、课一件没进库、无台账、树不变）；最后收口断言六个既有码值本次运行全出现过。",
+      "A06": "身份闸：裸 point（清单缺 halo）⇒ MIGRATION_REQUIRED + blocked 点名 olda + error 里逐字给出 tools/migrate-pack.mjs --root=… --plan + 零写 + 树不变 + 不建锁；旧平铺路径（少一层圆圈）⇒ 同样 MIGRATION_REQUIRED；同一套判据下规范身份 ⇒ MIGRATION_DONE（反空转）；源码层断言：委托 identity/commit、不 require migration.cjs、无 LEGACY_HALO/默认圆圈兜底、不自己拼身份键。",
+      "A07": "变异只在 E:\\Temp 副本：干净副本两道闸都拒（byte-gate / digest-gate 各 MIGRATION_PLAN_STALE）；变异一（绕过 commit.cjs 两条锁内摘要比较）⇒ 不再拒并**真的覆盖**了被外部改过的那一件（A04 的判据红）；变异二（绕过 offline-server 的过期摘要比较）⇒ 旧的错摘要也被放行（A03 的判据红）；主树 offline-server.js 与 lib/unify/commit.cjs 跑前跑后逐字节不变。",
+      "A08": "零调用探针/证据/夹具/授权：写守卫（越界 0、仓库写 0、活包写 0、自证探针被记录）；正控证明计数探针有效；interfaces.md §6 授权并集 140 条，tracked 改动 44 条全部 ⊆ 并集，U12 行恰好三件且不夹带别卡；回执合法 JSON、声明写集 ⊆ 并集、outOfScope=[]；既有测试改动**按四面逐条点名归属**（① 本卡写集 ② §6 主人 ③ authorization.json 的 scope.A/P1/P2 ④ decisions.approvedChanged 的决号；放行必须写得出理由：主人或授权节，落进 sources），未点名的为空；§6 面必须逐条点名 test/audit/T03.mjs→U01·决-1、T12→决-5、T10→决-6、T26→scope.P2；`notAuthorized[]` 构成**永不面**并覆盖 allow（决-9 点名的 test/pack-template-rules.mjs 仍必须红）；并反空转断言 pack-template-rules / _pack / T20 / T23 / all / pack-scaffold / nobody-owns-me 都不在放行面里；依赖锚点 9 件跑前跑后逐字节不变；夹具副本 62 件与权威件逐字节相同（只有 A07 记名的两处变异不同）；无 tools/unify 副本时加载正常、迁移如实拒绝 MIGRATION_FAILED（点名 tools/unify）、连骨架都不铺、树不变；夹具清理守卫通过。"
+    }
+  },
+  "deltas": {
+    "decisionTcardAllowlist": {
+      "kind": "decision-tcard-allowlist",
+      "what": "A08 ⑤ 的「既有测试允许面」从「只认 authorization.json 的 authorized[] 逐字点名」扩成四个理由面：① 本卡写集 ② interfaces.md §6 里有主（运行时解析出 U 卡号）③ scope.A/P1/P2 逐字点名 ④ decisions.approvedChanged 的决号逐字点名；deny（notAuthorized[]）覆盖 allow。",
+      "old": "原判据逐字：`eq(unnamed.map((t) => t.rel), [], `未经授权的既有测试改动必须红（未点名：…）`)`；`authorized` 只由 `for (const [key, scope] of [['A', authz.scope.A], ['P1', …], ['P2', …]])` 的 `authorized[].matchAll(/test\\/[A-Za-z0-9._/-]+\\.mjs/g)` 填充，`owner` 从同一行文本里正则抓 U 卡号；放行面在 `check(['A','P1','P2','§6'].includes(t.scope))` 与 `check(t.owner !== undefined)` 两处收口，deny 面与 decisions 面都不参与。",
+      "whyRed": "决-1/决-2 授权同步 test/audit/T03.mjs、决-5 授权 test/audit/T12.mjs、决-6 授权 test/audit/T10.mjs，三条 tracked 改动**必然**出现在 `git diff <BASE> -- test/` 的输出里；而它们都没有被 scope.A/P1/P2 的 authorized[] 逐字点名（只出现在 decisions.approvedChanged 的 决-1/决-5/决-6 正文，以及 interfaces.md §6 的 U01 行）。旧分类器因此把三条**已授权**的改动判成「未点名」⇒ A08 必然红。实测原文：`A08: 抛异常：A08 · 既有测试的改动不在授权面内（scope.A / scope.P1 / scope.P2 的 authorized[] 都没逐字点名它）：M test/audit/T03.mjs, M test/audit/T10.mjs, M test/audit/T12.mjs（实得 3 / 期望 0）`。这是**归属口径过期**（识别缺口，结构性假红），不是本卡发现了新缺陷。",
+      "new": "每条放行必须写得出理由，逐条落进 `detail.tests.authorized[].sources`：① 写集 ⇒ `写集(U12)`；② §6 ⇒ `§6/U01` 这种主人标签；③ `scope.A|P1|P2`；④ `decisions.决-1|决-5|决-6`。`owner` 对 §6 面必须是 U 卡号、对 decisions 面是决号；`sources` 非空且 `owner` 非空才算有理由。deny 面由 scope.A/P1/P2 与 decisions 的 `notAuthorized[]` 合成，末尾统一从放行面删除（deny 覆盖 allow）：决-9 点名的 test/pack-template-rules.mjs 仍红。反空转只增不减：红样本 4 → 6 条（新增 test/_pack.mjs、test/audit/T23.mjs），另加「只认逐字路径（简称/通配不算点名）」与「放行面不许出现写不出理由的条目」两条自证；T03/T12/T10 的理由必须分别含 decisions.决-1/决-5/决-6，T26 必须仍含 scope.P2。",
+      "strength": "强度对照：**无变弱，只有更严**。① 「放行必须写得出理由」保留并加强（原来只看 scope 落在 A/P1/P2/§6、owner 非 undefined；现在逐条要求 owner 非空 + sources 非空，且对 §6 面要求真实 U 卡号、对 decisions 面要求真实决号）；② 红样本只增不减（4 → 6），用户禁令的 pack-template-rules 与既有夹具助手 _pack 仍在红样本里；③ 新增 deny 覆盖 allow 的一条显式断言（旧口径没有 deny 面）；④ 白名单没有被换成类别豁免：`authorized` 仍只吃**逐字路径**（`test/*.mjs`、`test/audit/T*.mjs`），并新增「简称/通配不产生放行面」的断言；⑤ T03/T12/T10/T26 的归属断言是净增（旧口径根本没有这几条）。",
+      "authorization": "decisions.quoteVerbatim 逐字「全按推荐」；对应 决-1（lib/mods/author.js 调用点改传规范身份 + 同步 test/audit/T03.mjs 那一行源码字面量）、决-5（test/audit/T12.mjs 的夹具复制清单补 lib/adapters/jvm.js）、决-6（test/audit/T10.mjs:1038-1055 最小同步）。§6 归属见 docs/unify/interfaces.md §6 的 U01 行（限定语「仅 decisions 决-x 授权面」）。另见本回执 deltas.decision12GateCallsite 的同一口径叙述。"
+    },
+    "assertions": "8 个固定用例 / 230 条断言（A01=16, A02=12, A03=12, A04=14, A05=34, A06=21, A07=9, A08=112）。没有恒真断言：A02 用正控证「计数会动」、A05 用六码收口、A06 用规范身份对照组、A07 用两处变异证明判据会红、A08 用写守卫自证 + 正控 + 反空转（授权面不许整类放行）。 【决-1/决-2】A08 ⑤ 追加一组归属断言（净增，无删除）：§6 也是授权面且必须逐条点名（`test/audit/T03.mjs`→U01·决-1、T12→决-5、T10→决-6、T26→scope.P2）；`notAuthorized[]` 的永不面覆盖 allow；放行必须写得出理由（owner + sources）；无主测试（`test/nobody-owns-me.mjs`）仍红；每笔既有测试改动必须落 writeSet / §6 / A / P1 / P2 / decisions 之一。",
+    "apiAdditive": "offline-server 的导出一览与 planLegacyMigration 的返回形状**一字未动**；applyLegacyMigration 在失败/阻断时追加**可选**字段 failure（U-SPEC §3 的失败面）与 blocked（身份闸的阻断列）。HTTP 路由与参数语义未变。",
+    "behaviour": [
+      "事务根 = 唯一课程库根（packs/library）：锁落在 library/.whale-write.lock，与库自己的写者（同一把包锁）互斥；不是 packs 根。",
+      "骨架（initSkeleton）只在库**根本不存在**时铺，且排在提交之前；库已存在时一个字节都不写。",
+      ".migrated.json / 旧包进 .trash / 重建三件收尾挪到**提交成功之后**（原来在合并过程中穿插）。失败时一条都不做；改名仍是既有最优努力语义（移不动就留着，但已记台账）。",
+      "迁移只搬**人确认过的那份计划**里的旧包：计划生成之后新冒出来的旧包要重新看一眼再确认（原来会顺带并进去）。",
+      "清单合并收敛成 mergeLessonsIndex 一份实现（导入与迁移共用）；库里清单坏形状时抛错拒合并（原文也是抛 TypeError，现在把话说清）。",
+      "缺 tools/unify 副本时：模块照样加载，迁移如实拒绝（原来这条路径根本不需要副本）。"
+    ],
+    "existingTestsRerun": "没有复跑任何既有测试（卡面纪律：不跑全量、不跑 T 卡入口）。因此「本卡改动会不会顶红既有套件」是**静态核对 + 登记**（见 regressionsDiscovered），不是运行结论。",
+    "decision12GateCallsite": "决-1 / 决-2（docs/unify/authorization.json decisions.approvedChanged，人类原话「全按推荐」）：§6 的 U01 行已把 `test/audit/T03.mjs`（仅 decisions 决-1/决-2 授权面）与 T12（决-5）/T10（决-6）登记为有主落点。本卡原来的 A08⑤ 只认 authorization.json 的 A/P1/P2 面，于是把已在 §6 在册的这几笔既有测试改动判成「未经授权」——这是**归属口径过期**（识别缺口），不是本卡发现了新缺陷。改法（最终实现）：⑤ 的归属收成**四面**——① 本卡写集 ② §6 主人 ③ scope.A/P1/P2 ④ decisions.approvedChanged 的决号；每笔放行必须写得出理由（`scope` + `owner` + `sources`），`notAuthorized[]` 构成 deny 面并覆盖 allow；§6 面只认**逐条点名的路径**（简称「同步 T03」与通配都不算）。强度：只增不减 —— 原来只认一张授权文件，现在四面都认，但**每笔都要有主/有理由**，且新增了 deny 覆盖、逐字路径、T03/T12/T10/T26 归属、无主仍红等一组断言。T03 那一行本身的改动由 U13/U18 的判据负责（本卡不写它、也不改它的字面量）。"
+  },
+  "regressionsDiscovered": [
+    {
+      "id": "R1-u12",
+      "severity": "登记（不修；最小解除条件在 U19）",
+      "what": "offline-server.js 现在在**使用点**才 require ./unify/{commit,identity,errors}.cjs。仓内 lib/pack-template/tools/unify/ 由 U19 生成，此刻不存在；副本只从 lib/pack-template 拷贝的安装/夹具里没有它 ⇒ 旧库迁移的**写入**路径会以 MIGRATION_FAILED「共同三闸的内核不在」如实拒绝。",
+      "evidence": "test/audit/T05.mjs:313-316 的 layTemplateCopy 只 fs.cpSync(lib/pack-template)；T05.mjs:1263 h.case('T05-MIG-apply-migrates') 与 T05.mjs:1276 h.eq(res.code,'MIGRATION_DONE') 要的是真迁移；T05.mjs:1293 h.case('T05-MIG-http-plan-and-apply') 与 T05.mjs:1309 h.eq(done.json.code,'MIGRATION_DONE') 同因。",
+      "necessaryRed": [
+        "T05-MIG-apply-migrates（含其后「课进库 / 回收站 / 台账 / 幂等」几条跟随断言）",
+        "T05-MIG-http-plan-and-apply"
+      ],
+      "notRed": "T05 的 plan 只读、缺确认、缺摘要、过期摘要四条不受影响（那些闸在共同内核之前就返回）。",
+      "minimalUnblock": "U19 生成 lib/pack-template/tools/unify/{commit,identity,errors}.cjs（逐字节）并登记进 TEMPLATE_FILES —— T05 的 layTemplateCopy 拷整棵 lib/pack-template，副本会**自动**带上，无需改任何测试。",
+      "notDone": "没有改 T05（无 §12 A 面授权），也没有为躲它保留第二套实现 / 静默降级。"
+    },
+    {
+      "id": "R1-u12-T20",
+      "severity": "结论：本卡**不会**把 T20 顶红（附依据）",
+      "what": "T20:1094 require(dest/tools/offline-server.js).handler 必须仍是函数；dest 由 offline-bootstrap.initSkeleton 按 TOOLS_KEEP 铺出。本卡新增的三个 require 全在**使用点**（unifyCore 与 migrateOldPacks 内的 require('./ledger-transaction.cjs')），模块加载面与改动前完全一致。",
+      "evidence": "逐条核对 TOOLS_KEEP（lib/pack-template/tools/offline-bootstrap.js）：offline-server.js 的**全部顶层** require（offline-bootstrap.js / path-policy.cjs / public-files.cjs / http-security.cjs / http-request.cjs / ledger-transaction.cjs / offline-admin.html 经 sendAdmin 读取）都在白名单里；A08 ⑧ 用「夹具里没有 tools/unify」的真实安装形态证明 require 成功且 handler 是函数。",
+      "preExisting": "T20 在 U19 之前本来就**必然红**于另一条因：test/audit/T20.mjs:21 require publish-policy.cjs，而 publish-policy.cjs:72 require './unify/commit.cjs'（U08 回执 regressionsDiscovered[0] 的 R1-b）。那不是本卡造成，也不因本卡变化。"
+    },
+    {
+      "id": "R2-u12-identity-stricter",
+      "severity": "行为收紧（刻意；已有反空转对照）",
+      "what": "身份闸要求旧包 lessons.json 的 halo/point/number 已是规范形状。老包若把课号写成字符串（'0001'）或清单里没有 halo，就从「能被并进去」变成「必须先跑显式迁移 CLI」。",
+      "why": "U-SPEC §2 明确：运行态不调用迁移模块做隐式双读、不按环境改变规则、无长期兼容层；严格内核的课号只认 1–9999 的**数字**。猜一个圆圈 / 把 '0001' 强转成 1 就是历史解码的第二实现。",
+      "minimalUnblock": "node tools/migrate-pack.mjs --root=\"<旧课程包>\" --plan / --apply --confirm --plan-digest=…（U05）；或由包侧生成器写出规范清单。",
+      "control": "A06 ③ 用**同一套判据**跑规范身份的旧包 ⇒ MIGRATION_DONE，证明这不是「一律拒」。"
+    },
+    {
+      "id": "R3-shared-tree-observations",
+      "severity": "观察（不归本卡判）",
+      "what": "本次运行时工作树有 44 件 tracked 改动（多 lane 并行），全部落在 interfaces.md §6 的授权并集里（A08 断言 outOfUnion=0）；其中只有 lib/pack-template/tools/offline-server.js 属本卡。",
+      "note": "不数别人证据文件数、不钉别人字节数；本卡只断言「本进程写成什么」与「tracked ⊆ §6 并集」。"
+    },
+    {
+      "id": "R-u12-t03",
+      "severity": "登记（已由决-1/决-2 授权；本卡不改 T03 一个字节）",
+      "what": "test/audit/T03.mjs 的那一行源码字面量按决-1 同步成 `challengeGate({ root, pack, point: gatePoint, probe: false })`；该落点登记在 interfaces.md §6 的 U01 行（限定语「仅 decisions 决-1/决-2 授权面」）。",
+      "evidence": "本卡 A08⑤ 的归属判定从「只认 authorization.json」改成「§6 ∪ authorization.json」；A08③ 的 tracked ⊆ §6 并集本来就已放行它（§6 在册），红的是 ⑤ 的授权面口径。",
+      "necessaryRed": [],
+      "minimalUnblock": "已执行：⑤ 的归属面扩到 writeSet / §6 / scope.A-P1-P2 / decisions.approvedChanged 四面，放行必须带 owner + sources，notAuthorized[] 作 deny 面覆盖 allow；不改任何被授权面之外的测试。"
+    }
+  ],
+  "deviations": [
+    {
+      "id": "U12-D1",
+      "what": "提交根 = 唯一课程库目录（packs/library），不是 packs 根。",
+      "why": "锁必须与**库自己的写者**互斥（app-server / ask-server 写库时锁的就是 library 目录）；用 packs 根会另开一把互不相干的锁。",
+      "cost": ".migrated.json（在 packs 根）与旧包进 .trash 的改名落在提交之后，不在字节闸覆盖范围内；它们只记「哪些旧包已并」和回收材料，失败重跑幂等。"
+    },
+    {
+      "id": "U12-D2",
+      "what": "骨架只在库不存在时铺设，且排在提交之前。",
+      "why": "planCommit 要求提交根是已存在的目录；而「库根本不存在」这一支不替换任何既有产物。库已存在时（正常升级路径）提交之前一个字节都不写。",
+      "cost": "若库从零建起、随后提交被拒，那个新骨架会留着（不覆盖任何既有产物，可下次复用）。"
+    },
+    {
+      "id": "U12-D3",
+      "what": "失败面细节走 failure（U-SPEC §3 的结构），顶层 code 只放既有 MIGRATION_* 值。",
+      "why": "卡面要求原有码值逐字保持，同时要能说清是哪一闸/哪一件失败。",
+      "cost": "调用方若只看 code，看不出 LOCK_BUSY 这类共同协议码；需要读 failure。"
+    },
+    {
+      "id": "U12-D4",
+      "what": "A07 的变异一打在**依赖件** lib/unify/commit.cjs 的副本上（两条锁内摘要比较）。",
+      "why": "被检验的正是「共同三闸里的摘要闸」本身；只绕过 offline-server 自己的比较（变异二）不足以证明锁内字节闸 load-bearing。",
+      "safety": "变异只发生在 E:\\Temp 的唯一夹具副本里；A07 末两条断言对拍主树 offline-server.js 与 lib/unify/commit.cjs 跑前跑后逐字节不变。"
+    },
+    {
+      "id": "U12-D5",
+      "what": "测试侧用 require.cache 把夹具里的 commit.cjs / ledger-transaction.cjs 换成计数包装（仍转发真实现）。",
+      "why": "要在**不加产品钩子**的前提下证明「未确认时提交调用=0」。",
+      "cost": "探针是进程内、只作用于夹具副本；A08 的正控证明探针装上后迁移照样成功、计数会动。"
+    }
+  ],
+  "unverified": [
+    "全量 node test/all.mjs 未跑（纪律 + 归 U20）；本卡 PASS 只覆盖 A01–A08。",
+    "任何 T 卡入口未跑（T 线冻结、无自动入口、不许跑）；T05 的必红项是**静态核对 + 登记**，不是运行结论。",
+    "活包 E:\\workplace\\study 未读未写（A08 写守卫实测 0 次写；本卡无任何读活包的断言/夹具）。",
+    "真实旧库迁移未跑（卡面禁止）：夹具是自建的规范身份与旧形状两种形态，不代表用户机器上的真实老包分布。",
+    "身份迁移 CLI（tools/migrate-pack.mjs）本身未在本卡执行：本卡只验证「拒绝 + 指路」，真实迁移闭环归 U05/U17。",
+    "U19 生成随包副本之后的**自动接入**未验证：本卡只证「有副本 ⇒ 真迁移」（A05/A06）与「无副本 ⇒ 如实拒绝」（A08 ⑧）两条。",
+    "多文件 rename 不对并发读者原子可见（继承事务件的边界）：本卡只证「崩溃/拒绝之后没有半提交」。"
+  ],
+  "evidenceIndex": {
+    "root": "audit-evidence/U12/",
+    "authoritativeRun": "audit-evidence/U12/runs/U12-10500",
+    "files": 12,
+    "bytes": 77727,
+    "contains": [
+      "run.json（argv / base / branch / head / 证据根 / 夹具根 / 判词 / 七个 MIGRATION_* 码值出现位置 / 夹具复制的权威模块摘要 / 依赖锚点）",
+      "result.json + cases.jsonl（逐用例状态、耗时、备注）",
+      "cases/A01..A08.json（逐条断言 ok/msg/actual + rows）",
+      "cleanup.json（夹具清理结果）"
+    ],
+    "excluded": "原始证据不进仓（.gitignore 覆盖 audit-evidence/）；本回执只存索引/摘要/接口消费版本/实际写集/Δ。"
+  },
+  "commands": [
+    {
+      "argv": [
+        "node",
+        "--check",
+        "lib/pack-template/tools/offline-server.js"
+      ],
+      "cwd": "<repo>",
+      "exitCode": 0,
+      "stdout": "（语法检查通过）"
+    },
+    {
+      "argv": [
+        "node",
+        "test/audit/U12.mjs"
+      ],
+      "cwd": "<repo>",
+      "exitCode": 0,
+      "stdout": "PASS U12 checks=8 failed=0 skipped=0",
+      "evidence": "audit-evidence/U12/runs/U12-10500"
+    },
+    {
+      "argv": [
+        "node",
+        "test/audit/U12.mjs",
+        "--evidence-root=E:\\workplace\\not-allowed"
+      ],
+      "cwd": "<repo>",
+      "exitCode": 2,
+      "stderr": "BLOCKED U12 --evidence-root 越界（只许 U12 新运行目录 / U20 复验目录 / 带 U12- 或 u20- 前缀的临时目录）：E:\\workplace\\not-allowed"
+    },
+    {
+      "argv": [
+        "node",
+        "test/audit/U12.mjs",
+        "--evidence-root=E:\\Temp\\U12-evcheck"
+      ],
+      "cwd": "<repo>",
+      "exitCode": 0,
+      "stdout": "PASS U12 checks=8 failed=0 skipped=0"
+    },
+    {
+      "argv": [
+        "node",
+        "-e",
+        "require('./docs/unify/receipts/U12.json')"
+      ],
+      "cwd": "<repo>",
+      "exitCode": 0,
+      "stdout": "（回执自检：合法 JSON）"
+    }
+  ],
+  "handoff": {
+    "to": "U17 / U19 / U20",
+    "U19": "必须生成 lib/pack-template/tools/unify/{commit,errors,identity}.cjs（逐字节，另有其余十一件）并登记进 TEMPLATE_FILES；这是 R1-u12（T05 两条必红）与 U08 的 R1/R1-b 的共同解除条件。另请在镜像文档里明写「包侧要用共同三闸必须显式注入同目录 ledger-transaction.cjs」（U08 regressionsDiscovered[1] + 本卡 completion.transactionInjection）。",
+    "U17": "真实旧库迁移闭环：先跑 tools/migrate-pack.mjs 把旧身份迁成规范形状，再走管理台的显式迁移；本卡的迁移路径在身份非规范时只会拒绝并指路（刻意）。",
+    "U20": "本卡 PASS 只证明 U12 范围；T05 的两条 MIGRATION_DONE 断言在 U19 之前必红（R1-u12，已登记，不是本卡判据失败）。T20 不因本卡变红（依据见 R1-u12-T20）。全量对账以 U01 基线为准。",
+    "reverify": "node test/audit/U12.mjs（证据默认落 audit-evidence/U12/runs/U12-<pid>）；--evidence-root=<绝对新目录> 只换落点（越界 → BLOCKED / exit 2）。"
+  }
+}

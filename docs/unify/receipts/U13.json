@@ -1,0 +1,334 @@
+{
+  "schema": "whale-unify-receipt/1",
+  "card": "U13",
+  "title": "作者与创建入口：圆圈/点组成部分一律经 lib/unify/identity.cjs 形成规范身份（circle/point、circle/point/NNNN），不再各自拼接或降维",
+  "status": "PASS",
+  "scope": "A lane · 只做本卡独立范围：lib/author.js、lib/rebuild-job.js、lib/mods/author.js、lib/mods/create.js、lib/mods/plan.js 五个既有落点 + test/audit/U13.mjs + 本回执 + audit-evidence/U13/**。不放宽 force / 路径 / 大纲 / 摸底 / 写前检查的顺序；导出面 / 参数 / 默认值 / 返回形状逐字保持。",
+  "verdictLine": "PASS U13 checks=8 failed=0 skipped=0",
+  "verdictNote": "判词与逐例状态只以本入口为准：node test/audit/U13.mjs → exit 0。本卡专项目 PASS 只证明本卡范围，既不代表全工程已绿，也不替代任何既有套件或 T 卡自动回归（那归 U20）。A08 的授权并集现场解析覆盖 §12 **全部 scope 节**（A / P1 / P2），所以并发卡片对 `test/audit/T26.mjs` 的**已授权**改动不会被误判越界；未授权路径（野路径 / 未授权测试 / rename 目标）仍全部照旧红（拒绝面一条没放宽）。",
+  "verdict": {
+    "command": "node test/audit/U13.mjs",
+    "line": "PASS U13 checks=8 failed=0 skipped=0",
+    "exitCode": 0,
+    "checks": 8,
+    "failed": 0,
+    "skipped": 0,
+    "evidence": "audit-evidence/U13/runs/U13-<pid>/result.json + cases.jsonl + detail.json（原始证据，gitignore；不含私人正文）"
+  },
+  "authorization": {
+    "section": "U-SPEC §12",
+    "state": "A 面已由用户授权（原文见下），但本卡不消费 A 面",
+    "decidedBy": "用户",
+    "quoteVerbatim": "选A和授权p1和p2",
+    "quoteSource": "用户在 dsh 会话（U 系列统筹会话）中的直接消息，原文逐字如上；本文件不转述、不改写、不补全。",
+    "scope": "scope.A 只授权 U09/U10/U14 在各自卡内原子迁移旧身份测试契约（U09 独占 test/mirror-parity.mjs、U10 独占 test/intake.mjs、U14 只写自己的新专项）。U13 不在该授权面内。",
+    "statement": "本卡不消费 A 面：一条既有测试（test/*.mjs、test/audit/T*.mjs、test/audit/harness.mjs、test/audit/release*.mjs）都没有改。本卡只消费主持人裁决 C4（lib/point-ref.js 归 U09，本卡只按它已收敛后的行为读取）与 C3（依赖锚点从「等于 U01 的 sha256」改成「本进程未写」）这类口径对齐，以及卡面写集本身。A08 的授权并集现场解析覆盖 §12 全部 scope 节（A / P1 / P2）：只用来证明「别人改测试是授权过的、本卡一条没改」，不是本卡消费 A 面。",
+    "decisions": "C4：把 lib/point-ref.js 追加进 U09 写集（本卡不写它，只消费其结果：qualified/parsePointKey 已唯一）。C3：依赖锚点口径 = 本卡运行期间未被写入 + 已由某张卡合法改动时归属那张卡（本卡 A08 用运行期自锚实现，不锚 U01 的固定字节数）。",
+    "notAuthorizedConsumed": [
+      "把 §12 A 解释为可以改 U13 范围内的既有测试断言（本卡没有任何改测试的授权，也没改）。",
+      "任何 git 写（add/commit/切分支/操作 index）、升版、push、worktree 操作。"
+    ],
+    "p2p1": "P1（重算 PROBE_VERSION）/ P2（改写两处 PROBE_VERSION 断言对象）不在本卡范围，本卡一个字节都没碰 lib/fingerprint.js 与那两处断言。"
+  },
+  "completion": {
+    "kernelConsumption": "五个落点里的圆圈/点组成部分一律经 lib/unify/identity.cjs：构造走 pointKey/lessonKey（严格内核，非法输入抛 IdentityError），拆分走 parsePointKey/parseLessonKey（只认规范两段/规范课次键）。本卡没有新增第三份实现，也没有把内核改成 ESM。",
+    "author": "lib/author.js：① 不再用 [halo, point].join('/') 拼目录 —— 两边都有时目录段 = identity.pointKey(halo, point)；只给一边（老包/新建包第一步）时**不构造身份**，退回平铺（老行为逐字保留）。② NUMBER_MIN/NUMBER_MAX 改为转出内核的 LESSON_NUMBER_MIN/MAX，四位宽度用内核 LESSON_WIDTH（课号契约不再各写一份）；文件名里的四位号仍按 U09 已登记的 NON-IDENTITY 口径保留（它是文件名，不是身份键）。",
+    "modsAuthor": "lib/mods/author.js：① 「现有知识点」清单不再内联拼 `${p.circle}/${p.id}`，改由 pointIdentityOf() 走内核（构造不出来就明说身份不合法，不猜也不另拼）。② **降维收掉两处**：大纲闸找点从 `x.id === args.point` 改成 `x.id === args.point && x.circle === halo`（按同圈判）；非 commit 模式推断圆圈从 `.find()` 取第一个改成**只认唯一命中**（歧义就不给圆圈，让 id 解析器如实拒）。③ 重建回执把 startScripts 的 migration 指路带出去（历史形状只指路，不解码）。",
+    "modsCreate": "lib/mods/create.js：① 建点回执的 id = identity.pointKey(circle, id)（完整知识点身份），path 由同一个规范身份派生；拒覆盖提示同样用它。② 知识组的复合 id → 裸点归一从 `p.indexOf(halo + '/') === 0` 自己切片改成 identity.parsePointKey（只有「恰好 本圈/点」才收；别的形状原样留着，下一句按「不在圈内」如实拒）。③ kick() 把 migration 指路透传到 rebuild 回执（四个分支的次序与文案一字未改）。",
+    "modsPlan": "lib/mods/plan.js：locate() 不再 `want.split('/').filter(Boolean)` 自己拆、也不再对裸点取**第一个**同名点 —— 拆分走 identity.parsePointKey（只认规范两段），定位只认**唯一命中的完整身份**；两个圆圈都有它 → 返回 {ok:false, code:'ambiguous', candidates} 并**拒写**（列候选，绝不猜）。pointPath 由 identity.pointKey 形成，落点由它派生。回执形状只加了一个 ambiguous/candidates 分支（拒绝面，不改既有成功形状）。",
+    "rebuildJob": "lib/rebuild-job.js：新增**只读**历史身份体检 historyShapes() —— 判据只有一条「严格内核 parseLessonKey 解不开 = 历史形状」（平铺课程源 lessons/src/NNNN-*.html；progress.learned 里的非规范课次键），发现项只有 {kind, at}，**没有任何映射**；migrationHint() 给出唯一迁移入口 tools/migrate-pack.mjs 的三步命令（--plan → --apply --confirm --plan-digest=）。startScripts 的返回**只在历史形状时加法**一个 migration 字段（规范包上这个键根本不出现），不阻断重建、不改阶段/次序。",
+    "ordering": "force / 路径 / 结构 / schema / 大纲 / 摸底 / 写前检查的次序一字未改：解析包 → 唯一识别点/圈 → schema → 大纲闸 → 教学闸（前置 + 上一课挑战 + 摸底）→ 生成 → 骨架验证 → 独占新建。force 仍然只绕教学闸；硬校验在 commit 分支里、且排在 force 判断之前。Δ（U18）：教学闸里的 challengeGate 新增「上一课归属不唯一 → 失败关闭」一支，生效位置在大纲闸之后、摸底闸之前；本卡只消费并把它纳入顺序矩阵，不写 lib/**。",
+    "historyHandling": "重建遇到历史形状只**指向迁移**：本卡没有复制任何旧解析（不 require lib/unify/migration.cjs、不映射旧键、不就地改写 progress.json）。历史体检是**零写**的，A06 用整棵包树的逐文件 sha256 对拍证明。"
+  },
+  "dependencies": {
+    "required": [
+      "U02",
+      "U09",
+      "U10"
+    ],
+    "status": {
+      "U02": "PASS（lib/unify/identity.cjs：pointKey/lessonKey/parsePointKey/parseLessonKey/REASONS/IdentityError/LESSON_NUMBER_MIN/MAX/WIDTH；本卡直接消费，未改它）",
+      "U09": "PASS（lib/pack-model.js 的 readPack 已产出规范课次身份 circle/point/NNNN、lessonIndex 只认规范键；lib/point-ref.js 的 qualified 已委托内核 —— 本卡按这份行为读，不写这两个文件）",
+      "U10": "PASS（lib/unify/stage.cjs + lib/intake.js 的三类台账读取/提交；本卡用 intakeStatus 判摸底闸，按 halo 消歧，未改这些文件）",
+      "U04": "消费（lib/unify/plan.cjs 的 planGate/summarizePlan/PLAN_KEYS/NODE_KEYS 被 lib/plan.js 转出；本卡只读）",
+      "U03": "消费（lib/unify/errors.cjs 的码表用于包侧失败表达；本卡没有新增/复用任何 code 值）"
+    },
+    "gateEvidence": "准入依据：主持人亲跑 `PASS U09/U10 checks=8 failed=0 skipped=0` / exit 0（U09、U10 均真实 PASS，非回执转述）。"
+  },
+  "interfaceConsumption": {
+    "docs/unify/interfaces.md": {
+      "section": "§2 身份（唯一实现 / 禁止第三份）、§5 错误码（本卡不新增码）、§6 落点表（U13 写集 7 项）",
+      "bytes": 47673,
+      "sha256": "0dc0bc6e3e705903479bde75328e932a3c4da546cce867ac127ea7eaea3f7e28"
+    },
+    "docs/unify/authorization.json": {
+      "quoteVerbatim": "选A和授权p1和p2",
+      "bytes": 8207,
+      "sha256": "9323ccbcb98b233f4edfe19d1104fbd736685a32d5cc35c1a41870a863405811"
+    },
+    "docs/unify/baseline.json": {
+      "consumedOnly": true,
+      "base": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+      "branch": "refactor/unify-20261018",
+      "bytes": 60232,
+      "sha256": "cf53c0c41d5b55b090ed6503fda59ffc2f52372f7629f8924f8e97efd35f36e1"
+    },
+    "lib/unify/identity.cjs": {
+      "bytes": 11584,
+      "sha256": "9746554fd4f03db49bc1b09ffdc0c5be3967b9a0e90471018591fe1e086301d7"
+    },
+    "lib/unify/pack.cjs": {
+      "bytes": 33337,
+      "sha256": "b7391e110ec37047859d7258696da24bc27b39525f3369d0edf6353df2292380"
+    },
+    "lib/unify/stage.cjs": {
+      "bytes": 30635,
+      "sha256": "2466cd328491b152ac10a4300801b4ca61219bd9095f595106c52510cda0c8d1"
+    },
+    "lib/unify/plan.cjs": {
+      "bytes": 9923,
+      "sha256": "b652655109ebe468d0e319197d105b665aa7f1dc4d86cadac09e361fdafa643a"
+    },
+    "lib/unify/errors.cjs": {
+      "bytes": 6701,
+      "sha256": "4e18e7183b5e9a124eb7094bfc5aefe281c507a6bd4f5871199591cc08664b12"
+    },
+    "consumedSignatures": [
+      "identity.pointKey(circle, point) / identity.lessonKey(circle, point, number)",
+      "identity.parsePointKey(value) / identity.parseLessonKey(value) → {ok:true,value}|{ok:false,failure}",
+      "readPack(root) → {circles, points, lessons, learned, warnings}（lessons[].id 是规范课次键）",
+      "intakeStatus(root, point, {pack, halo}) → {done, missing, ref, key, ...}",
+      "planGate(plan, where) / summarizePlan / planFrontier / summarizeFrontier",
+      "startScripts(root, scripts, opts) → {job, present, missing, engineError, engineMissing, engineMismatched, badPaths, busy}（+ 历史形状时才有 migration）"
+    ]
+  },
+  "writeSet": [
+    "lib/author.js",
+    "lib/rebuild-job.js",
+    "lib/mods/author.js",
+    "lib/mods/create.js",
+    "lib/mods/plan.js",
+    "test/audit/U13.mjs",
+    "docs/unify/receipts/U13.json"
+  ],
+  "writeOutOfSet": "无。本次运行只写了上述 7 项 + audit-evidence/U13/**（本次新建的原始证据）+ E:\\Temp\\u13-<pid>-<rand>\\（本次唯一临时根，收口前已按归属守卫递归清理）。进程内 fs 写守卫逐条记录、越界为 0；tracked 改动 ⊆ §6（现场解析，20 卡）∪ authorization（现场解析）。没有碰 lib/unify/*.cjs、lib/pack-model.js/lib/pack.js/lib/point-ref.js、lib/intake.js/goal-io.js/teaching-io.js、lib/text.js/lib/plan.js/lib/fingerprint.js、lib/render.js、lib/pack-template/**、lib/pack-scaffold.js、package.json、docs/unify/* 的既有 tracked 出口、任何既有 test/*.mjs、test/audit/T*.mjs、cards/**、活包或主树。",
+  "deltas": [
+    {
+      "kind": "identity-construction-single-source",
+      "file": "lib/author.js",
+      "from": "const dir = [halo, point].filter(Boolean).join('/')（自己拼知识点身份）",
+      "to": "两边都有 → identity.pointKey(halo, point)；只给一边 → 不构造身份、退回平铺（layoutDir）",
+      "asserted": "合法输入的落点逐字节不变（A01 断言 file === lessons/src/<内核 pointKey>/<内核 lessonKey 末段>-slug.html）；缺圆圈时落点仍是 lessons/src/<point>/…（A01/A02 都断言了，证明没有为了'统一'去猜一个圆圈）",
+      "failureDifference": "无（合法输入上逐字节相同；非法输入在更早的 validateId 就拒了）"
+    },
+    {
+      "kind": "number-contract-single-source",
+      "file": "lib/author.js",
+      "from": "export const NUMBER_MIN = 1 / NUMBER_MAX = 9999；padStart(4, '0')",
+      "to": "NUMBER_MIN/MAX 转出内核 LESSON_NUMBER_MIN/MAX；宽度用内核 LESSON_WIDTH",
+      "asserted": "导出值仍是 1 / 9999（A01 逐值断言，并与内核常量 === 对拍）；四位宽度仍是 4（A01 断言内核 LESSON_WIDTH === 4）",
+      "failureDifference": "无"
+    },
+    {
+      "kind": "behavior-tightening",
+      "file": "lib/mods/author.js",
+      "from": "大纲闸按裸点找点：pack.points.find((x) => x.id === args.point)；非 commit 模式推断圆圈取第一个命中",
+      "to": "大纲闸按点 + 圈两段一起找（x.circle === halo）；非 commit 模式只认唯一命中，歧义就不给圆圈",
+      "asserted": "A02 跨圈同名点：裸 x 不猜圈（落点退回平铺）、a/x 的摸底不被 b/x 看见；A05 优先序矩阵（b/y 有大纲 → 停在摸底闸）；A07 变异「去掉圆圈」必须打红 plan-scope",
+      "failureDifference": "Δ 实测（A02/A05 逐字段记录）：旧实现裸 x 的摸底 done=true 且落点猜进 a 圈（实得 lessons/src/a/x/0001-probe.html）；旧实现把 b/y 判成 needsPlan（拿 a 圈同名点没大纲的 plan 来判）。新实现两条都反过来（不猜、按同圈判）。无其它回归：A05 的优先序矩阵在旧/新实现上逐字段相同。"
+    },
+    {
+      "kind": "behavior-tightening",
+      "file": "lib/mods/plan.js",
+      "from": "locate() 用 want.split('/').filter(Boolean).pop() 自己拆引用、对裸点取**第一个**同名点（map 目标会被写进错的圈）",
+      "to": "拆分走 identity.parsePointKey（只认规范两段）；只认唯一命中的完整身份，多命中 → {ok:false, code:'ambiguous', candidates} 并拒写",
+      "asserted": "A02：裸 x 的 record 被拒、候选恰好 ['a/x','b/x']、两个 point.json 一个字节不动；a/x 照旧写得进去且不动 b/x；A07 变异「恢复降维（按第一个猜圈）」必须打红 plan-ambiguous",
+      "failureDifference": "Δ：旧实现裸 x 的 record 返回 ok:true（按第一个圈写了 a）；新实现 ok:false + ambiguous + candidates。另：三段引用（a/b/c）现在按找不到处理（旧实现会取首段与末段去猜）—— 运行态只认规范形状（U-SPEC §2），这是收紧不是放宽。"
+    },
+    {
+      "kind": "identity-construction-single-source",
+      "file": "lib/mods/create.js",
+      "from": "建点回执 id 与拒覆盖提示内联 `${circle}/${id}`；知识组复合 id → 裸点用 p.indexOf(halo + '/') === 0 自己切",
+      "to": "id = identity.pointKey(circle, id)，path 由同一个规范身份派生；归一走 identity.parsePointKey",
+      "asserted": "A01：建点回执 id === 'programming/solid'、path === lessons/programming/solid/point.json，readPack 读出的新点归到 programming 圈；A03：坏 id / 灰色圆圈 / 身份不合法一律零写入；test/new-course-wizard.mjs 期望的 id='math/geometry' 形状不变",
+      "failureDifference": "无（合法输入上字符串逐字节相同）。唯一可观察差异在**拒绝文案**：形态可疑的知识组引用现在原样出现在「不在圆圈里」清单里（旧实现可能显示被切过的残段），属文案收紧，语义（拒绝、零写入）不变。"
+    },
+    {
+      "kind": "additive-fields",
+      "file": "lib/rebuild-job.js",
+      "from": "startScripts(...) → {job, present, missing, engineError, engineMissing, engineMismatched, badPaths, busy}",
+      "to": "同形状；**仅在包出现历史身份形状时**多一个 migration: {findings:[{kind,at}], hint}（规范包上这个键根本不出现 ⇒ 返回形状逐字保持）",
+      "asserted": "A06：规范包 startScripts 返回**连 migration 这个键都没有**（Object.hasOwn === false，零误报）；历史包 findings 只含 {kind,at}（无映射）且 hint 含 tools/migrate-pack.mjs / --plan / --apply --confirm --plan-digest= / 包根；历史体检零写入（整棵包树 sha256 对拍）；导出面与 HEAD 逐键逐签名相同（A08）",
+      "failureDifference": "产物/阶段/次序都没变：migration 只是加法字段，不阻断重建、不新增作业状态（PUBLIC_STATES 未动）。A06 还在产品入口（POST /api/whale/point 的 rebuild 回执）上断言它被带出去，且规范包不出现。"
+    },
+    {
+      "kind": "regression-registered",
+      "file": "lib/gate.js",
+      "from": "previousLesson(pack, point) 与 challengeGate 按**裸点**过滤 lessons（跨圈同名点会命中另一个圆圈的课）",
+      "to": "本卡**没有改它**（lib/gate.js 不在 U13 写集）。已登记为待裁决边界，见 regressions[gate-previousLesson-bare-point]。",
+      "asserted": "A08 断言回执登记了这条（regressions 里点名 lib/gate.js）—— 本卡不去改别人的文件来'消灭'自己的红",
+      "failureDifference": "实测（本卡夹具）：在 a/x 建完一节课后，再建 b/x 的课会被 a/x 那节课的挑战闸拦下（『先跑 whale_state write:true 生成判据快照』）。这是**既有**跨圈泄漏，本卡没有引入、也没有修（不在写集），只在回执登记。"
+    },
+    {
+      "id": "u18-fail-closed-previous-lesson",
+      "kind": "expectation-alignment-u18",
+      "file": "lib/gate.js（U18 交付物；本卡不写它，只消费）",
+      "source": {
+        "path": "lib/gate.js",
+        "anchor": "challengeGate 的 scope.ambiguous 分支（约 328-344 行）",
+        "code": "code: 'ambiguous-point'",
+        "whyVerbatim": "上一课的归属不唯一：放行会把缺证据扩大成通过，所以这里失败关闭",
+        "errorVerbatim": "拒绝生成新课：上一课的归属不唯一：放行会把缺证据扩大成通过，所以这里失败关闭"
+      },
+      "whyFailClosed": "上一课要拿哪一节课的挑战 / 判据 / 证据来判这门课，必须先算得出唯一归属（circle/point）。跨圈同名点算不出唯一归属时，任何“挑一个圈”的猜测都会把另一个圈的课拿来判 —— 放行等于把缺证据扩大成通过，所以这里失败关闭（宁可不放行，也不猜）。",
+      "matrixChange": "A05 的顺序矩阵把新闸作为一个**独立闸位**插在「大纲」与「摸底」之间（不是塞到最后当兜底）：①「大纲 > 新闸」—— a/y 没有大纲，即使归属不唯一也先吃大纲拒绝；②「新闸 > 摸底」—— b/y 有大纲、没有 b/y 的摸底记录，却停在新闸（证明新闸在摸底之前）；③「摸底」—— x 归属唯一，仍走到摸底闸（证明新闸没有把正常路径一起拦掉）。每条矩阵行都带机器判定的 gate 归属。另设一对对照：上一课归属**唯一**（只声明 b/y）时同一请求照旧停在摸底闸；归属**不唯一**（a/y 与 b/y 都声明）时停在新闸并逐字断言 why。",
+      "assertionDelta": {
+        "added": 45,
+        "removed": 0,
+        "tightened": 2,
+        "replaced": 1,
+        "scopeAdjusted": 1,
+        "breakdown": "A03 +5（新增 1 个零写入样本的 3 项检查 + 拒绝面下限 12→15 + “新样本必须在场”）；A04 +13（新闸样本在 judgeIdentity 里 5 项 + 终判 6 项 + “原有 7 条硬拒绝样本必须在场” 1 + force 面下限 8→9 1）；A05 +27（矩阵新增 2 行 × 3 项 = 6、每行 gate 归属检查 1、对照对 6、门禁 API 契约 2、源码逐字复核 2、Δ 方向 3、终判里的对照 3 + crossCircle 归属 1，合计 27）。",
+        "replacedDetail": "唯一被**改判**的是 A05 原先那条「b/y 应当停在摸底闸」：U18 之后它不再是期望。它没有被删掉 —— 在归属不唯一的夹具上改判为「停在新闸 + 理由逐字」，同时在归属唯一的对照夹具上**原样保留**「停在摸底闸」这条断言。",
+        "scopeAdjustedDetail": "旧/新矩阵的「0 差异」对拍显式排除「新闸 > 摸底」这一**已登记 Δ 行**；不是删掉比较，而是把它换成 3 条把差异方向钉死的断言（旧=needsPlan、新=同圈通过、新=停在新闸）＋ 1 条 crossCircle 归属断言，其余 8 行仍逐字段相同。"
+      },
+      "forceEvidence": "实测（本次夹具，同一份包、同一请求）：不带 force ⇒ ok:false，error 逐字 =「拒绝生成新课：上一课的归属不唯一：放行会把缺证据扩大成通过，所以这里失败关闭」，回执带 challenge.code='ambiguous-point'；带 force ⇒ ok:true、wrote:true，且 forced.bypassed 逐字含「上一课挑战：上一课的归属不唯一：放行会把缺证据扩大成通过，所以这里失败关闭」。",
+      "forceConclusion": "⚠️ 与卡面假设相反：force **能**绕过新闸（它住在 commit && !force 的教学闸里），但**不能静默绕过** —— 必须在 forced.bypassed 里逐字留痕。A04 钉的是这个可观察边界；若要把新闸做成 force 也绕不过，得把分支提到 force 判断之前（改 lib/gate.js + lib/mods/author.js，均不在本卡写集），A04/A05 的期望届时同步改。",
+      "finding": "另发现一处合法的“上一课归属唯一却被判不唯一”：a/y 与 b/y 都声明时，调用方显式给 halo:'b'（归属其实唯一），author 入口仍把**裸点**交给 challengeGate，于是被新闸拦下；同一份包上 challengeGate({point:'b/y'}) 是 allowed/first-lesson。最小复现与修法见 regressions[u18-fail-closed-force-and-call-site]。相关但不属于“误判不唯一”：只有一个圈有课时，裸点会被解析成那个圈（U18 的新闸只覆盖“候选不唯一”，不覆盖“候选唯一但错圈”）—— 实测建完 a/x/0001 后再建 b/x，仍被 a/x/0001 的挑战闸拦下（code=no-snapshot）；这是既有 regression，本卡没有修。",
+      "failureDifference": "Δ 实测：旧入口（HEAD 的 mods/author.js + U18 的 lib/gate.js）在 b/y 上被**裸点大纲闸**先拦成「没有大纲」，根本走不到新闸；新入口按同圈判通过大纲闸后停在新闸。矩阵里除「新闸 > 摸底」这一已登记 Δ 行外，旧/新入口逐字段相同。",
+      "resolvedBy": "决-1 / 决-2（本次交付）：调用点改传规范身份 + lessonScope 候选圆圈改并集。A05 的矩阵与对照对已按修正后的行为改判，见 deltas[decision-1-2-gate-callsite]；本条 Δ 保留为历史记录。",
+      "findingAfterDecision12": "原 finding 的两条都已消除：(a) 显式 halo 的合法首课不再被误拦（改停在摸底闸）；(b) 「候选唯一但错圈」不再发生（a/b 都声明时裸点一律 ambiguous-point、previousLesson=null）。"
+    },
+    {
+      "id": "authorization-union-all-scopes",
+      "kind": "parser-completeness",
+      "file": "test/audit/U13.mjs（authorizationExtras，A08 的授权并集现场解析器）",
+      "from": "只现场解析 `scope.A.authorized`（且要求行内含 U 卡号）与 `derivedConsequences.items[]` —— §12 的 P1/P2 授权面看不见",
+      "to": "现场解析 `scope` 下**每一节**的 `authorized[]`：行内点名 U 卡就归那张卡；P1/P2 这种没有卡号的集成修正归它所在的节；`notAuthorized[]` 永不进并集",
+      "why": "`authorization.json` 的 P2 第 38/39 行明确授权了 `test/mirror-parity.mjs` 与 `test/audit/T26.mjs` 的 PROBE_VERSION 断言改写（P1 同批）。A08 的契约写的是「authorization（现场解析）」——只读 A 面会把**人类已授权**的既有测试改动误判成越界（本次并发卡片落地 T26 时实测红：『tracked 改动越出授权并集：M test/audit/T26.mjs』）。这是解析缺口，不是判据强度问题。",
+      "asserted": "授权并集现在包含 P2 的 `test/mirror-parity.mjs` / `test/audit/T26.mjs` 等路径；`proveScopeBoundary` 的全部拒绝面（野路径 / 既有测试 test/_pack.mjs / 删除 / rename 目标 / 证据目录 / 合成授权面抽掉 extras）一条没动、仍然全绿；A08 仍断言本卡不从 authorization 拿任何 U13 落点。",
+      "assertionDelta": {
+        "added": 0,
+        "removed": 0,
+        "note": "只补解析面，没有新增/删除断言；拒绝面的红路径自证原样保留（这是让并集更完整，不是放宽）。"
+      },
+      "failureDifference": "无（合法授权面之外的行为逐条不变；未授权路径照旧红）。实测：修前当前树 `FAIL … A08: tracked 改动越出授权并集：M test/audit/T26.mjs`；修后同一棵树 `PASS U13 checks=8 failed=0 skipped=0`。反向自证（E:\\Temp 副本）：给未授权的 `test/pack-template-rules.mjs` 追加一个字节 → 仍 `FAIL … A08: tracked 改动越出授权并集：M test/pack-template-rules.mjs`（exit 1），证明这是补解析面，不是放宽拒绝面。"
+    },
+    {
+      "id": "D12",
+      "kind": "decision-1-2-gate-callsite",
+      "title": "决-1 / 决-2：教学闸调用点改传规范身份 + 「上一课」候选圆圈改并集（本卡三条期望改到正确行为）",
+      "authorization": "docs/unify/authorization.json 的 decisions.approvedChanged 决-1 / 决-2（人类原话「全按推荐」）；T03 那一行的落点登记在 interfaces.md §6 的 U01 行（限定语「仅 decisions 决-1/决-2 授权面」）。",
+      "old": "A03 的样本 `{ point: \"ok\", halo: \"b\" }`（a/ok 与 b/ok 同名）期望被拦成 `拒绝生成新课：上一课的归属不唯一：放行会把缺证据扩大成通过，所以这里失败关闭`（challenge.code=ambiguous-point）；A04 同形样本期望 plain=ambiguous-point、force 落盘且 bypassed 逐字点名那条 why；A05 的「新闸 > 摸底」行期望 b/y 停在 u18-fail-closed、crossCirclePlanGate.b 也停在 u18-fail-closed。这些期望照的都是\"调用点把裸点交给门禁\"的旧行为。",
+      "why": "决-1 认定那是**误拦**：`mods/author.js` 在 ② 已经把圆圈解析出来（显式 halo 或从课程包推出的唯一归属），调用点却又把裸点交出去，等于把**已经确定的身份**降维成\"算不出来\"。实测：夹具 a/y（无 plan）+ b/y（有 plan）、没有任何课时时，`whale_author{ point:\"y\", halo:\"b\", commit:true }` 是**合法首课**，却被拦成「上一课的归属不唯一」；而同一份包上 `challengeGate({ point:\"b/y\", probe:false })` = allowed / first-lesson。决-2 另外修「候选唯一但错圈」：`lessonScope` 原来 `observed.size ? observed : declared` —— 只有 a 圈有课就让裸 x 被唯一解析成 a，建完 a/x/0001 再建 b/x 会被 a/x/0001 的挑战闸拦下（code=no-snapshot）。",
+      "new": "`lib/mods/author.js`：`const gatePoint = gatePointOf(halo, args.point)` + `challengeGate({ root, pack, point: gatePoint, probe: false })`（force 留痕那条也走同一份解析）；`gatePointOf()` 用 `identity.pointKey(circle, point)` 构造规范身份，构造不出来（没有 lessons/ 的老包 / 没解析出 halo /id 形状不合法）才回退裸点，由门禁自己的歧义分支 fail-closed。`lib/gate.js`：`const pool = new Set([...declared, ...observed])`（>1 个候选 = 歧义 ⇒ ambiguous-point + 逐字理由）。于是：显式 halo 的 b/y / b/ok 停在该停的闸（摸底闸）；裸点跨圈同名仍 fail-closed（工具面由结构闸先拒，门禁 API 直接给裸点仍回 ambiguous-point）；「只有一圈有课」不再让裸点被唯一解析成那一圈。",
+      "assertionDelta": {
+        "changed": 6,
+        "added": 18,
+        "removed": 0,
+        "detail": "改判 6 条：A03 的那条零写入样本（ambiguous 误拦 → 摸底闸逐字）、A04 的 force 边界样本（误拦 → 真挑战闸 no-snapshot）、A05 的「新闸 > 摸底」行（u18-fail-closed → 「决-1 > 摸底」= 摸底闸）、A05 的 crossCirclePlanGate.b（同一改判）、A05 的 pair.ambiguous（→ pair.explicitCircle）、A05 的旧/新对拍排除行（新闸 > 摸底 → 决-1 > 摸底）。新增 18 条（净增断言）：A03 两个样本的在场性 2 条（显式圆圈 / 裸点各 1）+ 裸点结构闸理由逐字 1 条；A04 的门禁 error 逐字 1 条；A05 的「挑战闸 > 摸底」矩阵行 3 条（理由 / gate 归属 / 顺序前提）+ pair.barePoint 4 条（被拒 / 必须显式给 halo / 没走到教学闸 / ok）+ gateApi.bare 的 candidates 与 why 2 条 + crossBareOnlyLessons 2 条（决-2 的「候选唯一但错圈」）+ 源码级 4 条（gatePoint 构造 / 新字面量 / 旧字面量不许回来 / 并集求候选 + 旧 pool 写法不许回来，共 5 条中 4 条为新增）；A08 的 §6 归属 1 条（T03 必须有主人）+ 反空转 1 条。删除 0 条：被改判的都保留在同一位置、换成正确行为的更强断言（逐字理由 / 机器 gate 归属 / 真闸见证）。"
+      },
+      "strength": "不弱于原期望：① 原被判\"误拦\"的样本现在断言**走对了哪一道闸**（比只看\"被拒\"更强，因为拒的理由换成了真闸的逐字回执）；② force 边界从\"靠误拦见证\"换成**真挑战闸**见证（no-snapshot 的 plain 逐字 + bypassed 逐字）；③ 裸点的 fail-closed 从\"工具面 ambiguous-point\"改成\"结构闸逐字拒绝 + 门禁 API ambiguous-point + 纯函数级 previousLesson=null\"三条一起钉（没有放宽，反而多钉了「只有一圈有课也不许猜」）；④ 源码级断言从\"传来传去的旧字面量\"改成\"规范身份构造 + 旧写法回归即红\"。",
+      "evidence": "A03/A04/A05 的 observed 全量落在 audit-evidence/U13 的 detail.json（含 pair / gateApi / crossBareOnlyLessons / crossCirclePlanGate / oldPrecedence）；反空转在 E:\\Temp 副本里逐条打红（调用点改回裸点 ⇒ A03/A05 红；previousLesson 改回裸点过滤 ⇒ A05 的 crossBareOnlyLessons 红）。"
+    }
+  ],
+  "assertions": {
+    "A01": "正常创建结果引用完整知识点身份：authorLesson 的落点 = 内核 identity.pointKey + identity.lessonKey 的末段（逐字节比对）；未 commit 的落点同样是完整身份且零写盘；commit 落地后 readPack 读出的课程 id 是规范课次键 a/ok/0001 且 circle/point 逐字是 a / ok；建点路由回执 id = programming/solid、path = lessons/programming/solid/point.json；NUMBER_MIN/MAX/宽度 === 内核常量。",
+    "A02": "不同圆圈同名知识点不会串摸底和目标：裸 x 的大纲 record 被拒且候选恰好 ['a/x','b/x']、两个 point.json 逐字节未变；写 a/x 不动 b/x；a 圈摸底 done=true / b 圈 done=false；裸点不猜圈（落点退回平铺）。并逐字段对拍**旧实现**：旧实现裸 x 的摸底 done=true 且落点猜进 a 圈、旧大纲入口按第一个圈接受裸 x —— 这两条 Δ 被显式记录（判据对旧实现是红的，证明不空转）。",
+    "A03": "缺归属或身份不合法时写入调用为零：进程内写计数探针（16 个拒绝面：穿越/绝对路径/未知点/点圈对不上/坏 schema/没大纲/没摸底/裸点跨圈同名（结构闸）/显式圆圈的确定归属（摸底闸）/大纲歧义/大纲未知点/建点坏 id/建点圆圈不存在/建点身份不合法/建圆坏 id），每一条断言写入调用 === 0、ok === false、拒绝理由可被机器识别。【决-1 改判】**显式 halo 的 b/ok 不再被误拦成「上一课的归属不唯一」**：它是有确定身份的合法请求，停在该停的闸（这个夹具没做 b/ok 的摸底 ⇒ 摸底闸，理由逐字「先做学情摸底：ok 还没有 intake 记录」），仍然零写入；**裸点跨圈同名（不传 halo）仍然 fail-closed**，由结构闸逐字拒绝（「知识点 id「ok」在 2 个圆圈里都有（a / b）—— 必须显式给 halo 才能唯一识别（拒绝猜）」）。两条新样本都在场性由 A03 终判另外钉住。",
+    "A04": "结构及路径拒绝不可被 force 绕过：穿越 halo、绝对 halo、穿越 point、未知点、点圈对不上、坏包配置、目标已存在 七条，force:true 全部仍被拒且拒绝理由与不带 force 时**逐字相同**；已存在文件的字节未被改；正面控制：force 仍然能绕摸底闸并在 forced.bypassed 里点名。【决-1 改判】force 边界改用**真挑战闸**见证（b/gate 有上一课 b/gate/0001、没有判据快照）：plain ⇒ ok:false、challenge.code=no-snapshot、拒绝理由逐字「拒绝生成新课：先跑 whale_state write:true 生成判据快照」（门禁自己的 error 另逐字钉住「上一课《b/gate/0001》的挑战**未检测**（no-snapshot）…」）；force ⇒ 跳过整个教学闸、真的落盘（ok:true/wrote:true），且 forced.bypassed 逐字含「上一课挑战：先跑 whale_state write:true 生成判据快照」。（原来的样本依赖\"归属不唯一\"的误拦，决-1 之后那条不再成立，换成真闸后断言更强：判的是挑战闸本身。）",
+    "A05": "原有大纲和写前校验顺序不放宽：源码级执行体七个锚点严格递增（生包→点圈→schema→大纲→教学闸→生成→验证→独占新建）+ 硬校验在 commit 分支、force 只在教学闸 + 无直写正式文件 + COPYFILE_EXCL + 发布前再解一次路径+ 对着 lib/gate.js 源码逐字复核歧义分支的 code/why（并钉住候选圆圈由「声明 ∪ 课记录」并集求出）。【决-1 改判】调用点断言改成**规范身份**：`const gatePoint = gatePointOf(halo, args.point)` + `challengeGate({ root, pack, point: gatePoint, probe: false })`，并断言旧写法（裸点直传）不许回来。行为级优先序矩阵（id 形状 > 结构 > schema > 大纲 > **上一课挑战闸** > 摸底）逐条按拒绝理由与机器 gate 归属断言：「大纲 > 挑战闸」（a/y 没大纲 ⇒ 先吃大纲拒绝）、「挑战闸 > 摸底」（b/z 有上一课且无快照 ⇒ no-snapshot）、「决-1 > 摸底」（a/y 与 b/y 都声明但显式 halo=b ⇒ 停在摸底闸）、「摸底」（x 归属唯一 ⇒ 摸底闸）。三组对照：归属唯一 → 摸底闸；归属不唯一但显式给圈 → 也是摸底闸（误拦已消失）；裸点不传 halo → 结构闸拒绝。门禁 API 的歧义分支**仍然生效**（裸 y ⇒ ambiguous-point，candidates=[a,b]，why 逐字）；【决-2】另加一条纯函数级见证：a/b 都声明 x、只有 a 圈有课时，裸 x 仍必须 ambiguous-point 且 previousLesson=null（不许按\"只有一个圈有课\"去猜）。非身份面对拍：除「决-1 > 摸底」这一已登记 Δ 行外，旧/新入口逐字段相同，并单独钉住该行差异方向（旧：裸点大纲闸先拦成 needsPlan；新：同圈大纲通过后停在摸底闸）。",
+    "A06": "重建中的历史处理只指向迁移，不复制旧解析：源码级 —— rebuild-job.js 含唯一迁移入口指路与三步命令、不含 migration.cjs、历史体检只用 identity.parseLessonKey，五个落点里 U09 的三种身份痕迹 0 命中；行为级 —— 规范包 migration === null（零误报），历史包 findings = 1 条平铺源 + 3 条非规范课次键（规范键不误报），每条只有 {kind,at}（无映射），hint 含 migrate-pack.mjs/--plan/--apply/--confirm/--plan-digest=/包根；历史体检与产品入口全程零写入（包树 sha256 对拍），且规范包的产品回执不出现 migration。",
+    "A07": "临时去掉圆圈或恢复自主拼接后判据必须红：干净副本三套判官全绿；变异一「去掉圆圈」（大纲闸按裸点找点）→ plan-scope 红；变异二「恢复降维」（大纲按第一个猜圈）→ plan-ambiguous/plan-target 红；变异三「恢复自主拼接」（重建里内联 circle/point）→ A06 的身份痕迹扫描红；变异全部只在 E:\\Temp 副本，仓内五个文件 sha256 未变。",
+    "A08": "既有断言冲突闸和文件范围检查有效：HEAD === 2f57b1f、分支正确、baseline.json 的 base.sha 一致（只消费）；五个落点与 HEAD 逐字节不同（真的改了）+ 两个新文件存在；导出面/签名（参数与默认值）与 HEAD 旧树逐键逐签名相同；tracked 改动 ⊆ §6（现场解析 20 卡）∪ authorization（现场解析 §12 全部 scope 节：A / P1 / P2），既有 test/** 的 tracked 改动必须能归因：§6 里某张卡拥有它（决-1/决-2 的 test/audit/T03.mjs 登记在 §6 的 U01 行，决-5/决-6 的 T12/T10 同）或 §12 A/P1/P2 逐字授权（P2 的 test/audit/T26.mjs F01 改写）；没有主人的测试路径仍判非法（反空转）；旧身份断言冲突闸对 6 个既有测试做 HEAD↔现在条数对拍并有红路径自证（喂三条旧形状必抓、规范身份不误报）；进程内 fs 写守卫（探针写自证 + 越界 0 + 覆盖 mkdir/write/cp/rm）；依赖运行期自锚；内容锁当场复核；证据根守卫与临时目录归属清理；回执是合法 JSON（require 自检）且五项齐、写集/Δ/授权/未验证边界逐项对得上。 【决策授权面】§6 里必须有 test/audit/T03.mjs 的主人（本卡只消费来源账本，不新建授权面）；既有 test/** 的合法改动按 §6 ∪ §12 归因，无人认领仍红。"
+  },
+  "regressions": [
+    {
+      "id": "gate-previousLesson-bare-point",
+      "path": "lib/gate.js",
+      "lines": "205-209（previousLesson 按 l.point === point 过滤）、225-231（challengeGate 用裸点）",
+      "status": "登记（不在 U13 写集，不许改）",
+      "why": "跨圈同名点时，'上一课'会命中另一个圆圈的课 —— 实测：a/x 建课后再建 b/x 会被 a/x 那节课的挑战闸拦下（『先跑 whale_state write:true 生成判据快照』）。",
+      "minimalRelease": "由拥有 lib/gate.js 的卡把 previousLesson/challengeGate 的过滤键换成完整身份（circle+point）或让调用方传同圈的 pack 视图；本卡因 T03 钉死了 mods/author.js 里 challengeGate 调用点的字面量，不能在这里做包视图收窄。",
+      "userConfirmNeeded": false
+    },
+    {
+      "id": "T03-pins-mods-author-execute-literals",
+      "path": "test/audit/T03.mjs",
+      "lines": "535-577（T03-ORDER-hard-checks-before-write）",
+      "status": "已解除（决-1 / 决-2）：T03 那一行期望已同步成 `point: gatePoint`，落点登记在 §6 的 U01 行",
+      "why": "T03 用源码字面量钉住 mods/author.js 执行体里的 7 个锚点次序，其中包含挑战闸那一整行文本。决-1 授权并同步了那一行的期望（`challengeGate({ root, pack, point: args.point, probe: false })` → `challengeGate({ root, pack, point: gatePoint, probe: false })`，仅此一行），T03 其它断言一个字没动。",
+      "minimalRelease": "已执行：只改那一行的期望字面量；T03 的行级锁由 U18 的 A08⑦（judgeT03DecisionLine）复核。",
+      "userConfirmNeeded": true
+    },
+    {
+      "id": "U09-deferred-registration-now-satisfied",
+      "path": "test/audit/U09.mjs",
+      "lines": "796（'lib/mods/author.js': DEFERRED-OTHER-CARD '`${p.circle}/${p.id}` 内联构造知识点键 —— 归 U13'）",
+      "status": "已满足（本卡收掉这一行）",
+      "why": "U09 的判据是「不许有 UNCLASSIFIED 命中」，不是「必须有命中」；本卡删掉那处内联拼接后该文件命中数变 0，U09 的扫描不会因此变红。A06 用同一套三种模式在五个落点上断言 0 命中，并断言注册表本身仍在（说明登记口径没被偷改）。",
+      "minimalRelease": "无（无需动作）",
+      "userConfirmNeeded": false
+    },
+    {
+      "id": "u18-fail-closed-force-and-call-site",
+      "path": "lib/gate.js（U18 交付物，本卡不写）+ lib/mods/author.js（U13 落点，调用点仍传裸点）",
+      "status": "已解除（决-1 / 决-2）：调用点改传规范身份、gate.js 候选圆圈改并集；本卡 A03/A04/A05 的期望按正确行为改判",
+      "why": "U18 的「上一课归属不唯一 → 失败关闭」是必要行为，但实测有两条边界：① 它住在 `commit && !force` 的教学闸里，`force:true` 会跳过它（ok:true/wrote:true，只在 forced.bypassed 里逐字留痕）—— 任务卡「force 不许绕过它」的假设与代码不符；② author 入口已把 halo 解析出来，却仍把**裸点**交给 challengeGate —— 于是「a/y 与 b/y 都声明」时，调用方显式给 halo:'b'（归属其实唯一）的建课会被误判成归属不唯一而拦下（同一份包上 `challengeGate({point:'b/y'})` 是 allowed/first-lesson）。③（既有、不是 U18 引入）只有一个圈有课时，裸点会被解析成那个圈 —— 实测建完 a/x/0001 后再建 b/x，仍被 a/x/0001 的挑战闸拦下（code=no-snapshot）：U18 的新闸只覆盖“候选不唯一”，不覆盖“候选唯一但错圈”。",
+      "minimalRepro": "夹具：lessons/a/y（无 plan）+ lessons/b/y（有 plan），还没有任何课；`whale_author {point:'y', halo:'b', commit:true}` ⇒ ok:false、error='拒绝生成新课：上一课的归属不唯一：…'；同一份包 `challengeGate({point:'b/y', probe:false})` ⇒ allowed:true、code:'first-lesson'；若把 a/y 去掉（归属唯一），同一请求 ⇒ ok:false、needsIntake:true、'先做学情摸底：y 还没有 intake 记录'（A05 的对照对就是这对）。",
+      "minimalRelease": "已执行：`point: gatePointOf(halo, args.point)` + 门禁内 `new Set([...declared, ...observed])`。force 的实际边界（跳过整个教学闸）不变，A04 改用**真挑战闸**见证这条路，不再依赖误拦。",
+      "userConfirmNeeded": true,
+      "resolution": "决-1 / 决-2（docs/unify/authorization.json decisions.approvedChanged）。"
+    }
+  ],
+  "unverified": [
+    "U19（既登记 R1）：lib/pack-template/tools/ 下的模板工具已委托 ./unify/*.cjs，而 lib/pack-template/tools/unify/ 的十四份副本只由 U19 生成 ⇒ 需要铺模板/跑包侧工具的套件仍会 MODULE_NOT_FOUND。本卡没有在仓内生成副本、也没有宣称随包闭包完整；package.json 的 files/manifest 归 U19。",
+    "U17（边界）：本卡只证明五个入口在自建夹具上的规范身份行为。迁移后的**产品全链路**（活包上的建点/建课/重建/页面与星图产物、EXPEECT 两段声明、progress 键）读回归不归本卡、也没跑；不伪称全工程已绿，也不宣称活包已被验证。",
+    "活包（边界）：本卡全程没有访问、没有写入 E:\\workplace\\study，也没有跑任何读活包的套件 —— 所以「活包上的真实建课链路」不在本卡证据内。",
+    "既有套件（边界）：本卡不跑全量、不跑任何既有套件、不跑 T 卡入口。所以『本卡是否引入既有套件回归』只在**静态**与**旧树对拍**层面被证明（导出面/签名逐键相同、非身份面优先序矩阵逐字段相同、五个落点里身份痕迹 0 命中），最终回归判词归 U20。",
+    "lib/gate.js 的跨圈泄漏（regressions[gate-previousLesson-bare-point]）未修：不在本卡写集，且 T03 钉死了本卡唯一可收窄的那行调用。",
+    "U18 新闸的 force 边界（regressions[u18-fail-closed-force-and-call-site]）：实测 force 会跳过它（新闸住在教学闸里），本卡只钉「绕过必须逐字留痕」，没有把它做成 force 也绕不过 —— 那是 lib/** 的改动，不在本卡写集。",
+    "librarianNote（P1/P2）：PROBE_VERSION 与那两处断言对象不在本卡范围，本卡没有验证也没有触碰。"
+  ],
+  "regressionRuns": {
+    "note": "追加回归证据（可归因，不是全量、不替代既有套件判词）：13 个直接相关套件在**自建夹具包**上跑（--mode=fixture，不读活包），并把同一批套件在 E:\\Temp 的**改前副本**（当前 lib/ + 五个落点还原成 git show HEAD: 字节）上重跑同一套夹具对拍。",
+    "green": {
+      "rebuild-job": "37 通过 / 0 失败",
+      "rebuild-wiring": "35 通过 / 0 失败（LESSON_CHAIN 双入口对拍仍绿）",
+      "intake": "77 通过 / 0 失败",
+      "plan-gate": "47 通过 / 0 失败",
+      "intake-id-resolve": "101 通过 / 0 失败",
+      "tool-smoke": "68 通过 / 0 失败",
+      "teaching-apply": "37 通过 / 0 失败",
+      "glossary-first-term": "46 通过 / 0 失败"
+    },
+    "redButIdenticalToPreChange": {
+      "circle-create": "72 通过 / 8 失败（改前副本同样 72/8、失败行集合相同，只有临时目录名不同）—— 包侧 build-* 委托 ./unify/*.cjs 的 R1 + 夹具 variant 的圆圈/点数假设",
+      "new-course-wizard": "119 通过 / 1 失败（改前同样 119/1）—— 套件对夹具 pack 的 nextFileBase 期望 2000，multi-domain 夹具是 1000",
+      "create-engine-error": "100 通过 / 2 失败（改前同样 100/2）—— author 正常分支依赖包侧生成器（R1）",
+      "style-mode-author": "18 通过 / 2 失败（改前同样 18/2）—— readPack 认新骨架 / termCount=0"
+    },
+    "baselineRed": {
+      "challenge-gate": "exit 1，无汇总行（U01 基线里就是红套件）；改前副本同样红 —— 本卡不重标定、不静默转绿"
+    },
+    "conclusion": "四个红套件的通过/失败条数与失败行集合在改前副本与改后完全一致 ⇒ 本卡没有引入新的套件回归。最终绿/红对账归 U20。",
+    "evidence": "audit-evidence/U13/suites/summary.json + <suite>.out.txt / old-<suite>.out.txt"
+  },
+  "evidenceIndex": [
+    "audit-evidence/U13/runs/U13-<pid>/result.json（判词与逐例状态：checks/failed/skipped/耗时）",
+    "audit-evidence/U13/runs/U13-<pid>/cases.jsonl（逐例原始记录：status/note/ms/expected）",
+    "audit-evidence/U13/runs/U13-<pid>/detail.json（本次运行的明细：A01–A07 观测、旧实现 Δ、变异三连、导出面对拍、写守卫逐条、授权并集解析、内容锁、收口复核）",
+    "audit-evidence/U13/runs/U13-<pid>/errors.txt（仅当有抛异常时存在）",
+    "audit-evidence/U13/suites/summary.json（13 个直接相关套件的追加回归证据：命令/退出码/通过失败条数/改前副本对拍/归因）",
+    "audit-evidence/U13/suites/<suite>.out.txt / <suite>.err.txt（本次运行的原始输出）与 old-<suite>.out.txt / old-<suite>.err.txt（改前副本同一套夹具的原始输出）",
+    "以上均为 gitignore 的原始证据（不进仓，不含学生正文/私人数据），本次运行目录名为 u13-<pid>-<随机>，不覆盖既有证据。",
+    "audit-evidence/U13/decision-1-2/{README.md,positive.json,anti.json} —— 决-1/决-2 的原始证据（误拦转正 + 反空转；生成脚本 E:\\\\Temp\\\\d12-evidence）"
+  ],
+  "knownBoundaries": {
+    "writeSetDiscipline": "写集严格：5 个既有文件 + 1 个新入口 + 1 个回执 + audit-evidence/U13/**。越界项：无。",
+    "aFace": "本卡不消费 A 面：既有 test/*.mjs、test/audit/T*.mjs 一条都没改（A08 用 §12 授权面现场解析 + tracked test/** 对比证明）。",
+    "noGitWrites": "没有 add/commit/切分支/操作 index/worktree 操作，没有升版、没有 push。",
+    "noLivePack": "没有访问或写入活包，没有跑读活包的套件。",
+    "noFullRun": "没有跑全量；本卡判词只覆盖本卡专项。"
+  }
+}

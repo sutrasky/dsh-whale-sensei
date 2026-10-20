@@ -17,6 +17,7 @@
   "files": [
     "lib",
     "tools/upgrade-pack.mjs",
+    "tools/migrate-pack.mjs",
     "preset/whale-mode/agent.cordis.yml",
     "preset/whale-mode/preset.yml",
     "preset/whale-mode/persona.md",
@@ -25,7 +26,8 @@
     "dsh-plugin.json",
     "README.md",
     "ONBOARDING.md",
-    "docs",
+    "docs/capabilities.md",
+    "docs/dsh-native-style.md",
     "LICENSE"
   ],
   "bin": {

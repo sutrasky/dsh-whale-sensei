@@ -10,8 +10,10 @@
  *   ① 文本助手：`lib/text.js` ↔ 包侧 `tools/pack-text.js`（同一批输入 → 同一批输出）
  *   ② **两个写入口、同一本台账**：包侧 `tools/ask-server.js` 的 `POST /note`
  *      与插件 `lib/notes-io.js` 的 `appendNote` —— 它们共用 `notes/notes.jsonl` 与 `notes/seq.txt`，
- *      所以记录必须**同形**、编号必须**同一计数器**、锚点必须**同样归一**。
+ *      所以记录必须**同形**、编号必须**同一计数器**、锚点必须落成**同一个规范课次键**。
  *      （除了这一套，别处只有"各自静态钉子"；本套是真跑两遍再比。）
+ *      U09（§12 A）：课程身份只认 `circle/point/NNNN`；显示名与两段课键 `point/课号` 的
+ *      运行态归一已从运行态删除（旧形状只在迁移工具里解码），故本节的 anchor 夹具按规范身份给。
  *   ②b **两个写入口、同一本 `questions/pending.jsonl`**（学生答疑台账）：包侧 `POST /ask`
  *      与插件 `lib/ask-io.js` 的 `handleAsk` —— 记录形状 / 序号宽度 / 行尾一漂，
  *      `drain-questions.js` 与 `assets/build-questions.js` 就解析坏账（坏的是真学生答疑数据）。
@@ -119,14 +121,14 @@ try {
     const res = await fetch(`http://127.0.0.1:${port}/note`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text: 'MIRROR-PROBE-A（包侧写）', anchor: '第1课' }),   // 故意给**显示名**
+      body: JSON.stringify({ text: 'MIRROR-PROBE-A（包侧写）', anchor: 'programming/spring-boot/0001' }),   // 规范课次键（U09：显示名不再是身份）
     })
     const body = await res.json()
     ok(res.status === 200 && body.ok === true && body.id === '0001', `包侧 POST /note → ${res.status} { id:"${body.id}", seq:${body.seq} }`)
   }
 
   // ── 写入者 B：插件 appendNote（同一副本、同一台账）
-  const r = appendNote({ root: tmp, text: 'MIRROR-PROBE-B（插件写）', anchor: 'spring-boot/0001' })   // 故意给**键**
+  const r = appendNote({ root: tmp, text: 'MIRROR-PROBE-B（插件写）', anchor: 'programming/spring-boot/0001' })   // 同一个规范课次键（U09）
   ok(r.ok === true && r.id === '0002', `插件 appendNote → { id:"${r.id}", seq:${r.seq} }（接着包侧那条往下排）`)
 
   const lines = readLines()
@@ -145,8 +147,9 @@ try {
       const kb = Object.keys(b).join(',')
       ok(ka === kb, `记录**键序**一致（包侧 ${ka} ／ 插件 ${kb}）`)
       ok(ka === 'id,seq,kind,anchor,text', `键序就是约定值（${ka}）`)
-      // 都归一成星图课次键（一个给显示名、一个给键，落盘必须同一个）
-      ok(a.anchor === 'spring-boot/0001' && b.anchor === 'spring-boot/0001', `锚点都归一成星图课次键（包侧给「第1课」→ ${a.anchor}；插件给键 → ${b.anchor}）`)
+      // 都落成**规范课次键** `circle/point/NNNN`（U09/§12 A：显示名与两段课键不再是身份，
+      // 两个写入口收的是同一个规范键，落盘必须逐字相同）
+      ok(a.anchor === 'programming/spring-boot/0001' && b.anchor === 'programming/spring-boot/0001', `锚点都落成规范课次键（包侧 → ${a.anchor}；插件 → ${b.anchor}）`)
       // 同一计数器、4 位同宽
       ok(a.id === '0001' && b.id === '0002' && a.seq === 1 && b.seq === 2, `编号同一计数器、4 位同宽（${a.id}/${a.seq} → ${b.id}/${b.seq}）`)
       // 都不许有时间戳（有时间戳 → --check 的逐字节对拍就废了）
@@ -169,7 +172,7 @@ try {
     const res = await fetch(`http://127.0.0.1:${port}/note`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text: OVER, anchor: '第1课' }),
+      body: JSON.stringify({ text: OVER, anchor: 'programming/spring-boot/0001' }),
     })
     const jb = await res.json()
 
@@ -186,12 +189,12 @@ try {
     const pres = await noteFetch(new Request('http://127.0.0.1:3090/api/whale/note', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text: OVER, anchor: '第1课' }),
+      body: JSON.stringify({ text: OVER, anchor: 'programming/spring-boot/0001' }),
     }))
     const pbody = await pres.json()
 
     let threw = ''
-    try { appendNote({ root: tmp, text: OVER, anchor: 'spring-boot/0001' }) } catch (e) { threw = e.message }
+    try { appendNote({ root: tmp, text: OVER, anchor: 'programming/spring-boot/0001' }) } catch (e) { threw = e.message }
     ok(res.status === 413 && jb.ok === false, `包侧超限笔记 → 413 + ok:false（实得 ${res.status}）`)
     ok(pres.status === 413 && pbody.ok === false, `插件路由超限笔记 → ${pres.status} + ok:false（实得 ${pres.status}/${pbody.ok}）`)
     ok(res.status === pres.status,
@@ -211,7 +214,7 @@ try {
   // 包侧改判正文、或插件改判请求体，哪一边变了这节就红，逼人重新裁定（而不是让它烂成漂移）。
   {
     const EDGE = '边'.repeat(5461)                 // 正文 16383 字节（<16KB）／ 请求体 16413 字节（>16KB）
-    const payload = { text: EDGE, anchor: '第1课' }
+    const payload = { text: EDGE, anchor: 'programming/spring-boot/0001' }
     ok(Buffer.byteLength(EDGE, 'utf8') < 16 * 1024 && Buffer.byteLength(JSON.stringify(payload), 'utf8') > 16 * 1024,
       '灰带样本夹具自检：正文在 16KB 内、请求体在 16KB 外（这就是那条已知差异）')
     const res = await fetch(`http://127.0.0.1:${port}/note`, {
@@ -222,7 +225,7 @@ try {
     const jb = await res.json()
     let r = null
     let threwE = ''
-    try { r = appendNote({ root: tmp, text: EDGE, anchor: '第1课' }) } catch (e) { threwE = e.message }
+    try { r = appendNote({ root: tmp, text: EDGE, anchor: 'programming/spring-boot/0001' }) } catch (e) { threwE = e.message }
     ok(res.status === 413 && jb.ok === false,
       `包侧实况＝按**请求体**判 → 413（正文没超也拒；实得 ${res.status}）`)
     ok(!!r && r.ok === true && r.id === '0003',
@@ -429,29 +432,52 @@ try {
   }
 }
 
-/* ── ③b PROBE_VERSION（探针版本）：三份 fingerprint.js 逐字同值 ──────────────
+/* ── ③b PROBE_VERSION（探针版本）：**唯一字面量在权威内核**，包装器只委托 ─────
    它是快照新鲜度的**第一把尺子**（插件 gate.js 的 judgeSnapshot / 包侧 ask-server.js 的
-   judgeLightup 都先比它、再比 sourceDigest）。三份一漂 = 插件判「探针过期」而包侧判「新鲜」
-   （或反过来）—— 同一份快照两个答案，与 ③ 同一条纪律。比**两样**：导出值 + 源码里的
-   字面量（值相同 ≠ 写法相同；字面量是设计要求 —— 运行时不许读自身源码来算）。
-   ⚠️ 模板副本只比**字面量 + 与包侧逐字节同一份**，不 require 它：它内容是 CJS、却住在插件的
-   ESM 包作用域下（package.json type:module），运行期 require 会被当 ESM 加载而炸 ——
-   "模板 ≡ 包侧逐字节"这条不变量另有 test/pack-scaffold.mjs 的 FROM_PACK 逐文件核钉住。 */
+   judgeLightup 都先比它、再比 sourceDigest）。U04 起三份同源实现收成一份计算，所以判据
+   不再是"三份源码里都有字面量"，而是：
+     · 字面量只在权威内核 `lib/unify/fingerprint.cjs` 里出现**一次**（源码级计数 = 1）；
+     · 宿主 `lib/fingerprint.js` 与包侧 `lib/pack-template/tools/fingerprint.js` 都是适配/委托层，
+       **源码里不许再有字面量**（计数 = 0）—— 二次字面量正是"一漂 = 两个答案"的成因；
+     · 导出值仍必须同值：宿主导出（本文件顶部 import 的那个）= 内核导出，运行时比。
+   ⚠️ 包装器**不 require**：它们 require('./unify/fingerprint.cjs')，随包模板里那份由 U19 生成
+   （它内容是 CJS、却住在插件的 ESM 包作用域下，运行期 require 会被当 ESM 加载而炸）。
+   所以包侧运行期同值这一条**只在镜像已生成时**才比；未生成时只认"纯委托"这条静态判据。 */
 {
   const packPath = path.join(ROOT, 'tools', 'fingerprint.js')
   const tplPath = path.join(PLUGIN, 'lib', 'pack-template', 'tools', 'fingerprint.js')
   const plugPath = path.join(PLUGIN, 'lib', 'fingerprint.js')
-  const packFp = require_(packPath)
-  const lit = (p) => {
-    const m = /PROBE_VERSION\s*=\s*'([^']*)'/.exec(fs.readFileSync(p, 'utf8'))
-    return m ? m[1] : null
+  const kernelPath = path.join(PLUGIN, 'lib', 'unify', 'fingerprint.cjs')
+  const kernel = require_(kernelPath)
+  /* 只数**活代码**：注释里引用旧写法（`const PROBE_VERSION = 'p:…'`）不算第二份常量 */
+  const srcOf = (p) => String(fs.readFileSync(p, 'utf8'))
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n')
+  const countLit = (p) => (srcOf(p).match(/PROBE_VERSION\s*=\s*'[^']*'/g) || []).length
+  const HOST_BRIDGE = /const\s+core\s*=\s*require_\(\s*['"]\.\/unify\/fingerprint\.cjs['"]\s*\)/
+  const HOST_FROM_KERNEL = /export\s+const\s+PROBE_VERSION\s*=\s*core\.PROBE_VERSION\b/
+  const PACK_DELEGATE = /module\.exports\s*=\s*require\(\s*['"]\.\/unify\/fingerprint\.cjs['"]\s*\)/
+
+  const kernelLits = countLit(kernelPath)
+  ok(kernelLits === 1, `权威内核 lib/unify/fingerprint.cjs 里**恰好一份** PROBE_VERSION 字面量（实得 ${kernelLits} 份）`)
+  const wrapperLits = [['宿主', plugPath], ['包侧模板', tplPath], ['包侧副本', packPath]]
+    .map(([label, p]) => `${label} ${countLit(p)}`)
+  ok(wrapperLits.every((x) => x.endsWith(' 0')),
+    `宿主与包侧都**不再各自持有** PROBE_VERSION 字面量（源码计数：${wrapperLits.join(' / ')}）`)
+  ok(HOST_BRIDGE.test(srcOf(plugPath)) && HOST_FROM_KERNEL.test(srcOf(plugPath)),
+    '宿主 lib/fingerprint.js 从内核取 PROBE_VERSION（适配层，不是第二份常量）')
+  ok(PACK_DELEGATE.test(srcOf(tplPath)) && PACK_DELEGATE.test(srcOf(packPath)),
+    '包侧 fingerprint.js 纯委托 ./unify/fingerprint.cjs（不含计算、不写第二份常量）')
+  ok(PROBE_VERSION === kernel.PROBE_VERSION,
+    `宿主导出值与内核导出同源同值（${PROBE_VERSION} / 内核 ${kernel.PROBE_VERSION}）`)
+  // 包侧运行期同值：镜像 tools/unify/fingerprint.cjs 由 U19 生成；没有它就只认上面的纯委托（不作假 PASS）
+  const packKernel = path.join(ROOT, 'tools', 'unify', 'fingerprint.cjs')
+  if (fs.existsSync(packKernel)) {
+    ok(require_(packPath).PROBE_VERSION === kernel.PROBE_VERSION,
+      '包侧导出值与内核同源同值（镜像已生成，运行时比）')
+  } else {
+    console.log('skip 包侧运行期同值：副本里没有 tools/unify/fingerprint.cjs（随包镜像由 U19 生成）')
   }
-  ok(packFp.PROBE_VERSION === PROBE_VERSION, `包侧导出值与插件逐字相同（${packFp.PROBE_VERSION}）`)
-  const plugLit = lit(plugPath)
-  const packLit = lit(packPath)
-  const tplLit = lit(tplPath)
-  ok(plugLit === PROBE_VERSION && packLit === PROBE_VERSION && tplLit === PROBE_VERSION,
-    `三份源码里的 PROBE_VERSION **字面量**逐字相同（插件 ${plugLit} / 包 ${packLit} / 模板 ${tplLit}）`)
   ok(fs.readFileSync(tplPath, 'utf8') === fs.readFileSync(packPath, 'utf8'),
     '模板副本与包侧 fingerprint.js **逐字节同一份**（PROBE_VERSION 不会只改一边）')
 }

@@ -1,0 +1,336 @@
+{
+  "card": "U15",
+  "title": "课程投影与派生产物：星图 / 课程星清单 / 名词树 / 笔记页 / 答疑文档从同一份课程事实生成",
+  "status": "PASS",
+  "scope": "C lane · 把五个包侧生成器里各自重算的「课程投影」收进 lib/unify/content.cjs 一份实现；生成器改薄委托，保留 CLI 契约（无参重建 / --check / --print / --allow-missing-requires / 退出码 / 既有输出文案）。课程身份改成规范三段 circle/point/NNNN（两段 point/NNNN 是 U09 登记的残留，归本卡）。",
+  "base": {
+    "worktree": "E:\\workplace\\dsh-whale-sensei-unify",
+    "branch": "refactor/unify-20261018",
+    "head": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "note": "执行时 HEAD 与指定基线一致；本卡不做任何 git 写（不 add / 不 commit / 不切分支 / 不 worktree）。"
+  },
+  "completion": [
+    "新增 lib/unify/content.cjs：`buildCourseContent({root,fs,loadData,deps,sections,options})` 是课程投影的唯一实现，内置五节（lessonsIndex / starmap / glossaryTree / notes / questions）；字段全部由现有生成器的真实输入输出锁定（清单条目 `{...meta,rel,slug,halo,point}`、星图载荷 `{termTotal,halos,lessons,edges}`、名词树 `{generated,termTotal,halos,unassigned}`、NOTES 页 HTML、QUESTIONS.md），不发明第二套领域实体。",
+    "五个包侧生成器改薄委托：tools/ 下 `./unify/content.cjs`、assets/ 下 `../tools/unify/content.cjs`；CLI 契约逐项保留（无参重建 / `--check` / `--print` / `--allow-missing-requires` / 退出码 / `[starmap]`·`[tree]`·`[build]`·`[build-questions]`·`清单一致`·`跳过 ≠ 通过` 等被断言文案全部由内核单点产出，路径与长度用 %REL%/%CHARS% 占位由壳填平台分隔符）。",
+    "两种模式都覆盖：有源课程结构（lessons/src + data-lesson-meta）与无源离线模式（lessons/lessons.json）；无源模式仍保留清单语义 —— 同输入下两模式的 starmap 产物逐字节相同（A01/A06 断言）；离线端悬空前置默认硬失败、`--allow-missing-requires` 才降级（A08 断言）。",
+    "身份/进度/答疑的规范映射：课程键只经 `identity.cjs#lessonKey`（`content.cjs#courseIdOf` 是唯一出口）；`progress.json.learned` 走 `pack.cjs#resolveLearned`；答疑台账的 `lesson` 是**显示名**，只按「身份派生的显示名」唯一对位，撞车 / 页锚点（`q0001`）一律不计并告警；名词树按「圆圈 + 知识点」两条一起归属，术语显示名从身份推导，对不上进 `unassigned` 不猜。",
+    "生成物只写自建包：所有写都经调用方的 `fs` 落在包根（夹具在 E:\\Temp 自建包），仓内没有模板生成目录被碰；临时变异（A07）只发生在 E:\\Temp 副本。"
+  ],
+  "dependencies": {
+    "delivered": {
+      "U07": {
+        "artifact": "lib/unify/render.cjs",
+        "status": "PASS",
+        "consumed": "escapeHtml（笔记页转义）"
+      },
+      "U09": {
+        "artifact": "lib/unify/pack.cjs",
+        "status": "PASS",
+        "consumed": "lessonIndex / resolveLessonRef / resolveLearned / displayNumberOf / labelAnchorId / LEGACY_* / UNLESSON"
+      },
+      "U11": {
+        "artifact": "lib/unify/glossary.cjs",
+        "status": "PASS",
+        "consumed": "slug（QUESTIONS.md 名词锚点）/ atomicWrite（原子写）"
+      },
+      "U02": {
+        "artifact": "lib/unify/identity.cjs",
+        "status": "PASS",
+        "consumed": "lessonKey / pointKey / parseLessonKey（严格身份内核）"
+      },
+      "U04": {
+        "artifact": "lib/unify/text.cjs + plan.cjs",
+        "status": "PASS",
+        "consumed": "splitLines（台账逐行）/ planFrontier（规划暗星前沿）"
+      }
+    },
+    "anchor": "改前采集时锁定上述六个内核文件的 sha256（audit-evidence/U15/pre-change.json 的 deps），A08 在收口前复比；一漂就红。"
+  },
+  "interfaceConsumption": {
+    "lock": "docs/unify/interfaces.md",
+    "lockBytes": 47673,
+    "lockSha256": "0dc0bc6e3e705903479bde75328e932a3c4da546cce867ac127ea7eaea3f7e28",
+    "baseline": "docs/unify/baseline.json",
+    "baselineBytes": 60232,
+    "baselineSha256": "cf53c0c41d5b55b090ed6503fda59ffc2f52372f7629f8924f8e97efd35f36e1",
+    "runner": "test/audit/unify-runner.mjs",
+    "runnerBytes": 14600,
+    "runnerSha256": "d094dec4dae021c1889fd5817d95f45a1d90c4a3dcccc6b51c7a40f626e716c4",
+    "authorization": "docs/unify/authorization.json",
+    "authorizationBytes": 8207,
+    "authorizationSha256": "9323ccbcb98b233f4edfe19d1104fbd736685a32d5cc35c1a41870a863405811",
+    "consumedLocks": [
+      "§2 身份边界：课程身份只写 circle/point/NNNN；显示文字、页面锚点（q0001）与身份分开；fileBase 只影响显示号（不自动减 fileBase、不改号、不截断/取模）。",
+      "§5 权威源码：lib/unify/*.cjs 是唯一手工源码；包 tools 用 ./unify/<模块>.cjs、assets 用 ../tools/unify/<模块>.cjs；模块只依赖内置、同目录或显式注入能力 —— 本卡 content.cjs 只 require 同目录内核（identity/pack/text/plan/glossary/render），fs 与数据台账 loader 与形状字典/title-classes 全部注入。",
+      "§5 包装器缺件：各卡只在自己的 E:\\Temp 包逐字复制已交付权威模块验证（记录复制清单与摘要）—— 本卡夹具把 lib/unify/*.cjs 逐字复制成 <包>/tools/unify/ 并记录 {name,bytes,sha256}（见 pre-change.json 的 fixtures.*.core）。",
+      "§6 证据与判词：PASS Uxx checks=8 failed=0 skipped=0 / FAIL exit 1 / BLOCKED exit 2；--evidence-root 只改写入根、读取根恒定；tracked 回执本卡独占。",
+      "包侧 CLI 契约逐项保留（A06/A08 逐条真跑断言）：--check（四件绿 + 漂移红 + 文案逐字）/ --print（stdout 只有一行 JSON 且与磁盘同源）/ --allow-missing-requires（硬失败 ↔ 降级 + 剔除悬空）/ 退出码 / [starmap] [tree] [build] [build-questions] 文案 / 「跳过 ≠ 通过」。",
+      "lib/unify/content.cjs 的导出面（本卡新增，U19 会逐字节复制）：CONTENT_SECTIONS / ARTIFACT_REL / SECTION_NEEDS / courseIdOf / pointIdOf / lessonTargets / resolveLedgerLesson / resolveTermLesson / resolveLessonLabel / readCourseModel / buildCourseContent / writeArtifact / projectLessonsIndex / projectStarmap / projectGlossaryTree / projectNotes / projectQuestions。"
+    ]
+  },
+  "writeSet": [
+    {
+      "path": "lib/unify/content.cjs",
+      "changed": true,
+      "new": true,
+      "bytes": 61165,
+      "sha256": "ff6e0788339f207ed417cc48b2c7c2d4bff331e893732656d1f0f1ec4d196435",
+      "what": "新建：课程投影的唯一实现（纯 CJS；只依赖同目录内核，fs/台账 loader/形状字典/title-classes 都注入）"
+    },
+    {
+      "path": "lib/pack-template/tools/build-starmap.js",
+      "changed": true,
+      "bytes": 4943,
+      "sha256": "4342f40d794ed5596edc31a112cd61d82f0cd8e97ffd4921d70f45e66194a218",
+      "was": {
+        "bytes": 23485
+      },
+      "what": "改薄委托：只留 CLI/打印/落盘/--check/spawn 静态版；载荷、文案、身份全部从内核取"
+    },
+    {
+      "path": "lib/pack-template/tools/build-lessons-index.js",
+      "changed": true,
+      "bytes": 4192,
+      "sha256": "1e542445330492de345ce23b101fe5f5c881eb6a4c45135f775de3bb49b5bb8c",
+      "was": {
+        "bytes": 5797
+      },
+      "what": "改薄委托：清单条目形状/排序/告警/--print/--check 文案从内核取"
+    },
+    {
+      "path": "lib/pack-template/tools/build-glossary-tree.js",
+      "changed": true,
+      "bytes": 3370,
+      "sha256": "410f85c116bc885a58cd4298b8ca056d13d74a81834a64e859ac210e82617c04",
+      "was": {
+        "bytes": 8174
+      },
+      "what": "改薄委托：名词树与 HTML 由内核生成；归属改为「圆圈+知识点」"
+    },
+    {
+      "path": "lib/pack-template/tools/build-notes.js",
+      "changed": true,
+      "bytes": 2798,
+      "sha256": "d772a04ffa4f1e7280407f91562ecaa198f01702a74b4107810e2e5eba4f9e5c",
+      "was": {
+        "bytes": 15115
+      },
+      "what": "改薄委托：笔记页 HTML 由内核生成（withStaticTitles 注入），答疑/笔记按身份换算"
+    },
+    {
+      "path": "lib/pack-template/assets/build-questions.js",
+      "changed": true,
+      "bytes": 1786,
+      "sha256": "f6e7b985f1af41d71e8aecf102141b7869f407eee3589463d7d30ba3b4c6326e",
+      "was": {
+        "bytes": 5754
+      },
+      "what": "改薄委托：QUESTIONS.md 由内核生成；slug 不再自带第二份"
+    },
+    {
+      "path": "test/audit/U15.mjs",
+      "changed": true,
+      "new": true,
+      "bytes": 113900,
+      "sha256": "a8d457aacf986fb28efe7c7b4a8b7bc063e93b1aefe420b2f1b491fa96267a37",
+      "what": "本卡异步判据入口（A01–A08，固定八项）；A08 ⑥ 的授权面现场解析（§12 scope.A/P1/P2 ∪ decisions.approvedChanged ∪ interfaces.md §6 有主）见 deltas.kind=p1p2-test-authorization 与 deltas.kind=decision-tcard-allowlist"
+    },
+    {
+      "path": "docs/unify/receipts/U15.json",
+      "changed": true,
+      "new": true,
+      "what": "本 tracked 回执"
+    }
+  ],
+  "writeOutOfSet": "无。本卡只写上述 8 项 + audit-evidence/U15/ 下本次新建的原始证据（改前采集 pre-change.json、夹具 fixtures.mjs、采集脚本 capture-baseline.mjs、判词三分支探针 probe-verdicts.mjs/json、运行目录 runs/）。未改：其它 lib/unify/*.cjs、lib/pack-model.js|pack.js|point-ref.js、lib/intake.js|goal-io.js|teaching-io.js、lib/author.js|rebuild-job.js|mods/**、lib/render.js、已交付的模板工具（pack-text/fingerprint/plan-map/build-lessons/ledger-transaction/publish-policy/build-glossary/drain-questions）、lib/pack-scaffold.js、package.json、docs/unify/* 的 tracked 出口、任何既有 test/*.mjs / test/audit/T*.mjs、cards/**、活包、主树。",
+  "authorization": {
+    "quoteVerbatim": "选A和授权p1和p2",
+    "quoteSource": "docs/unify/authorization.json · quoteSource（用户在 dsh 会话中的直接消息，原文逐字）",
+    "scope": "A 面（改既有测试）只覆盖 U09/U10/U14 —— 本卡不消费 A 面：没有改任何既有测试断言，也没有把它们放宽/跳过。工作树里 test/mirror-parity.mjs 与 test/intake.mjs 的 tracked 改动分别是 U09/U10 的 A 面。P1/P2 是本批授权的集成修正（重算 PROBE_VERSION 并收敛成内核唯一字面量 / 改写两处『在包装器源码里找 PROBE_VERSION 字面量』的断言对象）：**P2 的第 2 条逐字点名 test/audit/T26.mjs**，工作树里那条 tracked 改动就是它的实施（§6 里同一条登记在 U01 落点），不是本卡的手改。",
+    "parsedSections": [
+      "scope.A",
+      "scope.P1",
+      "scope.P2"
+    ],
+    "authorizedRule": "A08 ⑥ 现场解析 scope.A / scope.P1 / scope.P2 三节：authorized[] 里**逐字点名**的既有测试路径（只认 test/*.mjs、test/audit/T*.mjs 两种形状；『T26 F01』这类简称/卡片号不算点名、不做通配）才放行，并写出授权节 authorizedBy（当前三条：test/mirror-parity.mjs ← scope.A、test/intake.mjs ← scope.A、test/audit/T26.mjs ← scope.P2）。放行面逐字枚举，多一条/少一条都红；点名的路径必须真的存在于盘上。",
+    "notAuthorizedRule": "notAuthorized[] 里的路径进**永不面**且 deny 覆盖 allow：当前 test/pack-template-rules.mjs（来自 scope.A.notAuthorized『仍只读，任何卡不得改其断言』）永不进放行面 —— 哪怕某个 authorized 节点名了它也一样红（合成输入自证）。未在任何 authorized[] 点名的既有测试（test/_pack.mjs、test/all.mjs、test/audit/T20.mjs 等）照旧红：T 卡不是类别豁免。",
+    "whyExtended": "只读 A 面的旧口径把 P2 已授权的 M test/audit/T26.mjs 判成越界（假红：识别缺口，不是交付物缺陷）。Δ 见 deltas.kind=p1p2-test-authorization。",
+    "authorizedRuleThreeFaces": "A08 ⑥ 现在是**三个授权面**的并集（不再是「只认授权文件」）：① 本卡写集（test/audit/U15.mjs 等）② interfaces.md §6 里**有主**的既有测试（运行时解析出 U 卡号，§6 是写集账本不是 §12 的附属说明）③ scope.A/P1/P2 的 authorized[] 或 decisions.approvedChanged 的决号**逐条点名**。每条放行的理由落进 sources（如 `scope.P2+§6/U01`、`decisions.决-6+§6/U01`），`authorizedBy` 必须匹配 `(scope.X|decisions.决-N|§6/Uxx)(+…)*`。三面都只认 `test/*.mjs` 与 `test/audit/T*.mjs` 两种**逐字路径**（简称「同步 T03」、通配、test/audit/U*.mjs 都不算点名）。",
+    "notAuthorizedRuleThreeFaces": "deny 面在两个层面都覆盖 allow：① 单面解析时（authorizationTestScopes 把 notAuthorized 里的路径从 allow 删掉）② 三面合并后（mergeTestFaces 末尾统一删除）。当前被 deny 的是 test/pack-template-rules.mjs：即便 decisions.决-9 的 approvedChanged 逐字点名了它（预授权「只加登记项」是个**更窄**的例外，路径级放行面表达不了），它也绝不进放行面 —— 用户禁令优先。红样本只增不减：pack-template-rules / _pack / all / T20 / T23 / test/audit/U07.mjs（焦点外 U 卡入口）/ glossary-verify 共 7 条，另有「§6 登了路径却写不出主人 ⇒ 红」与「decisions 与 §6 都点名但 deny 也点名 ⇒ 红」两条合成反空转。"
+  },
+  "deltas": [
+    {
+      "kind": "decision-tcard-allowlist",
+      "what": "A08 ⑥ 的「既有测试允许面」从「只认 authorization.json 的 authorized[] 逐字点名」改成三个授权面的并集：① 本卡写集 ② interfaces.md §6 里**有主**（运行时解析出 U 卡号）③ scope.A/P1/P2 或 decisions.approvedChanged 逐字点名；deny（notAuthorized[]）覆盖 allow。",
+      "old": "原判据逐字：`const testConflict = classifyExistingTestConflicts(tracked, { allowedTests: scopes.allow, deniedTests: scopes.deny })` + `eq(testConflict.conflicts.length, 0, ‘…既有测试的改动不在授权面内（scope.A / scope.P1 / scope.P2 的 authorized[] 都没逐字点名它）…’)`；而 `scopes.allow` 只由 `consumer for (const name of AUTHZ_SECTIONS)` 的 `scope.A / scope.P1 / scope.P2` 的 `authorized[]` 填充（`testPathsIn`），§6 与 decisions 都不参与。另一条：`assert(hit.authorizedBy.startsWith(‘scope.’), ‘…被放行却没写出授权节…’)`。",
+      "whyRed": "决-1/决-2 授权同步 test/audit/T03.mjs、决-5 授权 test/audit/T12.mjs、决-6 授权 test/audit/T10.mjs，三条改动**必然**出现在 `git status --porcelain` 的 tracked 面里；但都没有被 scope.A/P1/P2 的 authorized[] 逐字点名（只出现在 decisions.approvedChanged 的 决-1/决-5/决-6 正文与 interfaces.md §6 的 U01 行）。旧分类器把它们判成「不在授权面内」⇒ A08 必然红（实测：`A08: 抛异常：A08 · 既有测试的改动不在授权面内…：M test/audit/T03.mjs, M test/audit/T10.mjs, M test/audit/T12.mjs`）。这是**归属口径过期**（识别缺口，结构性假红），不是本卡发现了新缺陷。",
+      "new": "三条面各由一个**纯函数**现场解析：`section6TestOwners(parseSection6(interfaces.md))`（§6 → 既有测试 → 主人卡号）、`decisionTestScopes(decisions.approvedChanged)`（决号 → 逐字路径；简称不算）、`authorizationTestScopes`（原有 A/P1/P2，口径与上一版逐字相同），最后由 `mergeTestFaces` 合成唯一放行面（每条带 `sources`/`owner`，deny 末尾统一删除）。分类器记录 `authorizedBy`（`scope.X` / `decisions.决-N` / `§6/Uxx`，多面用 '+' 连起来）、`owner`、`sources`；`authorizedBy` 必须匹配 FACE_LABEL_RX。红样本 6 → 7 条（pack-template-rules / _pack / all / T20 / T23 / test/audit/U07.mjs / glossary-verify），并新增两条合成反空转（§6 登了路径却写不出主人 ⇒ 红；decisions 与 §6 都点名但 deny 也点名 ⇒ 红）。",
+      "strength": "强度对照：**无变弱，只有更严**。① 「放行必须写得出理由」保留并加强：原来只校验 `authorizedBy.startsWith(‘scope.’)`，现在要匹配三面理由标签之一、且带 `owner`/`sources` 才能过；② 红样本只增不减（6 → 7），用户禁令的 pack-template-rules 与既有夹具助手 _pack 仍在红样本里；③ 新增 deny 覆盖 allow 的合并面自证（旧口径只有一个单面样例）；④ 白名单没有被换成类别豁免：三面都只吃 `test/*.mjs` 与 `test/audit/T*.mjs` 的**逐字路径**，通配与卡片号不产生放行面（新增「T26 F01」「同步 T03」两个简称样本）；⑤ `eq(s6.size,20)`、`sameJson([...s6.get(CARD)], WRITE_SET)`、A/P1/P2 放行面逐字枚举（`test/audit/T26.mjs,test/intake.mjs,test/mirror-parity.mjs`）等旧断言**一条未删**，只在其后追加新面。",
+      "authorization": "decisions.quoteVerbatim 逐字「全按推荐」；对应 决-1（同步 test/audit/T03.mjs 那一行源码字面量）、决-5（test/audit/T12.mjs 的夹具复制清单补 lib/adapters/jvm.js）、决-6（test/audit/T10.mjs:1038-1055 最小同步）。落点归属见 docs/unify/interfaces.md §6 的 U01 行（限定语「仅 decisions 决-x 授权面」）。本卡 A 面零消费的事实不变。"
+    },
+    {
+      "kind": "identity-migration",
+      "what": "星图载荷 `lessons[].id`：两段 `point/NNNN` → 规范三段 `circle/point/NNNN`（U09 回执里登记为「仍产出两段课次键，归 U15」的残留）。",
+      "evidence": "audit-evidence/U15/pre-change.json（改前采集里四门课的 id 是 spring-boot/0001 … vue/1002）↔ test/audit/U15.mjs 的 A06（现在的 id 是 programming/spring-boot/0001 …）。",
+      "why": "U-SPEC §2：课程身份只写 circle/point/NNNN。两段键在跨圈同名知识点上会撞成同一个键（A02 采集实证：math/vue/0001 与 programming/vue/0001 都成了 vue/0001）。"
+    },
+    {
+      "kind": "derived-from-identity",
+      "what": "`learned` / `pendingQ` / `flag` 的取值随身份改动：改前因两段键对不上规范进度与台账而恒为 false/0/null；改后按规范身份折算（`learned` 只点亮进度里那一门；`pendingQ` 只落在台账真指的那门课）。",
+      "evidence": "A03 + A06（改前采集 all false / all 0 已如实记录，不谎称「本来就好」）。",
+      "why": "A03「进度和答疑只作用于目标课程」—— 这也是用户报告过的「星图不亮」的根因。"
+    },
+    {
+      "kind": "edges-resolution",
+      "what": "`edges` 从 0 条变 1 条（halo.json 里声明的那条）：端点键统一成三段之后才连得上。",
+      "evidence": "A06：改前采集 edges=[]，改后逐字等于 halo.json 的 `programming/vue/1001 → programming/vue/1002`。"
+    },
+    {
+      "kind": "cross-circle-ownership",
+      "what": "名词树 `points[].lessons[]` 改为按「圆圈 + 知识点」归属（改前只按知识点 id 过滤，跨圈同名知识点会把两门课都挂到每个点上）；术语显示名按身份推导，撞车进 `unassigned`，不再按字符串把术语猜给某一门。",
+      "evidence": "A02 / A04（改前采集里每个点挂 2 门课、`unassigned` 空；现在每点 1 门、撞车术语进 unassigned 并点名）。"
+    },
+    {
+      "kind": "notes-display",
+      "what": "笔记页里「台账写的是规范身份」时不再拿裸身份键当节标题：按身份换算成显示名落到那一节（改前会多出一个 `math/vue/0001` 标题的节）。",
+      "evidence": "A02 ④（改前采集里确有该节）+ A06 跨圈包对照。"
+    },
+    {
+      "kind": "io-failure-shape",
+      "what": "读坏（坏 halo.json / 坏名词台账 / 坏答疑台账）由包装器 catch 后一句话报错 + exit 1（原来是未捕获异常的栈）；判据只要求「非零退出 + 产物字节不变 + 原因可说」，未改任何被断言的文案。",
+      "evidence": "A05（三种坏读都 exit 1、stderr 非空、产物 sha 不变；产物不存在时也不凭空造伪空产物）。"
+    },
+    {
+      "kind": "p1p2-test-authorization",
+      "what": "A08 ⑥「既有测试被改」的分类器：从**只解析 scope.A** 改成**现场解析 scope.A / scope.P1 / scope.P2** 三节的 authorized[]（并把三节的 notAuthorized[] 立成永不面）。被某节逐字点名的既有测试 → 放行并写出授权节（authorizedBy: scope.A / scope.P2 …）；没被任何 authorized[] 点名的既有测试照旧红。",
+      "originalCriteria": "旧口径（本卡上一版）：`allowedTests = aFaceOwnedTests(authz)` —— 只从 docs/unify/authorization.json 的 scope.A.authorized[] 抽 test/*.mjs，其余 test/** 一律冲突；判据自称「本卡没有 A 面授权」。失败原文：`FAIL U15 checks=8 failed=1 skipped=0 :: A08: 抛异常：A08 · 本卡没有 A 面授权，却动了未授权点名的既有测试：M test/audit/T26.mjs（实得 1 / 期望 0）`。",
+      "whyFalseRed": "用户明示「选A和授权p1和p2」。P2 的 authorized 第 2 条**逐字点名** `test/audit/T26.mjs` 的 F01 用例内 PROBE_VERSION/闭包相关断言对象（另一处是 test/mirror-parity.mjs 的 446–456 行）；P1 授权按 lib/fingerprint.js 注释里锁定的算法重算 PROBE_VERSION 并收敛成内核唯一字面量。工作树里 `M test/audit/T26.mjs` 就是这条授权的实施（§6 里同一条登记在 U01 落点，interfaces.md §6 U01 行已写明「仅 P1/P2 授权面」）。只认 A 面的分类器看不见 P1/P2，于是把**已授权**的改动判成越界 —— 属识别缺口（判据没读授权面），不是 U15 交付物缺陷，也不改变「本卡 A 面零消费」的事实。",
+      "newCriteria": "① 三节必须在场：scope.A / scope.P1 / scope.P2 缺一节即红（不许按「没读到就当没授权」放行，也不许按「没读到就当没约束」）；② 只认**逐字路径**：形状限 test/*.mjs 与 test/audit/T*.mjs —— P1 文本里的「T26 F01」、卡片号、通配一律不算点名（有合成输入自证）；③ 放行面**逐字枚举**并与授权文件现场对拍，当前恰为三条：test/mirror-parity.mjs ← scope.A（U09 的 A 面）、test/intake.mjs ← scope.A（U10 的 A 面）、test/audit/T26.mjs ← scope.P2（第 2 条）；④ 每条放行都写出 authorizedBy，且工作树里被放行的既有测试必须能署名（放行了却写不出授权节 = 判据没生效）；⑤ 放行面点名的路径必须真的存在于盘上（存疑即不放行）；⑥ 非授权面内的 test/** 改动照旧冲突（test/_pack.mjs、test/all.mjs、test/audit/T20.mjs、test/audit/U07.mjs 逐条钉死）。",
+      "notAuthorizedNever": "notAuthorized[] 里的路径进**永不面**（deny 覆盖 allow）：当前 test/pack-template-rules.mjs 出现在 scope.A.notAuthorized（『仍只读，任何卡不得改其断言』）→ 永不进放行面；即使伪造一条 authorized 也点名它，解析结果仍是 deny 且不放行（proveExistingTestBoundary 的 FORGED 行自证）。P2/P1 的 notAuthorized（『以 P2 为名放宽其它 T 卡断言』『改动除上述两处之外的任何既有测试断言』『改变算法本身』）同样按文本落进永不面：它们没逐字点名路径，所以不产生放行面，也不产生豁免。",
+      "strength": "不降反升（逐条对照旧口径）：[新增] notAuthorized 永不面 + deny 覆盖 allow —— 旧口径根本没有这一层；[新增] 放行面逐字枚举并与授权文件现场对拍 —— 旧口径只做「命中 A 面 → 放行」的包含判断，授权文件多点名一条不会被发现；[新增] P1/P2 节缺失即红 —— 旧口径完全看不见这两节；[新增] 放行路径必须实际存在于盘上; [新增] 被放行的既有测试必须署名 authorizedBy; [新增] 简称/通配不算点名（合成输入钉死）; [保留] 本卡写集外的一切 test/** tracked 改动仍红; [保留] T 卡不是类别豁免（只有逐字点名的 T26 放行，T20/T99 等照旧红）; [保留] A 面口径逐字不变（仍点名 U09/U10/U14，仍不许出现 U15/U19）。没有任何一条被放宽、删除或跳过。",
+      "evidence": "audit-evidence/U15/probe-authorization.json（① 只读测试被改 → 入口 FAIL；② 删 scope.P2 → 入口 FAIL 且分类器把 T26 判冲突；③ 只删 P2 点 T26 那条 → 入口 FAIL 且分类器把 T26 判冲突；④ 正常树 → PASS；两次改文件均按原字节还原并核对 sha256）。"
+    },
+    {
+      "id": "U15-DELTA-EDGE-DOMAIN-BRIDGE",
+      "kind": "cross-domain-bridge",
+      "title": "content.cjs：连线端点按两个域查表（页面域 point/NNNN ↔ 运行态 circle/point/NNNN）",
+      "what": "bytes 59522 → 60216；sha256 64a4c6493fb5… → 07d116986194…。查找改成「先按规范身份、再按页面域键」，命中的端点统一按**规范身份**写进 edges。",
+      "why": "活包的 `halo.json` 里声明的连线端点一直是页面域写法（`spring-boot/0001`，决-11 不动），而 `lessons[].id` 在 U09/U15 之后是规范三段。原实现只按 `byId.get(e.from)` 查 ⇒ 端点全部查不到 ⇒ 连线**整批被跳过**（有 warn，但星图退化成散点）。这是收口期用真活包跑全量时暴露出来的：`tools/starmap.test.mjs` 的「每门非首课都有同枝条的上游」判据报断链、`assets/glossary-tree` 之外的包侧闸门也连带。",
+      "notWeakened": "判据强度不变：端点仍必须两个都存在，否则 warn + 跳过（不静默少画）；只是查表多认一种等价写法，且写出去的一律是规范身份（与星图节点 id 同域）。",
+      "evidence": "重建活包后 content.js 的 edges 从 0 条恢复为声明的条数；`tools/starmap.test.mjs` 复跑通过。"
+    }
+  ],
+  "assertions": {
+    "A01": "有源包（lessons/src）与无源清单包（lessons/lessons.json）的星图载荷逐课规范身份（id=circle/point/NNNN 且与 halo/point/number 自洽、label 由身份派生、href 指向真产物、知识点在 halos[].points[] 里），清单条目 {...meta,rel,slug,halo,point} 齐（文件名四位课号）；两模式课程身份集合相同、starmap 产物逐字节相同；无源时清单生成器 exit 1 且说清原因、笔记页走「跳过 ≠ 通过」。",
+    "A02": "跨圈同名点（math/vue 与 programming/vue 同课号）两门课身份不同、互不覆盖（改前采集实证是同一个两段键 `vue/0001` ×2）；名词树里每门课只挂自己的圈+知识点（改前每点挂 2 门）；笔记页不拿裸身份键当节标题（改前确有 `math/vue/0001` 节）。",
+    "A03": "`learned` 只点亮进度里那一门；`pendingQ` 只落台账真指的那门课（显示名「第1课」与规范身份两种写法都对得上）；显示名撞车的答疑不计入任何课并点名告警；页锚点 `q0001` 不是课程引用（不计入、被告警、总数不变）。",
+    "A04": "术语显示名从身份推导：唯一显示名全部挂课（unassigned 空）；显示名撞车 → 进 unassigned 并点名（不猜给任何一门）；台账写规范身份时按身份挂到那门课（显示名仍由映射表给）；课次显示名一律形如「第N课」且由身份派生。",
+    "A05": "坏 halo.json / 坏 glossary-data.js / 坏 questions-data.js → 对应生成器 exit 1、stderr 非空、产物字节不变；产物缺失时读坏也不凭空造伪空产物；离线包坏 lessons.json 沿用既有「告警降级」（点名、0 门课，不造假课）。",
+    "A06": "同输入两次构建五个产物逐字节相同（含载荷对象层）；`--check` 四件构建后 exit 0 且文案逐字、人为漂移后 exit 1 且点出漂移；与改前采集对拍：单圈包的 lessons.json / glossary-tree.js / NOTES.html / QUESTIONS.md 逐字节相同，星图载荷除已批准字段（id / learned / pendingQ / flag）与 edges 外逐字节相同，且这些字段的新值逐条点名验证；跨圈包的差异只落在已批准的身份后果上；有源 vs 无源星图产物逐字节相同。",
+    "A07": "E:\\Temp 副本里把 `courseIdOf` 改回两段 `point/NNNN`（变异点唯一命中、字节确改）后，同一组身份判据必须报错（命中「不是规范课程身份」，问题逐条落在两门课的 id 上）；干净副本同判据必须绿；仓内权威内核字节不受影响；变异副本产物与干净副本不同。",
+    "A08": "改前材料/依赖锚点齐且自洽（五个生成器与 git HEAD 逐字节相同 + 六个内核依赖 sha 未漂）+ 五个生成器真的被改过且只留委托（计算痕迹只许在内核，不许自己序列化载荷）+ 内核纯 CJS 形态且不取当前时间 + `--print` 输出纯 JSON 一行且与磁盘清单同源 + 清单模式（无源）读清单 + 悬空前置硬失败/降级开关 + 进程内 fs 写守卫（探针写自证）+ 授权写集并集（§6 独立解析，20 张卡，U15 行逐条等于本卡写集）+ 交付物内容锁 + 证据根/临时目录守卫 + 回执五项与 writeSet 自指 bytes/sha + **授权面现场解析**（scope.A / scope.P1 / scope.P2 的 authorized[] 逐字点名的既有测试才放行并写出 authorizedBy；notAuthorized[] 永不进放行面；未被点名的既有测试照旧红；合成行双向自证分类器）。"
+  },
+  "verdict": {
+    "entry": "node test/audit/U15.mjs",
+    "line": "PASS U15 checks=8 failed=0 skipped=0",
+    "code": 0,
+    "checks": 8,
+    "failed": 0,
+    "skipped": 0,
+    "singleLine": true,
+    "runs": {
+      "pass": "audit-evidence/U15/runs/U15-6864/result.json（另有多轮 PASS 运行）；runs/ 下另有本轮迭代的 FAIL / BLOCKED 运行（真实保留，不覆盖）"
+    },
+    "note": "本回执写于交付时；测试复跑不重写 tracked 回执（U-SPEC §6）。最终提交 hash 只进忽略证据与对话。",
+    "failureMode": "断言失败 → FAIL U15 … exit 1；缺改前采集材料 / 夹具 / 授权 → BLOCKED U15 … exit 2（实现里用 Blocked；不 skip、不恒真、不吞错）。三分支已用 audit-evidence/U15/probe-verdicts.mjs 真跑自证（PASS 0 / FAIL 1 / BLOCKED 2，跑完全部按 sha 还原）。"
+  },
+  "unverified": [
+    {
+      "id": "R1",
+      "what": "**R1 扩大（已知中间态，按 U-SPEC §5 登记）**：五个生成器现在 require 随包内核副本，而 `lib/pack-template/tools/unify/` 由 **U19** 生成 —— 在那之前，任何由模板铺出来的包跑这些生成器都会 MODULE_NOT_FOUND。",
+      "files": [
+        "lib/pack-template/tools/build-starmap.js → require('./unify/content.cjs')",
+        "lib/pack-template/tools/build-lessons-index.js → require('./unify/content.cjs')",
+        "lib/pack-template/tools/build-glossary-tree.js → require('./unify/content.cjs')",
+        "lib/pack-template/tools/build-notes.js → require('./unify/content.cjs')",
+        "lib/pack-template/assets/build-questions.js → require('../tools/unify/content.cjs')"
+      ],
+      "affectedSuitesEstimate": [
+        "deterministic-red（会真跑模板生成器）: mirror-parity（④ 星图载荷契约，用 writeScaffold 造 A/B 两包并真跑 build-starmap + build-starmap-svg）、pack-scaffold（建包后跑工具 / 空载荷键序）、circle-create / circle-delete / create-engine-error（建圈链第 2/5/6/7 条）、ask-answer（rebuild 链含 build-notes）、pack-parity（读 content.js）",
+        "likely-red（夹具经 writeScaffold 铺引擎）: render-parity（build-lessons → spawn build-starmap）、practice / brief / challenge-gate 等若夹具含课程源并重建派生页",
+        "green（不碰这五个生成器）: 纯内核/IO 套件（identity / plan / text / glossary / records / evidence 等）"
+      ],
+      "minimalLift": "U19 生成 lib/pack-template/tools/unify/content.cjs（连同其余十三份）并把该目录登记进 lib/pack-scaffold.js 的 TEMPLATE_FILES（成对更新 test/pack-template-rules.mjs 的 FROM_PACK —— 该文件只读，写权归 U19）。本卡不改测试/夹具/pack-scaffold.js，也不为躲 R1 保留第二份计算。",
+      "note": "本卡自己的证据是在 E:\\Temp 自建包里把 lib/unify/*.cjs 逐字复制成 <包>/tools/unify/ 后采集的（复制清单 + 摘要见 audit-evidence/U15/pre-change.json 的 fixtures.*.core）。"
+    },
+    {
+      "id": "R2",
+      "what": "宿主侧 `lib/pack-model.js#readPack` 仍保留它自己的一份「课程投影」（扫描 lessons/src + data-lesson-meta、displayNumber、learned 折算），与 content.cjs 的 starmap 投影同源同口径但**是第二份实现**。收敛它要改 U09 的写集文件，不在本卡写集内 —— 本卡只登记，不静默改。",
+      "evidence": "lib/pack-model.js:597-640 的 lessons 循环与 line 621 的 `identityCore.lessonKey(...)`；本卡 content.cjs 的 projectStarmap 是同一投影的包侧实现。",
+      "minimalLift": "由 U09 扩张写集或另立一卡，让 readPack 的课程投影改为消费 content.cjs 的投影（注意 readPack 是 ESM，需要 CJS 互操作或注入）。"
+    },
+    {
+      "id": "R3",
+      "what": "页面侧课次键仍是两段：`lib/unify/render.cjs` 的 `lessonKeyOf`（LESSON_ID / coach 路径）与 `build-lessons.js` 的 `lessonKeyOf`（U09 回执同批登记）没有改——不在本卡写集。于是 verify.js ③「深链 #<id>」在真包里仍可能对不上（content.js 已是三段）。",
+      "evidence": "U09 回执 regressionsDiscovered 第 193 行点名 `build-lessons.js:291`、`render.cjs:420`；本卡只把星图侧收敛到三段。",
+      "minimalLift": "U07 追加一版（render.cjs / build-lessons.js 都归它）把页面侧课次键改成三段；或 U19 收口时统一。"
+    },
+    {
+      "id": "R4",
+      "what": "笔记页的「节」仍是**显示名**（HTML 锚点 `labelAnchorId(label)` 是页面契约，课程页封面卡指向它）。若两个圆圈的两门课显示名完全相同，它们会合并在同一节里 —— 这是 pack.cjs#lessonIndex 已点名的「课次显示名撞车」冲突（修法：给其中一个知识点的 point.json 加 label）。本卡不发明新锚点契约，也不静默改名。",
+      "evidence": "A06 跨圈包：两门课都叫「Vue 第1课」，NOTES 只有一节；术语因此进 unassigned（A04）。",
+      "minimalLift": "要么在包里加 label 消除撞车（课程包作者的事），要么另立卡片设计「同名显示名的稳定消歧锚点」（会改页面链接契约，需单独授权）。"
+    },
+    {
+      "id": "R5",
+      "what": "没有跑任何既有套件（它们读活包 / 写 T 证据 / 全量窗口只归 U20），也没有跑 `build-verify` / `render-parity` / `pack-scaffold` / `all.mjs`。本卡的 PASS 只覆盖本卡八项。",
+      "note": "专项 PASS 不是全工程绿；随包联调与全量收口留 U17/U19/U20。"
+    }
+  ],
+  "evidenceIndex": {
+    "preChange": {
+      "file": "audit-evidence/U15/pre-change.json",
+      "bytes": 79376,
+      "sha256": "776cfd2800af7767e74941541fe9d9d9a5a2cba7d2e47db00e298b5fcfe09687",
+      "what": "改前采集：五个生成器在两类夹具上的 stdout/stderr/退出码 + 五件产物原文与 sha256 + 依赖锚点 + 内核副本清单"
+    },
+    "fixtures": {
+      "file": "audit-evidence/U15/fixtures.mjs",
+      "bytes": 12709,
+      "sha256": "ba5cd386cda33a4caed34793b60215444820745f275880f1168abdeeffd6c1c7",
+      "what": "夹具（单圈 / 跨圈同名点；writeScaffold 铺包 + lib/unify/*.cjs 逐字复制 + 课程源/台账/进度）"
+    },
+    "capture": {
+      "file": "audit-evidence/U15/capture-baseline.mjs",
+      "bytes": 5771,
+      "sha256": "8635addb71aa59b3f07355e90cb7c63041d751c93e97c84501f2ca3f7d0f354d",
+      "what": "改前采集脚本（只在 E:\\Temp 自建包里跑，跑完按绝对路径归属清理）"
+    },
+    "verdictProbes": {
+      "runner": "audit-evidence/U15/probe-verdicts.mjs",
+      "file": "audit-evidence/U15/probe-verdicts.json",
+      "bytes": 3105,
+      "sha256": "122be9197250d7056a00ec40908e8d52bf3d622f8cda801d282a8f0d02f30e1a",
+      "what": "PASS / FAIL / BLOCKED 三分支真跑（原始 stdout/stderr/退出码）；跑完全部按 sha256 逐字节还原并再跑一次确认绿"
+    },
+    "authorizationProbe": {
+      "script": "audit-evidence/U15/probe-authorization.mjs",
+      "scriptBytes": 10267,
+      "scriptSha256": "40d31cc84e7eb4bbc01232bf258c5ddce9cae7b2ef29c5cd32355d95c16c1bfe",
+      "file": "audit-evidence/U15/probe-authorization.json",
+      "bytes": 12632,
+      "sha256": "4cd4b733c50dd8e49ea8b340ed7f76cdeb14c27991687ec5c6799f6594d77858",
+      "what": "授权面（A / P1 / P2）反空转真跑：只读测试被改 → 入口 FAIL；删 scope.P2 → 入口 FAIL（缺节）且分类器把 M test/audit/T26.mjs 判冲突；只删 P2 点 T26 那条 → 入口 FAIL 且分类器同样判冲突；正常树 → PASS。两次改文件均按原字节还原并核 sha256（同一输入两次跑出的报告逐字节相同）"
+    },
+    "rawArchive": {
+      "file": "audit-evidence/U15/authorization-fix-raw.txt",
+      "bytes": 4232,
+      "sha256": "234e03eb97169b07bef548d20c52a341d356a8d6eca768b7d0b2f8f666e53d9f",
+      "what": "本轮验收与反空转的**原始输出**留档：两条验收命令 + 反空转脚本的 stdout 与退出码（未加工）"
+    },
+    "runs": {
+      "dir": "audit-evidence/U15/runs/",
+      "what": "每次运行的 result.json / cases.jsonl / detail.json（逐条用例状态、比较明细、写守卫记录、临时目录清理结果）"
+    }
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "schema": "whale-unify-receipt/1",
+  "card": "U17",
+  "title": "迁移闭环专项验收（A lane，独占）",
+  "status": "PASS",
+  "date": null,
+  "scope": "cards/U17.md 的精确写集：test/audit/U17.mjs（新建）+ docs/unify/receipts/U17.json（本回执）+ audit-evidence/U17/ 下本次新建的原始证据。既有测试无额外写权限。",
+  "scopeNote": "本卡不修生产文件：发现实现缺口只登记并退回原责任卡（cards/U17.md 停止条件）。夹具全部落在 E:\\Temp\\u17-<pid>\\，跑完自清；活包只读且本卡零访问。",
+  "base": {
+    "branch": "refactor/unify-20261018",
+    "head": "2f57b1f2cec02e4128b69497e3b6819d36aa707b"
+  },
+  "completion": [
+    "新增 test/audit/U17.mjs（走 test/audit/unify-runner.mjs 的 runCard，固定 A01–A08，逐项真 await）：只用 **U05 真 CLI**（tools/migrate-pack.mjs，参数数组调用）+ **U19 真生成包**（模板铺出来的包里自带 14 份 tools/unify/*.cjs）。",
+    "A01：从基线自建旧包（模板 writeScaffold + 手写课程页/EXPECT + 四个可写台账的历史身份写法）→ `--plan` 零写（整树逐字节清单前后相同）→ 缺 --confirm exit 2 → 显式 `--apply --confirm --plan-digest` 成功（回显摘要一致、replaced>0、备份目录真实存在）。",
+    "A02：身份引用闭合 —— 四个可写台账里不再有一处历史形状（裸 point / 两段课键 / 窄宽课号）；行数与条目数不变、学生原话/日期/ts/顺序逐字保留；goals 的版本链（v / replaces）不合并不重排；**决-8 的两类**（notes/notes.jsonl 的 anchor = 星图课次键、assets/questions-data.js 的 lesson = 显示名）在带派生文件的夹具上被 `--plan` **逐条识别**并给出候选与 blocked-rebuild-missing 原因，`--apply` **整次拒绝且零字节落位**（不是静默丢条）。",
+    "A03：迁移后两条读取路径都通 —— 宿主 `readPack` + 内核 `lib/unify/pack.cjs#lessonIndex().byKey` + **包内副本** `<包>/tools/unify/pack.cjs#lessonIndex().byKey` 三路键集合一致、conflicts=0、包侧 tools/lesson-map.js 导出面可用；读到的键一律三段规范形状（无隐式双读）。",
+    "A04：受信重建 —— 包侧 build-lessons.js / build-notes.js / assets/build-glossary.js 三条链 exit 0（无 MODULE_NOT_FOUND，GLOSSARY.md 真产出）；**失败面**：拿掉包内 tools/unify/render.cjs 后 build-lessons 明确非零退出并点名 Cannot find module，且既有产物整树逐字节保持不变（构建失败不改既有产物）。",
+    "A05：重复 apply 被拒绝（MIGRATION_NOTHING / PLAN_STALE 一类），字节零变化；改动一个字节后旧 planDigest 立刻被判过期（PLAN_STALE），仍零字节落位。",
+    "A06：盲回滚被拒 —— 迁移后**真的改了一处**（学生原话多一个字）再回滚 ⇒ 拒绝（PLAN_STALE：当前字节与\"迁移后\"摘要不符），且不写一半；复原成迁移后字节再显式回滚 ⇒ ROLLBACK ok=true，四个台账逐字节回到写前（历史形状也随之一并回来，证明确实恢复的是原始字节）。",
+    "A07：变异对照 —— 把迁移后副本的 intake.point 改回裸 point、evidence.lesson 改回两段课键，闭合判据分别变红并点名（判据可证伪，不是恒真）。",
+    "A08：活包零访问/零写入（进程内 fs 写守卫逐笔归因 + 显式拒绝活包路径）、主仓 HEAD 仍为固定基线、本次运行没写过自己的入口；证据落 audit-evidence/U17/。",
+    "判词：`PASS U17 checks=8 failed=0 skipped=0`，exit 0。"
+  ],
+  "dependencies": {
+    "U05": "tools/migrate-pack.mjs（--plan / --apply --confirm --plan-digest / --rollback --confirm --plan-digest --backup）与 lib/unify/migration.cjs 的三闸/回执契约：本卡只用、不改。",
+    "U19": "lib/pack-template/tools/unify/ 十四份运行内核副本 + TEMPLATE_FILES/ENGINE_FILES/TOOLS_KEEP 登记 —— 本卡 A04「受信重建真的能跑」依赖它；A01/A02 的夹具包就是模板铺出来的，因此也验证了 U19 的随包闭环。",
+    "U13/U14/U15/U16/U18": "读取路径与记录构建的产物形态（本卡只经公开入口读，不复制它们的实现）。"
+  },
+  "interfaceConsumption": {
+    "interfacesMd": {
+      "path": "docs/unify/interfaces.md",
+      "consumed": [
+        "§2 身份边界（知识点键 circle/point、课次键 circle/point/NNNN；显示文字与身份分开）",
+        "§5 码表（本卡不新增码；只读码值 PLAN_STALE / MIGRATION_NOTHING / CONFIRM_REQUIRED 等）",
+        "§6 U17 写集行（只两个 tracked 落点 + 证据目录）"
+      ]
+    },
+    "authorizationJson": {
+      "path": "docs/unify/authorization.json",
+      "consumed": [
+        "scope.A（本卡**不消费** A 面：A 面只归 U09/U10/U14）",
+        "constraints（不升版/不发布/不 push/唯一提交者 U20/活包只读）"
+      ]
+    },
+    "thirdBatch": "交接文件 E:/Temp/HANDOFF-U-SERIES-20261020.md §4 决-8（状态：已确认，用户原文「确认」）：assets/questions-data.js 的 lesson 与 notes.js 的 anchor 显示名迁移归 U17 —— 本卡按「识别 + 阻断 + 受信重建」闭环落实，见 A02/A04。"
+  },
+  "writeSet": [
+    { "path": "test/audit/U17.mjs", "kind": "added", "note": "本卡唯一入口（固定 A01–A08）" },
+    { "path": "docs/unify/receipts/U17.json", "kind": "added", "note": "本回执" }
+  ],
+  "writeSetIgnored": [
+    "audit-evidence/U17/ 下本次新建的原始证据（已 gitignore；不覆盖旧证据）"
+  ],
+  "writeOutOfSet": "无。本卡零生产文件改动、零既有测试改动、零 test/audit/T*.mjs 改动；夹具只在 E:\\Temp\\u17-<pid>\\ 下建与删。",
+  "deltas": [
+    {
+      "id": "U17-D1",
+      "kind": "decision-8-display-name-closure",
+      "title": "决-8 的两类「显示名 / 星图课次键」引用：识别 + 整次阻断 + 受信重建闭环，而不是就地改写",
+      "what": "U05 把 assets/questions-data.js（lesson=显示名）、notes/notes.jsonl（anchor=星图课次键）连同另两件派生产物一律列为 blocked-rebuild-missing（改它们会让派生产物陈旧）。本卡按 U17 卡面的停止条件**不修生产代码**，用三条实证给出闭环：① `--plan` 逐条识别并给出候选（programming/spring-boot/0001）与 blocked-rebuild-missing 原因；② `--apply` 整次拒绝、零字节（无静默丢条）；③ U19 之后**受信重建真的能跑**（build-lessons / build-notes / build-glossary 全 exit 0），所以派生产物陈旧这一顾虑在新包装上不再成立 —— 解除路径是「迁移台账 + 重建产物」，不是「手改派生物」。",
+      "whyNotPatched": "改 migration.cjs 的阻断表属 U05 写集（本卡只写专项与回执）；按卡面「发现实现缺口只发修正回执，退回对应原卡」，本卡登记而不越界。",
+      "residual": "把这两类的阻断从 \"blocked\" 升级成 \"可迁移 + 强制重建\" 需要 U05 侧一次性授权改 BLOCKED_FILES；本轮不在授权面内，故维持「识别并阻断」。显示名不是身份（U-SPEC §2），就地改写本身也不是正确修法。",
+      "evidence": "audit-evidence/U17/runs/<pid>/a02-closure.json（blockedClasses + applyRefused）与 a04-rebuild.json"
+    },
+    {
+      "id": "U17-D2",
+      "kind": "rebuild-failure-must-not-touch-artifacts",
+      "title": "构建失败的判据用「拿掉一个运行内核副本」制造，而不是伪造注入",
+      "what": "A04 的失败面：在包副本里删掉 tools/unify/render.cjs ⇒ build-lessons 必然 Cannot find module（这正是 U19 之前所有包的真实状态 R1），且既有产物整树逐字节不变。比「注入一个假失败」更贴真实故障形状。",
+      "evidence": "audit-evidence/U17/runs/<pid>/a04-rebuild.json"
+    }
+  ],
+  "assertions": {
+    "A01": "从基线自建旧包完成 plan（零写）+ 显式 apply（缺少 confirm 或摘要分别被拒；成功时摘要一致、replaced>0、备份真实存在）。",
+    "A02": "四个可写台账身份引用闭合、无丢条、学生原话/日期/顺序/版本链逐字保留；决-8 的两类被 --plan 逐条识别（带候选与 blocked-rebuild-missing）且 --apply 整次拒绝零字节。",
+    "A03": "迁移后宿主 readPack + 内核 lessonIndex.byKey + 包内副本 lessonIndex.byKey 三路一致、conflicts=0、键一律三段规范形状。",
+    "A04": "包侧 build-lessons / build-notes / build-glossary 三条受信重建链 exit 0；缺运行内核时明确失败且既有产物逐字节不变。",
+    "A05": "重复 apply 被拒且零字节；改动一个字节后旧 planDigest 被判 PLAN_STALE。",
+    "A06": "后续修改后盲回滚被拒（不覆盖别人的修改）；复原后显式回滚把四个台账逐字节还原到写前。",
+    "A07": "漏掉一种引用转换（裸 point 回流 / 两段课键回流）时闭合判据必须变红并点名。",
+    "A08": "活包零访问/零写入（fs 写守卫逐笔归因）、主仓 HEAD 不变、运行期没写过自己的入口、证据完整。"
+  },
+  "verdict": {
+    "line": "PASS U17 checks=8 failed=0 skipped=0",
+    "code": 0,
+    "command": "node test/audit/U17.mjs",
+    "meaning": "迁移闭环在**自建旧包**上真跑通过：可计划、可显式执行、迁移后两条读取路径都通、受信重建可跑且失败不改产物、重复/过期计划被拒、回滚可还原且不许盲回滚、旧形状不回流。",
+    "boundary": "专项 PASS 只证明本卡范围：不改生产文件、不在活包上 apply/rollback（活包只读，迁移入活包不在本轮授权内）。全量与提交归 U20。"
+  },
+  "unverified": [
+    "未在**活包**上做任何 plan/apply/rollback（活包只读，仅在 U01/U20 两窗口可读）；真实课程包的迁移升级不在本轮授权内。",
+    "决-8 的两类目前仍由 U05 的 BLOCKED_FILES 无条件阻断：本卡证明「识别 + 整次拒绝 + 重建可用」，但把阻断降级为「可迁移 + 强制重建」需要 U05 侧的授权改动，本轮未做（见 deltas.U17-D1.residual）。",
+    "未跑全量（test/all.mjs 只在 U20 唯一窗口跑一次）；未跑 T 卡入口（T 线冻结，自动入口只在 U20 的 E:\\Temp 副本里跑）。",
+    "A04 的三条重建链用夹具包验证；真实包的构建还需要学生自己的课程内容合法（不在本卡范围）。"
+  ],
+  "evidenceIndex": {
+    "command": ["node test/audit/U17.mjs"],
+    "exitCodes": { "node test/audit/U17.mjs": 0 },
+    "runs": {
+      "dir": "audit-evidence/U17/runs/U17-<pid>",
+      "files": ["a01-plan-apply.json", "a02-closure.json", "a03-read-paths.json", "a04-rebuild.json", "a05-repeat.json", "a06-rollback.json", "a07-mutations.json", "a08-guard.json", "cleanup.json", "cases.jsonl", "result.json", "verdict.json"]
+    },
+    "note": "原始 stdout/stderr/退出码/逐项明细在忽略的 audit-evidence/U17/ 下；本回执只存索引与摘要。"
+  }
+}

@@ -1037,21 +1037,44 @@ async function main() {
 
   check('T10-source-wired', () => {
     const strip = (s) => String(s).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
+    const codeOf = (rel) => strip(fs.readFileSync(path.join(REPO, rel), 'utf8'))
+    /* U14 起记录构建与**共同提交边界**收进 `lib/unify/records.cjs`（goal / teaching / intake 走
+     * `lib/unify/stage.cjs` → `lib/unify/commit.cjs`），适配层不再**自己**持有 `withPackTransaction`。
+     * 原意（适配层不许裸写台账）不变、强度不降，只是把"握手"写成**委托链**并逐环验证：
+     *   ① 适配层必须 require 到委托件（不许自己另起一套提交）；
+     *   ② 必须**真的调用**委托件的记录写入口；
+     *   ③ 委托链末端必须真的在 `withPackTransaction(` 里提交（删掉提交边界这一步就红，不是恒真）；
+     *   ④ 适配层仍不许有 appendFileSync / ftruncateSync 这种绕过事务的写路径。 */
     const files = [
-      ['lib/notes-io.js', ['appendNote']],
-      ['lib/ask-io.js', ['handleAsk', 'handleAnswer']],
-      ['lib/goal-io.js', ['recordGoal']],
-      ['lib/teaching-io.js', ['recordTeaching']],
-      ['lib/intake.js', ['recordIntake']],
-      ['lib/glossary-edit-io.js', ['writeTermSurgically']],
+      // [适配层, 保留入口, [[委托件, …要向它调用的记录写入口], …]]
+      ['lib/notes-io.js', ['appendNote'], [['./unify/records.cjs', 'appendNoteRecord']]],
+      ['lib/ask-io.js', ['handleAsk', 'handleAnswer'],
+        [['./unify/records.cjs', 'appendAskRecord'], ['./unify/records.cjs', 'appendAnswerEntry']]],
+      ['lib/goal-io.js', ['recordGoal'], [['./unify/stage.cjs', 'appendRecord']]],
+      ['lib/teaching-io.js', ['recordTeaching'], [['./unify/stage.cjs', 'appendRecord']]],
+      ['lib/intake.js', ['recordIntake'], [['./unify/stage.cjs', 'appendRecord']]],
+      ['lib/glossary-edit-io.js', ['writeTermSurgically'],
+        [['./pack-template/tools/ledger-transaction.cjs', 'withPackTransaction']]],
     ]
-    for (const [rel, fns] of files) {
-      const code = strip(fs.readFileSync(path.join(REPO, rel), 'utf8'))
-      h.eq(code.includes('withPackTransaction('), true, `${rel} 真的调用了 withPackTransaction`)
+    for (const [rel, fns, delegates] of files) {
+      const code = codeOf(rel)
+      for (const [delegate, ...entries] of delegates) {
+        h.eq(code.includes(delegate), true, `${rel} 把写操作交给 ${delegate}（不许自己另起一套提交）`)
+        for (const entry of entries) {
+          h.eq(new RegExp(`\\b${entry}\\s*\\(`).test(code), true, `${rel} 真的调用了 ${delegate} 的记录写入口 ${entry}()`)
+        }
+      }
       h.eq(code.includes('pack-template/tools/ledger-transaction.cjs'), true, `${rel} 从事务件 require（卡面路径）`)
       for (const fn of fns) h.eq(new RegExp(`export\\s+(?:async\\s+)?function\\s+${fn}\\b`).test(code), true, `${rel} 保留入口 ${fn}`)
       h.eq(/appendFileSync|ftruncateSync/.test(code), false, `${rel} 不再有绕过事务的 append/truncate 写路径`)
     }
+    // ③ 委托链末端：事务件本身必须真的被调用（不是恒真 —— 删掉提交边界这里就红）
+    for (const rel of ['lib/unify/records.cjs', 'lib/unify/commit.cjs']) {
+      h.eq(codeOf(rel).includes('withPackTransaction('), true, `${rel} 真的在 withPackTransaction 里提交`)
+    }
+    const stage = codeOf('lib/unify/stage.cjs')
+    h.eq(stage.includes('./commit.cjs'), true, 'lib/unify/stage.cjs 从提交件 require（不是第二套提交）')
+    h.eq(/\bapplyCommit\s*\(/.test(stage), true, 'lib/unify/stage.cjs 真的调用 commit.cjs 的 applyCommit()')
   })
 
   check('T10-negative-controls', async () => {

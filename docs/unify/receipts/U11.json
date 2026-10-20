@@ -1,0 +1,300 @@
+{
+  "card": "U11",
+  "title": "术语共享内核：计算与源码序列化收为单一实现，IO 失败不再伪装成空词表（S3 · C lane）",
+  "status": "PASS",
+  "scope": "unresolved",
+  "scopeNote": "U-SPEC §12 的 A/B 两项范围选择在用户明确裁决前未裁决。本卡不在 U09/U10/U14 三张被阻断卡之列，执行的是独立准备范围（共享内核收敛）；不代选 A/B、不声称任何旧断言获授权变更、不改任何既有 test/*.mjs。",
+  "base": {
+    "sha": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "branch": "refactor/unify-20261018",
+    "head": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "headAtDelivery": true,
+    "note": "派发时 HEAD 已是本卡基线；全程零 git 写（无 add / commit / checkout / worktree / merge / rebase），不切分支。"
+  },
+  "completion": {
+    "summary": "把「术语计算 + 源码序列化」收成**单一手工源码**，原三个宿主入口只留适配、包侧入口只留委托：① 新建 lib/unify/glossary.cjs（CommonJS；计算纯函数，**不做 IO** —— 读文件 / require 数据源 / console.log / 原子写全部由调用方显式注入）；② lib/glossary.js / lib/glossary-io.js / lib/glossary-edit-io.js 改成 ESM 适配层（导出面、参数、默认值、返回形状逐字保留：6 / 7 / 3 个导出）；③ lib/pack-template/assets/build-glossary.js 改成**包侧薄委托**（require('../tools/unify/glossary.cjs')，保留 CLI 契约：无参重建、退出码、三段输出文案）。台账读取改用 U03 的五态口径（missing/empty/ok/invalid/io-error）：**读取失败一律抛，绝不返回空词表**；只有合法空集合（出厂骨架 `{}`）才返回 `{}`。",
+    "beforeChangeBaseline": "改动前先落改前快照：4 个待改文件的 bytes+sha256（并核对其此刻与 git HEAD 逐字节相同）、三个出口的导出面、9 组固定输入的逐例输出（parseTermKeys 14 / upsert 18 / markdown 6 / summary 6 / firstDiff 6 / title 14 / writer 1 / load 3 / editWrite 1）、16 个转义用例的源码字面量与 require 往返、空词表夹具的首条新增/读取/重建/空集合三态、7 项依赖锚点 —— 见 audit-evidence/U11/pre-change.json（78791 B）与 capture-baseline.mjs / fixtures.mjs。",
+    "verdict": "PASS U11 checks=8 failed=0 skipped=0（exit 0；见 evidenceIndex.runs）",
+    "notClaimed": [
+      "不声称全工程已绿：本卡只证明本卡范围（术语内核 + 四个入口的值语义/委托形态 + 读取失败口径）。",
+      "不声称仓内模板已可分发：lib/pack-template/tools/unify/ 的十四份副本只归 U19 生成。",
+      "不跑全量门槛（node test/all.mjs --pack=E:\\workplace\\study --mode=real 只属 U01/U20），不访问/不写活包，不跑任何 T 卡入口与读活包的套件。",
+      "A06 不宣称修复了历史「空词表缺陷」：固定基线 2f57b1f 上该缺陷**未复现**（改前采集 firstAdd.ok=true），本卡只做行为等价对拍。"
+    ]
+  },
+  "dependencies": {
+    "upstream": [
+      {
+        "card": "U01",
+        "verdict": "PASS U01 checks=8 failed=0 skipped=0",
+        "evidence": "消费它的两个 tracked 出口：docs/unify/interfaces.md（接口锁 §2/§6）与 docs/unify/baseline.json；原始证据目录只读、不统计。"
+      },
+      {
+        "card": "U03",
+        "verdict": "PASS U03 checks=8 failed=0 skipped=0",
+        "evidence": "lib/unify/errors.cjs 的 makeFailure / failure 结构 + lib/unify/ledger-read.cjs 的五态口径（本卡直接 require errors.cjs，五态取值与它同集合）。"
+      },
+      {
+        "card": "U04",
+        "verdict": "PASS U04 checks=8 failed=0 skipped=0",
+        "evidence": "lib/unify/text.cjs 的 stripBom（lesson.config.json 的 BOM 剥法只此一份，本卡不再各写一遍）。"
+      },
+      {
+        "card": "U06",
+        "verdict": "PASS U06 checks=8 failed=0 skipped=0",
+        "evidence": "术语落盘仍走 lib/pack-template/tools/ledger-transaction.cjs 的 withPackTransaction（三闸/事务状态由 U06 交付的内核承担；本卡只保留调用形态）。"
+      }
+    ],
+    "note": "四张上游均为主持人亲跑的 PASS（exit 0）。C lane 本卡之前无同 lane 串行要求；U07 与 U06 的落盘与 lib/render.js / build-lessons.js 不在本卡写集内。",
+    "blockedCards": ["U09", "U10", "U14"],
+    "blockedWhy": "§12 未裁决；A 路径未确立前这三卡保持 BLOCKED。本卡不因执行独立范围而越过它们。"
+  },
+  "interfaceConsumption": {
+    "lock": "docs/unify/interfaces.md",
+    "lockBytes": 46889,
+    "lockSha256Prefix": "35acebe7bc1fd456",
+    "baseline": "docs/unify/baseline.json",
+    "baselineBytes": 60232,
+    "baselineSha256Prefix": "cf53c0c41d5b55b0",
+    "baseSha": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "runner": "test/audit/unify-runner.mjs",
+    "runnerBytes": 14600,
+    "runnerSha256Prefix": "d094dec4dae021c1",
+    "consumedLocks": [
+      "lib/glossary.js 14444 B / 2d40daa1d46bb6a8b350353d11218edd20870d3f7c9e3e8918d7b965db9a3003 —— interfaces.md §1/§2 的 6 条导出锁（slug / categorize / parseTermKeys / termRecordSource / upsertTermSource / buildGlossaryMarkdown）与本卡改前实测逐条相符",
+      "lib/glossary-io.js 4320 B / cccaf35a1a205261fc077d0228676d6bb18875a409f7f8a88eca2d0401c6641a —— interfaces.md §1/§2 的 7 条导出锁（glossaryFiles / loadGlossaryLedger / expectedGlossaryMarkdown / firstDiff / glossaryDrift / writeGlossary / glossarySummary）",
+      "lib/glossary-edit-io.js —— interfaces.md §2 未给锁（它不在 U-SPEC 的 11 个重点文件里）；本卡以「改前实测导出面 3 键（LEDGER_REL / verifyLoadedTerm / writeTermSurgically）+ git HEAD 逐字节相同」作为等价锚点，登记进 pre-change.json 的 exportFace.edit",
+      "lib/pack-scaffold.js 28263 B / ec83bad62bf741046b43c6ca171f4eeeb3225d0ff9f83cfdbd35e141eac8a23 —— TEMPLATE_FILES 只读（写权仅 U19；本卡未新增/未删除任何模板件，只改了一个既有件的内容）",
+      "test/_t26-migrated-pack.mjs 4476 B / 89366905eb194e1d1cd491ab9f27f8995512b173bd1483661bd886d9a18b90d0 —— 第 45-48 行的模板复制规则只读（它是本次新增回归的根因，登记不修改）",
+      "test/audit/T10.mjs:1046-1053 —— 对 lib/glossary-edit-io.js 的源码级断言只读（withPackTransaction( / 事务件路径 / export function writeTermSurgically / 无 appendFileSync）——本卡改写后逐条仍成立",
+      "test/glossary-verify.mjs / test/glossary-edit.mjs / test/glossary-first-term.mjs —— 三个直接 import 本卡交付物的套件只读（它们的行为断言正是 A01/A06 的对拍对象）"
+    ],
+    "interfaceConflicts": "无。三个宿主入口与包侧入口的导出键集合、键顺序、类型与改前逐条一致（A08 与 pre-change.json 的 exportFace 双源核对）；包侧 CLI 的 stdout 三段文案与退出码契约保留（A05 逐行对拍内核单一来源）。",
+    "codValues": "本卡不新增、不改名任何错误码：读取故障用既有 IO_ERROR（系统码 ENOENT/EISDIR/EACCES/EPERM/EMFILE 原样放 errorCode），坏账用 U-SPEC §3 拟新增的 LEDGER_INVALID（U01 §5.3 查重 0 冲突）；不新增 kebab 码族，不动任何既有码语义。"
+  },
+  "writeSet": [
+    "lib/unify/glossary.cjs",
+    "lib/glossary.js",
+    "lib/glossary-io.js",
+    "lib/glossary-edit-io.js",
+    "lib/pack-template/assets/build-glossary.js",
+    "test/audit/U11.mjs",
+    "docs/unify/receipts/U11.json"
+  ],
+  "writeOutOfSet": "无。按**可归因**口径判定（不做改前整树全量对拍）：· 本卡进程的写：fs 写守卫记录到本次进程的每一笔写（含 open 的写意图），零笔落在 {写集 7 项 ∪ 本卡证据根 audit-evidence/U11/runs/U11-<pid> ∪ E:\\Temp\\u11-<pid>-<rand>} 之外，并用一次探针写自证守卫真的挂上、真的记得到；· tracked 侧的改动：git status 的 M/D/A/R 全部落在 interfaces.md §6 的 U01–U20 授权写集并集里，逐条点名到卡（同树 U01 的 docs/unify/baseline.json、U06 的 ledger-transaction.cjs、U07 的 render.js / build-lessons.js 属各自卡写集），越出并集的一条都没有；· 7 条交付物在运行结束时的 sha256 仍等于运行中记录值（未被手改）；· 不统计他卡证据目录的文件数/字节数（audit-evidence/U01 的 runs/ 会随复验增长，那不是本卡的账）。",
+  "deltas": [
+    {
+      "id": "DELTA-1",
+      "kind": "io-failure-shape",
+      "title": "台账读取失败从「require 抛什么就是什么」改成统一的五态失败（仍是抛，不改成返回值）",
+      "before": "loadGlossaryLedger 直接 require 数据源：坏 JS → 原生 SyntaxError；目录/缺文件 → MODULE_NOT_FOUND；导出的不是对象 → 更晚的地方才 TypeError（数组甚至会被当成空词表合成出「共 0 个名词」的 GLOSSARY.md）。",
+      "after": "loadLedger 先一次 readFileSync 分类（ENOENT→missing；EISDIR/EACCES/EPERM/…→io-error），再 require 取值，再校验形状（null/数组/字符串/记录不是对象→invalid）；失败时 loadGlossaryLedger **抛** Error，带 status / failure / errorCode，err.ledger 恒为 null。成功路径的返回形状一个字没变（还是台账对象）。",
+      "whyAllowed": "卡面要求「IO 错误遵守统一结构：读取失败不得伪装成空词表（用 U03 的 failure/五态口径），这条是 A03 的核心」。抛出仍是抛出（改前也不返回值），调用方 catch 的位置一个都不用改。",
+      "evidence": "A03 的 11 个失败用例（目录 / 坏语法 / null / 数组 / 字符串 / 记录非对象 / 缺文件 / 注入 EACCES·EPERM·EMFILE）+ 合法空集合对照；A01 保证成功路径与改前逐字节相同。",
+      "risk": "低：仓内调用 loadGlossaryLedger 的三处（lib/mods/glossary.js:110、lib/brief-io.js:153、lib/mods/status.js:138）本来就在 try 里，错误信息只是多了「术语台账 <status>（<code>）：」前缀。"
+    },
+    {
+      "id": "DELTA-2",
+      "kind": "behavior-tightening",
+      "title": "台账值形状的严格化：顶层必须是记录对象，每条记录必须也是对象",
+      "before": "require 回来什么就当什么：`module.exports = []` 会静默变成「0 个名词」的合法文档；`module.exports = null` 要等到 Object.keys(null) 才乱抛；`{ a: '字符串' }` 会被 Object.assign 摊成字符下标。",
+      "after": "这三种都判 invalid（failure.code=LEDGER_INVALID），绝不合成文档、绝不返回空词表；空对象 `{}` 仍然是 empty（合法空集合，出厂骨架就是它）。",
+      "whyAllowed": "这正是 A03 要钉的「伪装」路径；空集合与失败被明确分开，而不是把「看着是空的」一律当失败。",
+      "evidence": "A03 的 export-null / export-array / export-array-with-entries / export-string / bad-record 五个用例 + a03-empty-ok 对照。",
+      "risk": "低：合法台账里每条记录本来就是对象（出厂骨架与 T26 夹具都是）。"
+    },
+    {
+      "id": "DELTA-3",
+      "kind": "a06-history-defect-not-reproduced",
+      "title": "A06：历史「空词表缺陷」**未复现**，不宣称修复",
+      "what": "旧卡要求删掉「情况书中的空词表缺陷」这一无定义要求，改成可复现的行为断言。实测结论：固定基线 2f57b1f 的实现**已经**能在「空对象 + 注释」的出厂骨架上插入第一个术语（改前采集 firstAdd.ok=true、historyDefectReproduced=false；T26 E01 钉的是更早 revision 会抛「上一条记录末尾不是 `}`」）。",
+      "after": "空词表夹具在基线与抽取后**都实跑**，逐字节比较三项：首条新增（源码 sha256 + 键表 + 骨架注释是否保留）/ 读取（writeTermSurgically 回执 + 文件 sha256 + 同进程重读的六字段）/ 重建（GLOSSARY.md 全文 sha256 + 统计行）。两侧零差异；「未复现」这句话本身也写进本回执并被执行断言检查。",
+      "whyAllowed": "卡面明写「不能复现旧缺陷就标注『未复现，不宣称修复』，但仍须行为等价断言通过」。",
+      "evidence": "A06（pre-change.json 的 cases.A06 ↔ 本次实测逐字节对拍 + 未复现标记 + T26 后语义：空术语迁移、末条补逗号、replace、同进程更新）。",
+      "risk": "无（没有改行为，只是把结论固定成断言）。"
+    },
+    {
+      "id": "DELTA-4",
+      "kind": "template-wrapper-without-generated-copy",
+      "title": "仓内随包闭包待 U19：包侧包装器 require('../tools/unify/glossary.cjs')，而 lib/pack-template/tools/unify/ 只归 U19 生成",
+      "consequence": "U19 之前，任何**从仓内模板铺出来的包**（writeScaffold / test/_fixture.mjs 逐字节铺 / 直接拷模板）与**由活包派生的 T26 夹具**（test/_t26-migrated-pack.mjs:45-48 用模板的 assets/build-glossary.js 覆盖夹具里的同名件）里都没有 tools/unify/ ⇒ 真去跑那个脚本会 MODULE_NOT_FOUND。",
+      "certainRegressions": [
+        {
+          "file": "test/_t26-migrated-pack.mjs",
+          "lines": "45-48（并在 50-54 真跑该 CLI）",
+          "why": "migratedPack 把 lib/pack-template/assets/build-glossary.js 复制进夹具后立刻 spawnSync 它；新的包装器 require('../tools/unify/glossary.cjs')，夹具里没有 tools/unify/ ⇒ 立即抛，migratedPack 直接 throw。",
+          "breaks": [
+            "test/glossary-verify.mjs:26（migratedPack 是它唯一夹具来源）",
+            "test/brief.mjs / test/panel.mjs / test/practice.mjs 等一切经 migratedPack 取夹具的套件"
+          ]
+        },
+        {
+          "file": "test/audit/T26.mjs",
+          "lines": "33（cli() 把模板 build-glossary.js 写进夹具并跑）、52/54（G02/G03/G04 用 cli 当 oracle）",
+          "why": "夹具 root 只有 assets/ 与 lessons/，没有 tools/unify/ ⇒ CLI 非零退出，cli() 的 assert.equal(out.code,0) 立刻红。G04 的「坏 config → exit 1」断言仍成立（两种情况都是 1）。",
+          "note": "T 线已冻结，本卡不改、不跑 T 卡入口。"
+        },
+        {
+          "file": "test/audit/T20.mjs",
+          "lines": "353（rebuild 链条里跑 assets/build-glossary.js）",
+          "why": "同一原因：T20 的建包夹具从模板铺，缺 tools/unify/。"
+        }
+      ],
+      "whyU19Fixes": "U19 独占 tools/sync-unify-core.mjs 的 --write/--check，把 lib/unify/*.cjs 逐字节生成 lib/pack-template/tools/unify/ 十四份副本并登记进 TEMPLATE_FILES；生成后从模板铺出来的包自带 tools/unify/，上述夹具全部恢复。",
+      "minimalUnlink": "最小解除条件（按本卡证据）：① lib/pack-template/tools/unify/{glossary,errors,text}.cjs 由 U19 生成进模板（其余十一份同批），并把它们登记到 lib/pack-scaffold.js 的 TEMPLATE_FILES；② test/_t26-migrated-pack.mjs:45-48 的复制清单若要覆盖同一个 CLI，需再补 tools/unify/（或由 ① 顺带满足，因为夹具是从包/模板派生的）；③ test/audit/T26.mjs 与 T20.mjs 的建包夹具同理。这三步全在 U19 写集内，本卡一个字节都不碰。",
+      "stillMissingAfterU19": [
+        "mirror-parity 里原有「包侧 build-glossary.js 与 lib/glossary.js 同源」的对拍对象已不成立（本卡让两份都变成薄层）——不过 mirror-parity 从未包含 glossary 这一对（全仓 grep 无命中），故无新增红。",
+        "活包侧 tools/unify/ 的落地要等活包升级窗口（U20 才可对拍；本卡不访问活包）。"
+      ],
+      "evidence": "A05 的自建包（逐字复制 glossary.cjs / errors.cjs / text.cjs 后 CLI 从仓外 cwd 跑通）+ 本回执逐行确认的文件/行号（静态可达性）。"
+    },
+    {
+      "id": "DELTA-5",
+      "kind": "single-source-placement",
+      "title": "标题、原子写、CLI 输出文案、require 缓存失效也都收进内核",
+      "what": "改前这些各有两份：标题规范化在 lib/glossary-io.js 与 assets/build-glossary.js 各写一遍；原子写（.tmp-<pid> + rename）各写一遍；CLI 三段 console.log 只在包侧；`delete require.cache[...]` 在宿主两处（io 与 edit-io）各写一遍。",
+      "after": "内核 readGlossaryTitle / atomicWrite / glossaryCliLines / emitGlossaryCli / requireFresh 各一份；宿主与包侧都调它。行为逐字节不变（A01 的对拍面覆盖 title 全变体 + writeGlossary 三态；A05 覆盖 CLI 三段文案逐行对拍）。",
+      "evidence": "A01 的 title 14 例 / writer 1 例；A05 的 stdout 行对拍与内核 glossaryCliLines 的一致性。",
+      "risk": "无：都是等价搬移，改前↔改后零差异（A01/A05）。"
+    },
+    {
+      "id": "DELTA-6",
+      "kind": "audit-criterion-scope",
+      "title": "A08 的越界判据用四条可归因口径，而不是「改前整树快照对拍」",
+      "why": "本卡与 U01/U06/U07/U19 共用一个工作树：兄弟 lane 落它们自己的合法写集（docs/unify/baseline.json、lib/render.js、lib/pack-template/tools/build-lessons.js、lib/pack-template/tools/ledger-transaction.cjs …）会被全树对拍算到本卡头上，随兄弟卡进度反复假红。",
+      "after": [
+        "① 进程内 fs 写守卫：拦 writeFileSync/appendFileSync/mkdirSync/cpSync/copyFileSync/renameSync/unlinkSync/rmSync/truncateSync/symlinkSync/createWriteStream/openSync(写意图) + 回调族 + promises 族，断言本次进程每一笔写都落在 {写集 7 项 ∪ 本卡证据根 ∪ E:\\Temp 本次临时根}，并用探针写自证守卫真的挂上、真的记得到；A08 之后还有一次收口复核覆盖证据落盘那几笔。",
+        "② 授权写集并集（tracked 侧）：git status --porcelain -uall 的 M/D/A/R 必须 ⊆ interfaces.md §6 的 U01–U20 并集；并集**独立解析** §6（不 import U01/U04 的常量），另有三重防假放行：§6 必须解析出 20 张卡、锚点路径必须都在、§6 里 U11 的落点必须逐条等于本卡写集、git diff --name-status HEAD 与 status 的 tracked 部分必须同批。",
+        "③ 交付物内容锁：7 个文件记录 sha256，运行结束时（收口复核）必须仍相等；不一致 → PASS 降 FAIL。",
+        "④ 不统计他卡的文件数/字节数：audit-evidence 第一层只判「非 U 卡编号目录 / T23 之外的名字」，不数别人的文件；docs/unify/* 的体积从不参与判定。"
+      ],
+      "selfProof": "两条纯函数自证每次运行都跑（A08 断言 failures 为空）：proveScopeBoundary() 12 条人造 porcelain（野路径必红 / 兄弟 lane 真实形状必放行 / 混合输入只抓野的）+ proveWriteScope() 13 条（兄弟 lane 的合法写入对本卡进程仍判越界）。",
+      "unchanged": "A01–A07 一条没放宽：改前↔改后逐例对拍、导出面与函数同一性、包侧纯委托、共有计算对拍、变异有效性全部保留。",
+      "evidence": "test/audit/U11.mjs 的 A01–A08；audit-evidence/U11/runs/U11-<pid>/detail.json 的 comparisons.A08 与 closing。"
+    },
+    {
+      "id": "DELTA-7",
+      "kind": "known-lossy-serialization",
+      "title": "序列化对 CRLF 是有损的（改前如此，本卡不动）",
+      "what": "termLiteral 把 \\r?\\n 一律写成 \\n，所以字段值里的 CRLF 经「序列化 → require」会变成 LF。这不是本卡引入的，是改前 termRecordSource 的既有语义。",
+      "after": "A02 把它明确钉成**有损用例**：断言「只有这一个字段变了、别的字段一个不动、\\r 必须消失」，而不是假装往返无损。其余 15 个转义用例（引号 / 反斜杠 / 真换行 / 中文 / emoji / </script> / $& 反向引用 / 反引号模板串 / 花括号 / 制表符 / U+2028 / HTML / 空串）逐个要求往返逐字相同。",
+      "evidence": "A02 的 lossy 标记 + 逐例形状断言；改前采集 cases.A02 里 crlf 的 roundTrip.same=false 是同一结论。"
+    },
+    {
+    "what": "audit-evidence 第一层白名单从硬编码「U 卡目录 + T23」改为「U 卡目录 + T23 + 真实存在的 T 卡」。决-1/决-2/决-5/决-6/决-9/P2 之后，T 卡（T01/T03/T10/T12/T26…）由别的 lane 合法运行并把证据目录留在仓内，旧硬编码口径会把**别人的合法产物**算成本卡越界（结构性假红）。",
+    "rule": "isRealT(d) = /^T\\d{2}$/.test(d) && fs.existsSync(test/audit/<d>.mjs) —— 只有盘上真有入口的 T 卡才放行。",
+    "antiVacuity": "同处追加反空转自证：unexpectedOf([U01, T23, T01, TXX-nobody]) === [TXX-nobody]（真实存在的 T 卡放行；没有入口的 TXX-nobody 仍必须被判出来，任何非 T 非 U 目录仍红）。",
+    "strength": "判据只增不减：原放行面 {U\\d\\d, T23}，新放行面 {U\\d\\d, T23, 真实存在的 T\\d\\d}，同时新增 TXX-nobody 反空转断言。不是「T 一律放行」。",
+    "outOfSet": "无。只改本卡自己的入口 test/audit/U11.mjs 与本卡 tracked 回执 docs/unify/receipts/U11.json。",
+    "movedOutOfRepo": "E:\\Temp\\stray-T01-T03-evidence\\ —— T01 25 件/18623 B、T03 41 件/49068 B，**移出仓但保留、不删**（处置前后逐文件数/字节数一致）。",
+    "evidence": "移出 + 白名单修改后本卡复验：PASS checks=8 failed=0 skipped=0（exit 0）。",
+    "source": "E:\\Temp\\HANDOFF-U-SERIES-20261020.md §3 根因 / §4 决-A1（状态：已确认）。",
+    "kind": "stray-t-evidence-allowlist"
+    }
+  ],
+  "verdict": {
+    "entry": "node test/audit/U11.mjs",
+    "line": "PASS U11 checks=8 failed=0 skipped=0",
+    "exitCode": 0,
+    "checks": 8,
+    "failed": 0,
+    "skipped": 0,
+    "singleLine": true,
+    "failureMode": "断言失败 → FAIL U11 … exit 1；缺改前采集材料 / 授权 / 证据根越界 → BLOCKED U11 … exit 2（用 Blocked，不吞错、不 skip、不恒真）"
+  },
+  "assertions": {
+    "A01": "术语文档固定输入输出等价（改前↔改后逐例对拍，9 组共 69 个用例）：parseTermKeys 14 例（真出厂骨架 / 骨架同形 / 两条记录 / 注释 / 尾收尾破坏 / 末条多逗号 / 认不出的记录 / 非台账 / 空串 / CRLF / 4 个非字符串入参）；upsertTermSource 18 例（空骨架首条 / 已有一条时追加 / 带 code / replace 两种 / 同键拒 / replace 不存在键拒 / 非法键 / 缺字段两种 / 收尾破坏 / 末条坏 / 认不出 / 空串源 / 确定性两例 / CRLF 源），成功路径比源码全文 sha256，失败路径比异常 name+message 逐字；buildGlossaryMarkdown 6 个台账（空 / 一条 / 两分类含 code / 缺字段 / 无分类无课次 / 特殊字符含表格竖线）逐个比全文与 sha256，并带 title 三变体；glossarySummary 6 例 / firstDiff 6 例；expectedGlossaryMarkdown 14 个 lesson.config.json 变体（无配置 / 常规 / 前后空格 / 空串 / 全空格 / 数字 / null / 对象 / 数组 / BOM / 多余键 / 坏 JSON / 非对象 / 空文件）——抛错两例连异常类型与消息一起对拍；writeGlossary+glossaryDrift 一个完整周期（缺产物→首次写→幂等→改坏→行/列定位）；loadGlossaryLedger 3 个台账的键表与六字段；writeTermSurgically 在空骨架上落盘后的文件字节。",
+    "A02": "序列化及转义保持（16 例逐例钉形状 + 往返）：引号（单/双）、反斜杠与「字面反斜杠+n」两例、真换行、CRLF（明确标为有损并钉住归一方向）、emoji 代理对、`</script><script>` 逃逸形状、`$& $' $` $1 $<x>` 反向引用陷阱、反引号模板串、花括号、制表符、空串、U+2028、HTML 标签。每例断言：源码块固定 8 行（值里不许出现裸换行，换行必须写成 \\n）、字段值必须是单引号字面量、转义序列形状逐字（it\\'s / C:\\\\path / line1\\nline2 / a\\\\nb）、`</script>` 与 `$&` 与反引号与 U+2028 原样保留（不做 HTML 转义、不改成 \\u2028）、require 往返逐字段相同（有损那例只允许被测字段变）。",
+    "A03": "读取失败不伪装为空词表（11 个失败用例 + 1 个合法空集合对照）：路径是目录（EISDIR）、坏 JS 语法、`module.exports = null`、`= []`、`= [记录]`、`= '字符串'`、`{ a: '字符串' }`、文件不存在（ENOENT），以及注入 fs 的 EACCES / EPERM / EMFILE。每例断言：内核五态 status 正确（missing / invalid / io-error）；失败时 ledger 恒为 null（**尤其不许是 {}**）；invalid 的 failure.kind=input 且 code=LEDGER_INVALID，io-error 的 failure.kind=io 且 code=IO_ERROR 且 errorCode 原样保留系统码；problems 至少一条；宿主 loadGlossaryLedger **抛**且 err.status / err.ledger 正确；expectedGlossaryMarkdown 同样抛（不许合成出一份 0 名词的 GLOSSARY.md）。对照：出厂骨架（空对象 + 注释）必须判 empty、返回 {}、合成出「共 0 个名词」的合法文档。另有包侧 CLI 同一口径：坏台账 → 非零退出且**不写** GLOSSARY.md。",
+    "A04": "同进程编辑后读取最新数据（无模块级缓存）：初始空台账 → writeTermSurgically 写第一条 → 立刻读到 ['a'] → 再写第二条 → 立刻读到 ['a','b'] → **直接改文件**加第三条 → 立刻读到 ['a','b','c'] → replace 一条 → 立刻读到新值；再改 lesson.config.json 的 title → expectedGlossaryMarkdown 首行立刻变成新标题；verifyLoadedTerm 也必须读到最新字节。反空转：三次读到的键表必须互不相同（否则这条断言是空转的）。",
+    "A05": "宿主与包侧共用同一计算：E:\\Temp 自建包（assets/build-glossary.js + assets/glossary-data.js + tools/unify/{glossary,errors,text}.cjs，后三者与仓内权威模块**逐字节相同**）从**仓外 cwd** 子进程跑 CLI → exit 0、无信号；产物与宿主 expectedGlossaryMarkdown、与内核直接合成三方逐字节相同；CLI 三段输出与内核 glossaryCliLines 逐行相同（`[build-glossary] 已生成 GLOSSARY.md` / `[build-glossary] 名词 2 个，分类 2 个` / 每分类一行）；再跑一次产物不变（幂等）。源码层：包装器 judgeOneComputation 通过（只 require fs / path / ../tools/unify/glossary.cjs，无函数声明、无箭头、无第二份计算痕迹），复制清单与 sha256 全部登记。",
+    "A06": "空词表夹具（基线与抽取后都实跑，逐字节比较）：首条新增（空骨架带注释 → 成功、键表 ['responsebody']、骨架注释仍在、源码 sha256 与改前相同、historyDefectReproduced=false）／读取（writeTermSurgically ok、replaced=false、文件 sha256、同进程重读六字段逐字一致、概览 1 条）／重建（GLOSSARY.md 全文 sha256 与改前相同、统计行「共 1 个名词，分为 1 类」、磁盘与合成逐字节一致）／合法空集合对照（{}、0 条、首行 `# 课程 名词速查笔记（GLOSSARY）`）。**历史缺陷未复现**这一结论两侧都记（改前 firstAdd.ok=true、改后 firstAdd.ok=true），并要求回执里出现「未复现」+「A06」。另保留 T26 后的空术语迁移与同进程更新语义：再追加一条、replace 一条，键序不变、值立刻可见、骨架注释不丢。",
+    "A07": "变异有效性（只在 E:\\Temp 副本）：① 往包装入口塞一份**独立计算**（自写 slug + 自拼 markdown，不走内核）→ judgeOneComputation 必须红（点名「函数声明」「残留计算痕迹」），且产物与宿主不同；未变异副本必须绿。② 把内核的 clearModuleCache 调用去掉（返回旧缓存）→ judgeFreshness 必须红（第二次读仍等于第一次），未变异内核副本必须绿（读到最新）。仓内权威内核与包装器的 sha256 在变异前后逐字节不变；变异副本全部落在 E:\\Temp 本次临时根。",
+    "A08": "证据及范围守卫（可归因口径）：① 改前材料齐（pre-change.json / fixtures.mjs / capture-baseline.mjs）且自洽（文件清单与写集一致、gitHead 未变）；② 依赖锚点：4 个改前文件的 sha256 必须等于 `git show HEAD:<path>`，且等于 interfaces.md §1 的 source lock；内核的同目录依赖（errors.cjs / text.cjs）在采集之后不许漂；③ 4 个既有文件真的被改且都是委托形态 + 3 个新文件真的建了；内核是 CJS（无 ESM import/export）、不 require fs（IO 全注入）、无 process.env / 随机数 / 时钟 / 定时器；④ 进程内 fs 写守卫（≥20 个写入口、探针写三项自证、零越界、写记录 ≥20 笔且覆盖 mkdir/write/copy）+ 写允许面纯函数自证 13 条；⑤ 授权并集（§6 解析出 20 张卡、U11 落点逐条等于写集、tracked 改动零越界、4 个本卡文件都在 tracked 里、git diff --name-status 与 status 同批）+ 授权面纯函数自证 12 条；⑥ 交付物内容锁当场复核零漂移；⑦ 不统计他卡文件数（audit-evidence 第一层只允许 U 卡编号目录 + T23）；⑧ --evidence-root 守卫（默认 runs/U11-<pid>、E:\\Temp 新目录接受、仓内越界/既有证据目录/相对路径拒绝、读取根不受影响）；⑨ 临时目录归属守卫与真清理；⑩ tracked 回执五项齐 + 写集一致 + 「无越界」写明 + 未验证边界点名 U19 与 T26 夹具回归 + Δ 登记 + assertions 8 项 + 回执能被 require。"
+  },
+  "unverified": [
+    "仓内随包闭包待 U19：lib/pack-template/tools/unify/ 十四份副本未生成（本卡按卡面不创建该目录、不手改生成件）。因此「新包从模板长出来之后能不能跑通 build-glossary」本卡**未验证**，也不声称仓内模板已可分发。",
+    "build-glossary 委托导致的新增回归（DELTA-4）：test/_t26-migrated-pack.mjs:45-54（夹具复制模板 build-glossary.js 后立刻跑它）、test/audit/T26.mjs:33/52/54、test/audit/T20.mjs:353 在 U19 生成 tools/unify/ 之前会因 MODULE_NOT_FOUND 变红；test/glossary-verify.mjs（migratedPack 唯一夹具来源）与所有经 migratedPack 取夹具的套件同因。本卡**不修这些**（U19 才是解除点），也不撤销委托；未跑这些套件（它们读活包 / 写 T 证据）。",
+    "全量门槛与 U20 对账：本卡不跑 node test/all.mjs --pack=E:\\workplace\\study --mode=real（只属 U01/U20），不访问/不写活包；「红套件数、断言量有没有变化」本卡不下结论。",
+    "其他套件的真实影响面：DELTA-4 的 certainRegressions 是**静态可达性**结论（未执行）。A 路径授权、T 线冻结证据、活包窗口都不在本卡手里，最终以 U19 生成随包副本后的实测为准。",
+    "并发写入他卡：本次窗口里同工作树有 U01/U06/U07 已落盘的写集（docs/unify/baseline.json；lib/pack-template/tools/ledger-transaction.cjs、tools/recover-ledgers.mjs；lib/render.js、lib/pack-template/tools/build-lessons.js）。A08 不按全树 diff 分摊责任，而是：① 写守卫证明本卡没写它们；② tracked 侧按 §6 并集判定它们合法并逐条点名 owners。本卡不验证它们内容的正确性。",
+    "T 线冻结证据：本卡未运行任何 T 卡入口（会写 T 证据）；只读引用 test/audit/T26.mjs 与 test/audit/T10.mjs 的行号作登记。",
+    "术语树/名词地图（tools/build-glossary-tree.js、assets/glossary-tree.js）不在本卡写集内：它读的是台账数据源而不是本卡的计算函数，本卡未改它的语义，也未跑它。"
+  ],
+  "evidenceIndex": {
+    "readRoot": "audit-evidence/U11/（改前采集材料；读取根恒定，不受 --evidence-root 影响）",
+    "files": [
+      {
+        "file": "audit-evidence/U11/pre-change.json",
+        "bytes": 78791,
+        "what": "改前实测：4 文件的 bytes+sha256（并与 git HEAD 逐字节核对）、三个出口的导出面、9 组共 70 个固定用例的逐例输出、16 个转义用例的源码字面量与 require 往返、空词表夹具四项（首条新增/落盘/重读/重建）、7 项依赖锚点、gitHead/gitBranch"
+      },
+      {
+        "file": "audit-evidence/U11/fixtures.mjs",
+        "bytes": 25181,
+        "what": "改前采集与改后判据**共用**的固定夹具（A01/A02/A06 三条 run* 入口；不 import 任何 lib/ 模块，待测模块由参数注入 —— 所以同一份夹具能跑改前旧实现，也能跑改后适配层 + 内核）"
+      },
+      {
+        "file": "audit-evidence/U11/capture-baseline.mjs",
+        "bytes": 5687,
+        "what": "改前采集脚本（只读仓树、只写 pre-change.json；已存在就拒跑；临时夹具在 E:\\Temp 并核对归属后清理）"
+      },
+      {
+        "file": "audit-evidence/U11/negative-control.mjs",
+        "bytes": 6789,
+        "what": "A01/A02 判据**可证伪性**的独立入口：把权威内核复制到 E:\\Temp 本次唯一临时根做一处小变异（`## 目录` → `## 目录（变异）`），用**同一份** fixtures.mjs 跑固定输入并与 pre-change.json 对拍；自己断言「markdown 组必须出现差异、差异不许越出被变异的那一组、A02 零差异、仓内核逐字节未受影响」"
+      },
+      {
+        "file": "audit-evidence/U11/negative-control.json",
+        "bytes": 1076,
+        "what": "上面那次变异实测：差异 78 处、全部落在 A01.markdown、其余组零差异、仓内内核 sha256 未变（结论 ok=true）"
+      },
+      {
+        "file": "audit-evidence/U11/blocked-run.stdout.txt",
+        "bytes": 89,
+        "what": "BLOCKED 路径的原始 stdout（`BLOCKED U11 证据根解析失败：--evidence-root 必须是绝对路径：relative/dir`）—— 证明 exit 2 与单行判词真的走得到"
+      },
+      {
+        "file": "audit-evidence/U11/blocked-run.stderr.txt",
+        "bytes": 0,
+        "what": "BLOCKED 运行的 stderr（空）"
+      },
+      {
+        "file": "audit-evidence/U11/blocked-run.exit.txt",
+        "bytes": 1,
+        "what": "BLOCKED 运行的退出码（2）"
+      },
+      {
+        "file": "audit-evidence/U11/observed-verdicts.txt",
+        "what": "开发/交付过程中**真实出现过**的判词序列（从 audit-evidence/U11/runs/*/result.json 与 final-run/blocked-run 逐行照抄 + 退出码）—— 证明判据不是恒真，FAIL=1 与 BLOCKED=2 两条路径都真的走到过"
+      },
+      {
+        "file": "audit-evidence/U11/runs/U11-<pid>/",
+        "what": "本卡默认运行的证据：result.json（判词/8 项状态/耗时）、cases.jsonl（逐用例）、detail.json（用例索引 + 对拍比较面规模 + 临时目录清理结果 + A08 的可归因四块 + 收口复核 + 改前材料摘要）"
+      },
+      {
+        "file": "audit-evidence/U11/final-run.stdout.txt",
+        "what": "最终运行的**原始 stdout**（UTF-8，只有一行判词）"
+      },
+      {
+        "file": "audit-evidence/U11/final-run.stderr.txt",
+        "what": "最终运行 stderr（空 —— 判词只走 stdout 一行）"
+      },
+      {
+        "file": "audit-evidence/U11/final-run.exit.txt",
+        "what": "最终运行退出码（0）"
+      },
+      {
+        "file": "audit-evidence/U11/receipt-require.txt",
+        "what": "回执 JSON 自检的原始输出（node -e \"require('./docs/unify/receipts/U11.json')\" 的 stdout 与退出码）"
+      }
+    ],
+    "reproduce": [
+      "node audit-evidence/U11/capture-baseline.mjs   # 只在**改动之前**跑；已存在 pre-change.json 就拒跑（exit 2）",
+      "node test/audit/U11.mjs                        # 判据；缺改前材料 → BLOCKED（exit 2）",
+      "node test/audit/U11.mjs --evidence-root=E:\\Temp\\U11-rerun-<n>   # 复验：只改产物落点，读取根不变",
+      "node audit-evidence/U11/negative-control.mjs                   # A01/A02 判据可证伪性的独立证据（变异只落在 E:\\Temp 副本）",
+      "node -e \"require('./docs/unify/receipts/U11.json')\"              # 回执合法 JSON 自检"
+    ]
+  }
+}

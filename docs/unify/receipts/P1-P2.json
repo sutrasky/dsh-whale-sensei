@@ -1,0 +1,509 @@
+{
+  "card": "P1-P2",
+  "title": "P1：按注释算法重算 PROBE_VERSION 并写进唯一字面量；P2：改写两处「在包装器源码里找 PROBE_VERSION 字面量」的断言对象（+ U04 钉旧值口径按 C2 对齐）",
+  "kind": "authorization-derived-execution（不是 U 卡；执行面 = docs/unify/authorization.json 的 scope.P1 / scope.P2 / derivedConsequences.C1（时机）/ C2（U04 口径））",
+  "status": "P1 完成并验证；P2 完成并验证（静态 + 隔离副本）；U04 验收仍红 1 条 —— 红在 §6 授权写集归属（结构性，见 findings[0]），不是判据回归。**追加（决-4）**：findings[1] 的闭包漂移已按 decisions 决-4 执行完 —— PROBE_SOURCES 9→11、PROBE_VERSION 再算一次；登记见 deltas[kind=probe-sources-closure-completion]",
+  "date": "2026-10-20",
+  "base": {
+    "worktree": "E:\\workplace\\dsh-whale-sensei-unify",
+    "branch": "refactor/unify-20261018",
+    "sha": "2f57b1f2cec02e4128b69497e3b6819d36aa707b",
+    "headShell": "2f57b1f",
+    "gitWrites": "无 add / 无 commit / 无 branch / 无 checkout -B / 未切分支。唯一一次 git 写操作见 abDiagnostic.gitTouch：为做归因 A/B 用 `git checkout -- test/audit/T26.mjs` 把该文件临时还原成 HEAD 字节，跑完 U04 后按备份逐字节恢复（恢复后 sha256 = 改后值，已核）。"
+  },
+  "authorization": {
+    "quoteVerbatim": "选A和授权p1和p2",
+    "quoteSource": "docs/unify/authorization.json 的 quoteVerbatim / quoteSource（用户在 dsh 会话中的直接消息，逐字如上；本文件不转述、不改写、不补全）",
+    "scopeRefs": [
+      "scope.P1",
+      "scope.P2",
+      "derivedConsequences.C1",
+      "derivedConsequences.C2"
+    ],
+    "statement": "本次只执行 scope.P1 与 scope.P2 两项，以及 C2 明示的连带动作（U04 钉旧值口径对齐）。没有扩大解释：算法一个字没改、PROBE_SOURCES 一个条目没增删没重排、没有把 §12 A 面（U09/U10/U14 的身份测试契约迁移）算进来。",
+    "notAuthorizedObserved": [
+      "scope.P1.notAuthorized：算法本身（顺序 / '\\0' 分隔 / 原始字节 / 取值方式）逐字未动；",
+      "scope.P1.notAuthorized：PROBE_SOURCES 的 9 个条目与顺序逐字未动（见 fingerprint.sources，与 lib/fingerprint.js 的数组逐条同序）；",
+      "scope.P2.notAuthorized：没有以 P2 为名放宽其它 T 卡断言、没有改 T 证据；",
+      "scope.P2.notAuthorized：除 mirror-parity ③b 那一节、T26 F01 的 PROBE_VERSION 断言对象、U04 的 PROBE 口径外，没有改任何既有测试断言。"
+    ]
+  },
+  "fingerprint": {
+    "algorithm": "sha256(Buffer.concat(PROBE_SOURCES 按数组顺序 readFileSync 的原始字节，文件之间插 '\\0'、首尾不留))，取前 16 位 hex，冠 'p:'。不做 BOM 归一、不排序、不增删条目。",
+    "algorithmSource": "lib/fingerprint.js:50-55 与 lib/unify/fingerprint.cjs 注释块（两处同一套措辞）",
+    "oldLiteral": "p:e3472ea71c33181c",
+    "newLiteral": "p:45a70ecdc10f03d4",
+    "digestFullHex": "45a70ecdc10f03d4132abc9a3f4f5d49a2ec1cc6b76c294f74dcaa75bb1fb1bf",
+    "totalBytes": 160695,
+    "sourceCount": 9,
+    "sources": [
+      {
+        "index": 0,
+        "path": "lib/state.js",
+        "bytes": 38144,
+        "sha256": "2a680e101121890aa2c04f680c3851a5bc1f92e09da0bb1e055e05519590700f"
+      },
+      {
+        "index": 1,
+        "path": "lib/state-scan.js",
+        "bytes": 19051,
+        "sha256": "2cdb2387c456438a9a9c1d7e05aaed704f61443d0a645f8391106aa6f6c07629"
+      },
+      {
+        "index": 2,
+        "path": "lib/adapters/jvm.js",
+        "bytes": 11687,
+        "sha256": "45a5ddb7beb61715ad425053745d4a0f6854242ed96bb57b57873081853b11de"
+      },
+      {
+        "index": 3,
+        "path": "lib/evidence-io.js",
+        "bytes": 17873,
+        "sha256": "9863754e2144ef7152310c1d33ad19f16c0aeb88c4b3ba2bc9c7fadfcc4ea6ea"
+      },
+      {
+        "index": 4,
+        "path": "lib/evidence.js",
+        "bytes": 5803,
+        "sha256": "0ab7870ca7aced985dbeccfa5b38c91d7351077e94cf2e33e9d42393ba1df436"
+      },
+      {
+        "index": 5,
+        "path": "lib/exec.js",
+        "bytes": 4567,
+        "sha256": "b991cf08f8e097ae6c24d67dc6a41ffdb8afd46bb27c88570daa2bf77b5bcc00"
+      },
+      {
+        "index": 6,
+        "path": "lib/pack-model.js",
+        "bytes": 57840,
+        "sha256": "c7bbbd98999bd7a314c75316785351835ffffbc2fb6af06109328aabba48a124"
+      },
+      {
+        "index": 7,
+        "path": "lib/plan.js",
+        "bytes": 3378,
+        "sha256": "d2b7e5021fa0fe2d15352c6401492d58f7639509cb6b8a2d31c5dc4b93e3b577"
+      },
+      {
+        "index": 8,
+        "path": "lib/text.js",
+        "bytes": 2344,
+        "sha256": "de6d1bbf02f484df9ffb45319021ed56064bd1a681b936b55c199c7aee0adf7a"
+      }
+    ],
+    "landing": {
+      "uniqueLiteral": "lib/unify/fingerprint.cjs:137（`const PROBE_VERSION = 'p:051afdd22ab1b6cb';`）—— 全仓活代码里唯一一份。P1 当时落的是第 114 行、值 p:45a70ecdc10f03d4；决-4 补闭包后注释变长、行号与值都变了（见 deltas[kind=probe-sources-closure-completion]）",
+      "hostExport": "lib/fingerprint.js 未改：仍 `const core = require_('./unify/fingerprint.cjs')` + `export const PROBE_VERSION = core.PROBE_VERSION`",
+      "packExport": "lib/pack-template/tools/fingerprint.js 未改：仍 `module.exports = require('./unify/fingerprint.cjs')`",
+      "secondLiteral": "无（`scanLiteral('p:45a70ecdc10f03d4')` 在 lib/** + tools/** 命中 1 处，且就是内核）",
+      "commentsUpdated": "内核注释块补「值的历史」段（旧值→新值与原因、合计 160695 字节、只换常量不改算法/清单）；注释里刻意不写 `PROBE_VERSION = 'p:…'` 形状，以免把「唯一字面量」计数顶成 2。lib/fingerprint.js 的注释本来就只指向内核，不需要改值（它已无字面量）。"
+    },
+    "whyItChanged": "U04 改过 lib/text.js + lib/plan.js，U09 改过 lib/pack-model.js，U18 改过 lib/state.js + lib/evidence.js + lib/evidence-io.js —— 9 个探针源里 6 个的字节变了，旧字面量当然不再等于重算值（这正是 challenge-gate ⑧① 那条钉子的红因，属「原红内新失败」）。"
+  },
+  "deltas": [
+    {
+      "kind": "probe-sources-closure-completion",
+      "id": "DELTA-P1P2-1",
+      "date": "2026-10-20",
+      "title": "把 PROBE_SOURCES 与**真实导入闭包**对齐（9→11）并按同一算法重算 PROBE_VERSION —— 执行本回执 findings[1] 留给主持人的裁决",
+      "authorization": {
+        "decision": "决-4（docs/unify/authorization.json 的 decisions.approvedChanged[id=决-4]）",
+        "quoteVerbatim": "全按推荐",
+        "decisionText": "PROBE_SOURCES 补 lib/unify/identity.cjs 与 lib/unify/pack.cjs（9→11），**再次重算** PROBE_VERSION，同步 U04 的 lib/fingerprint.js 与内容锁",
+        "notAuthorizedRespect": "没有借这条去改任何既有测试断言（decisions.notAuthorized 第 1 条「把 approvedChanged 扩大成『可自由改任何既有测试断言』」仍然有效）：本轮**一个 test/*.mjs 都没动**。"
+      },
+      "notAValueFudge": "这不是 P1 notAuthorized 里说的「为了凑值而增删条目」，也不是绕开本回执 authorization.notAuthorizedObserved 里那条「PROBE_SOURCES 的 9 个条目与顺序逐字未动」：**它是把清单与真实闭包对齐**。那 9 条在 P1 的时点上确实一条没动（那是 P1 的判据，仍然成立）；现在是决-4 明确授权在**同一张清单**上补两件真依赖，补完算法一个字节没改（顺序规则 / '\\0' 分隔 / 原始字节 / 前 16 位 hex / 'p:' 前缀全部照旧），值是因为**输入变多**而变，不是为了凑某个值去挑条目。",
+      "what": "lib/pack-model.js 现在 `import packCore from './unify/pack.cjs'` 与 `import identityCore from './unify/identity.cjs'`（U09 加的），所以从 lib/state.js + lib/state-scan.js 出发、只跟 './' 相对导入的**真实闭包已是 11 件**，而 PROBE_SOURCES 还停在 9 件。后果正是 PROBE_VERSION 机制要防的那一种：改这两个内核**不会**让旧快照的 probeVersion 过期 ⇒ 门禁拿旧判词拦人。本轮把这两件补进清单（顺序仍「入口两件在前，其余按字节序」：都排在 lib/text.js 之后（字节序 t < u），identity 在 pack 之前），再按同一算法重算字面量。",
+      "sources": {
+        "beforeCount": 9,
+        "afterCount": 11,
+        "added": [
+          "lib/unify/identity.cjs",
+          "lib/unify/pack.cjs"
+        ],
+        "insertedAt": "index 9 与 10（紧接 lib/text.js 之后）—— 其余 9 条一条没动、没重排",
+        "orderRule": "入口两件（lib/state.js、lib/state-scan.js）在前；其余 9 条严格按字节序（Buffer.compare）"
+      },
+      "probeVersion": {
+        "oldLiteral": "p:45a70ecdc10f03d4",
+        "newLiteral": "p:051afdd22ab1b6cb",
+        "digestFullHex": "051afdd22ab1b6cbc7c5f593176a410e9ab1b547d406f3d229e22045a641c2e3",
+        "algorithm": "未变：sha256(Buffer.concat(按 PROBE_SOURCES 顺序 readFileSync 的原始字节，文件之间插 '\\0'、首尾不留)) 取前 16 位 hex 冠 'p:'；不做 BOM 归一、不排序、不增删命令。",
+        "totalBytes": {
+          "fileBytes": 205608,
+          "separators": 10,
+          "concatBytes": 205618,
+          "previousConcatBytes": 160695
+        }
+      },
+      "sourcesTable": [
+        {
+          "index": 0,
+          "path": "lib/state.js",
+          "bytes": 38144,
+          "sha256": "2a680e101121890aa2c04f680c3851a5bc1f92e09da0bb1e055e05519590700f"
+        },
+        {
+          "index": 1,
+          "path": "lib/state-scan.js",
+          "bytes": 19051,
+          "sha256": "2cdb2387c456438a9a9c1d7e05aaed704f61443d0a645f8391106aa6f6c07629"
+        },
+        {
+          "index": 2,
+          "path": "lib/adapters/jvm.js",
+          "bytes": 11687,
+          "sha256": "45a5ddb7beb61715ad425053745d4a0f6854242ed96bb57b57873081853b11de"
+        },
+        {
+          "index": 3,
+          "path": "lib/evidence-io.js",
+          "bytes": 17873,
+          "sha256": "9863754e2144ef7152310c1d33ad19f16c0aeb88c4b3ba2bc9c7fadfcc4ea6ea"
+        },
+        {
+          "index": 4,
+          "path": "lib/evidence.js",
+          "bytes": 5803,
+          "sha256": "0ab7870ca7aced985dbeccfa5b38c91d7351077e94cf2e33e9d42393ba1df436"
+        },
+        {
+          "index": 5,
+          "path": "lib/exec.js",
+          "bytes": 4567,
+          "sha256": "b991cf08f8e097ae6c24d67dc6a41ffdb8afd46bb27c88570daa2bf77b5bcc00"
+        },
+        {
+          "index": 6,
+          "path": "lib/pack-model.js",
+          "bytes": 57840,
+          "sha256": "c7bbbd98999bd7a314c75316785351835ffffbc2fb6af06109328aabba48a124"
+        },
+        {
+          "index": 7,
+          "path": "lib/plan.js",
+          "bytes": 3378,
+          "sha256": "d2b7e5021fa0fe2d15352c6401492d58f7639509cb6b8a2d31c5dc4b93e3b577"
+        },
+        {
+          "index": 8,
+          "path": "lib/text.js",
+          "bytes": 2344,
+          "sha256": "de6d1bbf02f484df9ffb45319021ed56064bd1a681b936b55c199c7aee0adf7a"
+        },
+        {
+          "index": 9,
+          "path": "lib/unify/identity.cjs",
+          "bytes": 11584,
+          "sha256": "9746554fd4f03db49bc1b09ffdc0c5be3967b9a0e90471018591fe1e086301d7",
+          "added": true
+        },
+        {
+          "index": 10,
+          "path": "lib/unify/pack.cjs",
+          "bytes": 33337,
+          "sha256": "b7391e110ec37047859d7258696da24bc27b39525f3369d0edf6353df2292380",
+          "added": true
+        }
+      ],
+      "landing": {
+        "host": "lib/fingerprint.js：PROBE_SOURCES 由 9 条变 11 条（两条插在 lib/text.js 之后），并补注释说明这次补条目的来由；**算法说明块与「故意排除 lib/fingerprint.js」那段逐字保留**；PROBE_VERSION 仍 `export const PROBE_VERSION = core.PROBE_VERSION`（无第二份字面量）。现行 6278 B / 567ba058d4668c408376dbac984ac12ffcf061bc36c8687c69ee51aa8e85839f。",
+        "kernel": "lib/unify/fingerprint.cjs：唯一字面量 p:45a70ecdc10f03d4 → p:051afdd22ab1b6cb（第 137 行），注释里的「值的历史」追加决-4 一段；现行 9454 B / 530c7b1d3e2dfee1aae4e3e3f28b9b52bf9d98a55fdce11249fe201b7c0fb9b0。",
+        "noSecondLiteral": "宿主 0 份 / 包侧包装器 0 份 `p:<16hex>`；内核里恰好 1 份（原文扫描；注释里刻意不复写完整值串，否则 U07 A08 与 U04 A04 ④ 的原文扫描会数成第二份）。"
+      },
+      "verification": [
+        {
+          "id": "V12-closure-equals-sources",
+          "what": "闭包 == PROBE_SOURCES（11 == 11）+ 顺序规则 + 重算 == 内核字面量 == 宿主导出",
+          "command": "node E:\\Temp\\d4-probe-31328\\verify.mjs",
+          "result": "集合相等（11 == 11）: true；声明顺序符合规则: true；仅在闭包 [] / 仅在声明 []；重算值 = 内核唯一字面量 = 宿主导出值 = p:051afdd22ab1b6cb；VERDICT: ALIGNED",
+          "exitCode": 0,
+          "raw": "E:\\Temp\\d4-probe-31328\\verify.mjs（一次性脚本；跑完保留在本次唯一临时目录）"
+        },
+        {
+          "id": "V13-t26-f01",
+          "what": "T26 F01 的 9 条断言逐条复跑（整卡 T26 的 G02/G03/G04 红与本轮无关：E:\\Temp 夹具里缺 ../tools/unify/glossary.cjs；F01 在本轮之前就是闭包 11 vs 9 的第一条断言红）",
+          "command": "node E:\\Temp\\d4-probe-31328\\t26-f01.mjs",
+          "result": "F01.1–F01.9 全 PASS（9/9）；F01 VERDICT: PASS；exit 0",
+          "exitCode": 0,
+          "raw": "E:\\Temp\\d4-probe-31328\\t26-f01.mjs"
+        }
+      ],
+      "sideEffects": {
+        "u04": "A04 ③ 的 9 件条目锁由**并行的 U04 口径同步 lane** 同步成 11 件（其 Δ 记在 `docs/unify/receipts/U04.json` 的 `deltas[kind=decision-4-probe-sources]`，DELTA-8：条数锁 11 + 整份逐字逐序锁 + 顺序规则（含反例自证）+ **前 9 条逐字不变** + 新增两条的授权出处；它引用的本卡交付物 bytes/sha = lib/fingerprint.js 6278 B / 567ba058… 与 lib/unify/fingerprint.cjs 9454 B / 530c7b1d…，与本回执登记一致）。决-4 执行后本回执的实测：A04 绿；整卡仍红 1 条，红的**不是**本轮的产物 —— 当时是 A08 的 tracked 归属（先 `M test/audit/T03.mjs / T10.mjs / T12.mjs`，后随兄弟 lane 的 §6 登记变成 `M lib/pack-export.js`，即决-3 的 U16 落点）。本回执只登记该事实，不替它判红/判绿。",
+        "u04Note": "与上面的边界：本轮的**写集**里没有 test/audit/U04.mjs，那一侧的同步由并行 lane 完成；本回执不声称自己改了它。",
+        "u07": "U07 对 lib/unify/fingerprint.cjs 的漂移按 scope.P1 归属，判 authorized-by-P1P2：PASS U07 checks=8 failed=0 skipped=0（exit 0）。",
+        "challengeGate": "test/challenge-gate.mjs 需要 --pack=<课程包>，本轮明令不访问活包 ⇒ **没跑整卡**。⑧①（重算一致）与 ⑧②（闭包 == PROBE_SOURCES）由 V12 用**同一条 walk 规则、同一套算法**逐字复算验证；没有为了变绿伪造任何东西。"
+      }
+    }
+  ],
+  "assertionChanges": [
+    {
+      "file": "test/mirror-parity.mjs",
+      "section": "③b PROBE_VERSION（原 435–460 行一节；本轮只改 443–470 一带的该节，149 行一带（U09 的 §12 A 面）一个字节没动）",
+      "before": "断言「三份源码里都有 PROBE_VERSION 字面量且逐字相同」：`lit(plugPath) / lit(packPath) / lit(tplPath)` 三处各抓一个字面量并全等于 PROBE_VERSION。收成单一源码后这三处**都抓不到**（宿主与包侧都只剩委托），且 `require_(packPath)` 会因副本里没有 tools/unify/fingerprint.cjs 直接抛 MODULE_NOT_FOUND。",
+      "after": "内核字面量正则计数 == 1；宿主 0 / 包侧模板 0 / 包侧副本 0；宿主是「require_ 内核 + export const PROBE_VERSION = core.PROBE_VERSION」的适配层；两个包侧文件是纯委托；宿主导出 === 内核导出（运行时比）；包侧运行期同值只在镜像 tools/unify/fingerprint.cjs 已生成时才比（未生成时打印一行 skip，不造假 PASS）；模板 ≡ 包侧逐字节一条原样保留。",
+      "regexCountsBefore": {
+        "kernel": "n/a（文件在 HEAD 里还不存在）",
+        "host": 1,
+        "packTemplate": 1,
+        "livePackCopy": 1
+      },
+      "regexCountsAfter": {
+        "kernel": 1,
+        "host": 0,
+        "packTemplate": 0,
+        "packCopy": 0
+      },
+      "crossCheck": "宿主/模板的 before 计数由 `git show HEAD:<path>` 逐字统计（1 / 1）；内核在 HEAD 里不存在（git cat-file -e 退出 128）。"
+    },
+    {
+      "file": "test/audit/T26.mjs",
+      "section": "F01（第 63 行那一行）内**只**的 PROBE_VERSION 断言对象",
+      "before": "`const template=...;assert.equal(/const PROBE_VERSION = '([^']+)'/.exec(template)[1],PROBE_VERSION)` —— 在模板包装器源码里抓字面量；委托化之后模板里没有这个字面量，`exec` 回 null → TypeError。",
+      "after": "lits() 只数活代码里的 `PROBE_VERSION = '…'` 赋值：`assert.equal(lits('lib/unify/fingerprint.cjs'),1)`；`assert.equal(PROBE_VERSION, kernelFp.PROBE_VERSION)`（运行时读内核）；两个包装器（lib/fingerprint.js、lib/pack-template/tools/fingerprint.js）各 0；外加一条「包侧是纯委托」的静态断言。F01 的其它断言（PROBE_SOURCES 含 lib/adapters/jvm.js、第 3 项起字节序、重算值、导入闭包一致）**原样保留**（重算那一条正是 P1 的钉子，一字未改）。",
+      "regexCountsBefore": {
+        "templateLiteralViaExec": 1
+      },
+      "regexCountsAfter": {
+        "kernelAssignments": 1,
+        "hostWrappers": 0,
+        "packWrappers": 0
+      }
+    },
+    {
+      "file": "test/audit/U04.mjs",
+      "section": "PROBE 字面量口径那一处（A03 的 4 行、A04 的 ④、A05 的 NO_SECOND_CONST 取值来源、以及 A03/A07 与改前基线的 fp13 归一）",
+      "before": "`const PROBE_LITERAL = 'p:e3472ea71c33181c'`，A03 `eq(PROBE_VERSION, preDoc.probe.PROBE_VERSION)` + `eq(..., PROBE_LITERAL)`、A04 `eq(..., PROBE_LITERAL)` + `scanLiteral(PROBE_LITERAL)` 唯一性、A05 `eq(packFp.mod.PROBE_VERSION, PROBE_LITERAL)` —— 全部逐字钉旧值（C2 点名的 3 处口径）。基线里的 fp13（`{value: mod.PROBE_VERSION, shaped: …}`）也把旧值一起比了，所以只改常量不够：A03/A07 会把「值合法地变了」判成红。",
+      "after": "`PROBE_LITERAL` = 从权威内核**读**出来的那一份唯一字面量（读不到 / 不是恰好一份 → null，断言当场红）；A03 三条 = 与内核一致 + `p:[0-9a-f]{16}` 形状 + 与 PROBE_SOURCES **现算重算值**一致（重算函数逐字实现注释里的算法）；A04 唯一性 / 落点断言原样（值改从内核来）；A05 的第二份常量检测改用同一个现行值；与改前基线的比对把 fp13 的 `value` 归一（`shaped` 等其余字段照比）—— 值本身由上面三条钉住，判据强度不降。A01–A08 其它断言一字未动。",
+      "regexCountsBefore": {
+        "hardcodedLiteral": 1
+      },
+      "regexCountsAfter": {
+        "hardcodedLiteral": 0,
+        "derivedFromKernel": 1
+      }
+    }
+  ],
+  "verification": [
+    {
+      "id": "V1-recompute",
+      "what": "重算一致（旧值 / 新值 / 9 个源文件各自 bytes+sha256 / 拼接总字节 / 最终 digest）",
+      "command": "node E:\\Temp\\p12-iso\\recompute-probe.mjs . E:\\Temp\\p12-iso\\evidence\\p1-recompute-after.json",
+      "result": "matches=true；digest=p:45a70ecdc10f03d4；kernelLiteral=p:45a70ecdc10f03d4；totalBytes=160695；joinedSha256=45a70ecdc10f03d4132abc9a3f4f5d49a2ec1cc6b76c294f74dcaa75bb1fb1bf",
+      "exitCode": 0,
+      "raw": "E:\\Temp\\p12-iso\\evidence\\p1-recompute-after.json / p1-recompute-after.stdout.txt（改前的对照：p1-recompute-before.json，matches=false、kernelLiteral=p:e3472ea71c33181c）"
+    },
+    {
+      "id": "V2-challenge-gate-8a",
+      "what": "challenge-gate ⑧① 那四行的**逐字复算**（整卡未跑，见 unverified）",
+      "command": "node E:\\Temp\\p12-iso\\check-challenge-gate-8a.mjs .",
+      "result": "probeVersionLiteral=p:45a70ecdc10f03d4 / recomputed=p:45a70ecdc10f03d4 / ok=true",
+      "exitCode": 0,
+      "raw": "E:\\Temp\\p12-iso\\evidence\\challenge-gate-8a.txt"
+    },
+    {
+      "id": "V3-u04-baseline",
+      "what": "U04 在**动任何东西之前**的基线（证明它本来是绿的，本轮的改动没有被基线掩盖）",
+      "command": "node test/audit/U04.mjs",
+      "result": "PASS U04 checks=8 failed=0 skipped=0",
+      "exitCode": 0,
+      "raw": "E:\\Temp\\p12-iso\\evidence\\u04-baseline.txt"
+    },
+    {
+      "id": "V4-u04-final",
+      "what": "U04 在**最终状态**（P1 + P2 + C2 口径全在）",
+      "command": "node test/audit/U04.mjs",
+      "result": "FAIL U04 checks=8 failed=1 skipped=0 :: A08: 抛异常：A08 · tracked 改动越出 U01–U20 授权写集并集：M test/audit/T26.mjs（实得 1 / 期望 0）",
+      "exitCode": 1,
+      "raw": "E:\\Temp\\p12-iso\\evidence\\u04-final.txt（最终字节；同判词的先行一次：u04-after3.txt）",
+      "interpretation": "唯一红是 A08 ⑤ 的 tracked-写集归属：`test/audit/T26.mjs` 是**已跟踪**文件，而这是 P2 授权面必然带来的一处 tracked 改动；§6 落点表里没有任何 U 卡拥有它（P1/P2 不是卡）。见 findings[0] 的归因与最小修法。"
+    },
+    {
+      "id": "V5-u04-ab",
+      "what": "归因 A/B：把 T26.mjs 临时还原成 HEAD 字节（其余一切不动）再跑 U04，用来证明「其余 7 项 + A08 的其它判据全绿，红只有那一条归属」",
+      "command": "git checkout -- test/audit/T26.mjs && node test/audit/U04.mjs（跑完按备份恢复）",
+      "result": "PASS U04 checks=8 failed=0 skipped=0",
+      "exitCode": 0,
+      "raw": "E:\\Temp\\p12-iso\\evidence\\u04-ab-without-t26.txt；恢复后 sha256=70ede86eae2c6257bfa6cc35f798fc6b7642effd9958799221f09819ec0f64ed（= 改后值，已核）",
+      "abDiagnostic": {
+        "gitTouch": "只此一次文件级 `git checkout -- <path>`，无 index/branch 变更，跑完逐字节恢复"
+      }
+    },
+    {
+      "id": "V6-t26-iso",
+      "what": "T26 在**隔离副本**（E:\\Temp\\p12-iso\\repo，仓源副本、不含 .git）里跑整卡；冻结 T 证据只读复制进去了，卡自己的证据落在副本的 audit-evidence/T26",
+      "command": "cd E:\\Temp\\p12-iso\\repo; node test/audit/T26.mjs",
+      "result": "FAIL T26 checks=20 failed=4 skipped=0（G02 / G03 / G04 / F01 红）",
+      "exitCode": 1,
+      "raw": "E:\\Temp\\p12-iso\\evidence\\t26-iso-final.txt（最终字节；先行一次 t26-iso.txt 同判词）；逐用例状态在原副本文档 E:\\Temp\\p12-iso\\repo\\audit-evidence\\T26\\result.json（16 pass / 4 fail）",
+      "interpretation": "四条红**都不是**本轮改的那两个断言对象：① G02/G03/G04 = `Cannot find module '../tools/unify/glossary.cjs'`（U11 已把 build-glossary.js 改成委托，随包镜像 lib/pack-template/tools/unify/ 归 U19 生成，现在还不存在）；② F01 死在**第一条**断言上：导入闭包 11 件 vs PROBE_SOURCES 9 件，缺 lib/unify/identity.cjs、lib/unify/pack.cjs（U09 给 lib/pack-model.js 加的两个 import），这条是「其它 F01 断言原样保留」的那一条，不在 P2 改写面。详见 findings[1]。"
+    },
+    {
+      "id": "V7-t26-f01-probe",
+      "what": "F01 里 PROBE_VERSION 断言对象（P2 改写后的那几条）在隔离副本内**逐字复跑**——因为整卡 F01 被前一条闭包断言挡掉，不能拿「整卡红」当这部分的判词",
+      "command": "node E:\\Temp\\p12-iso\\check-t26-f01-probe.mjs E:\\Temp\\p12-iso\\repo",
+      "result": "4/4 ok：含 jvm、第 3 项起字节序、PROBE_VERSION == 重算值、内核 1 份 + 导出同值 + 两个包装器 0 份 + 包侧纯委托",
+      "exitCode": 0,
+      "raw": "E:\\Temp\\p12-iso\\evidence\\t26-f01-probe.txt"
+    },
+    {
+      "id": "V8-mirror-3b-static",
+      "what": "mirror-parity ③b 的**静态核对**（整套不跑：它读活包）。三处正则计数 + 导出同值的运行时比对；包侧副本用「模板覆盖到 tools/fingerprint.js」的替身（= migratedPack 做的同一件事）",
+      "command": "node E:\\Temp\\p12-iso\\check-parity-block.mjs . E:\\Temp\\p12-iso\\packcopy",
+      "result": "6 ok + 1 skip（skip = 包侧运行期同值，副本里没有 tools/unify/fingerprint.cjs，随包镜像由 U19 生成）；计数 kernel 1 / host 0 / packTemplate 0 / packCopy 0；导出 host=kernel=p:45a70ecdc10f03d4",
+      "exitCode": 0,
+      "raw": "E:\\Temp\\p12-iso\\evidence\\mirror-3b-static.txt"
+    },
+    {
+      "id": "V9-diff-minimality",
+      "what": "写集自证：被跟踪文件的差异是不是只有该改的那几行；全树有没有多出东西",
+      "command": "git diff --numstat -- test/audit/T26.mjs test/mirror-parity.mjs; git status --porcelain -uall",
+      "result": "T26.mjs = 1 1（只有第 63 行）；mirror-parity.mjs = 53 27（全部落在 ③b 那一节）；本轮新增的未跟踪文件只有 lib/unify/fingerprint.cjs（U04 建的内核，本轮改值）、test/audit/U04.mjs（U04 入口，本轮改口径）、docs/unify/receipts/P1-P2.json",
+      "exitCode": 0,
+      "raw": "E:\\Temp\\p12-iso\\evidence\\diff-minimality.txt",
+      "note": "全树还有很多别的 M/?? 是**其它 lane 并发**的合法写集（U02/U05/U06/U07/U09/U11/U13/U14/U15/U16/U18/U19 等），不是本轮动的；本轮只碰 writeSet.changed 那 4 个 + 1 个新回执。"
+    },
+    {
+      "id": "V10-recompute-still-valid",
+      "what": "收口前再算一次（并发 lane 还在动文件，C1 的时机风险要当场核）",
+      "command": "node E:\\Temp\\p12-iso\\recompute-probe.mjs . E:\\Temp\\p12-iso\\evidence\\p1-recompute-final.json",
+      "result": "matches=true；totalBytes=160695；digest=p:45a70ecdc10f03d4（与 V1 逐字节同结果：9 个源在本次执行期间没有变）",
+      "exitCode": 0,
+      "raw": "E:\\Temp\\p12-iso\\evidence\\p1-recompute-final.json"
+    },
+    {
+      "id": "V11-receipt-valid",
+      "what": "回执是合法 JSON（本文件）",
+      "command": "node -e \"require('./docs/unify/receipts/P1-P2.json')\"",
+      "result": "P1-P2.json OK: valid JSON, keys=card,title,kind,status,date,base,authorization,fingerprint,assertionChanges,verification,unverified,findings,writeSet,notClaimed,handoff",
+      "exitCode": 0,
+      "raw": "E:\\Temp\\p12-iso\\evidence\\p1p2-json-valid.txt"
+    }
+  ],
+  "unverified": [
+    {
+      "item": "test/challenge-gate.mjs 整卡",
+      "why": "它需要 `--pack=<课程包>`；本轮明令不许访问活包。",
+      "minimalVerification": "同一算法重算相等（V1）+ ⑧① 那四行逐字复算（V2）+ ⑧② 的闭包差集已算清（findings[1]）。**没有**为了让它变绿而伪造任何东西。",
+      "note": "⑧② 的闭包钉子在本轮状态上仍会红（11 vs 9），那是 P1/P2 之外的既有缺陷，不是本轮改出来的。"
+    },
+    {
+      "item": "test/mirror-parity.mjs 整卡",
+      "why": "它读活包（ROOT = migratedPack(活包副本)），本轮不许跑。",
+      "minimalVerification": "V8：③b 一节的三处正则计数 + 导出同值的运行时比对（直接 import / require，不跑整套）。该节外的断言本轮一个字节没动，其状态不由本轮负责。",
+      "note": "③b 里「包侧运行期同值」这一条在镜像生成前打印 skip（不造假 PASS），镜像生成后会自动变回运行时比对。"
+    },
+    {
+      "item": "T26 整卡 PASS",
+      "why": "隔离副本里 G02/G03/G04 因缺 U19 生成的 lib/pack-template/tools/unify/*.cjs 而红；F01 因 P1 之外的闭包漂移而红；另外副本没有 .git，T26 的固定 revision 基线（9c38a2b… via git show）读不到 → N01/N02 走 early-return（这两条在整卡里记为 pass，不记为 blocked，因为卡自身有 failed>0）。",
+      "minimalVerification": "V7（F01 的 PROBE_VERSION 面）+ V6 的逐用例表。"
+    },
+    {
+      "item": "活包 E:\\workplace\\study 的 tools/fingerprint.js",
+      "why": "只读、且不在本轮写集里：它仍是旧的独立实现，字面量还是 p:e3472ea71c33181c。",
+      "minimalVerification": "只做了只读观察（Test-Path / Select-String），没有写、没有跑任何读活包的套件。",
+      "impact": "在活包被升级（U17/U20 窗口把 tools/fingerprint.js 换成模板那份委托 + 生成 tools/unify/fingerprint.cjs）之前，包侧 judgeLightup 仍拿旧值与插件写入的新值比 ⇒ 包侧会把新快照判成 stale-snapshot（判定口径变过，属设计内的判定，不是数据损坏）。这条必须由升级/收口那一步收掉。"
+    }
+  ],
+  "findings": [
+    {
+      "id": "F-A08-6-attribution",
+      "severity": "blocking-for-U04-acceptance（不是判据回归）",
+      "what": "U04 A08 ⑤ 判 `M test/audit/T26.mjs` 越出 U01–U20 授权写集并集（§6），因此 U04 在最终状态是 FAIL（checks=8 failed=1）。",
+      "attribution": "P2 明示授权面（scope.P2 第一/第二条 + derivedConsequences.C1「P2 与 P1 同批」）要求改 test/audit/T26.mjs；但 T26 是**已跟踪**文件，且 §6 落点表里没有任何 U 卡拥有它（T 卡是冻结卡）。两者结构性冲突，与本轮改动是否正确无关：把 T26 临时还原成 HEAD 字节后 U04 就是 PASS 8/0/0（V5）。",
+      "minimalFixOptions": [
+        "① 主持人把 `test/audit/T26.mjs` 加进 §6 的**某个 U 卡**落点行（parseSection6 只认 `| U\\d\\d |` 行，加 P1/P2 行不会被解析）；若加进 U04 行，U04.mjs 的 WRITE_SET 与 `sameJson([...s6.get('U04')], WRITE_SET)` 也要同步（那已超出本轮写集）；",
+        "② 加进别的卡的行（不触发 U04 常量同步，但归属语义要主持人定）；",
+        "③ 接受 U04 在本轮为 FAIL 并把这条归属红登记进 U20 收口账（本条已按 ①②③ 的现状如实回报，未自行扩写 §6）。"
+      ],
+      "otherRedOptions": "本轮**没有**为了变绿去碰 docs/unify/interfaces.md 或 U04 的 A08 断言（都超写集）。"
+    },
+    {
+      "id": "F-probe-closure-drift",
+      "severity": "pre-existing-defect（P1/P2 之外，影响两条既有钉子）",
+      "what": "PROBE_SOURCES 的**导入闭包**已经 11 件，清单还是 9 件：凭空多出 `lib/unify/identity.cjs` 与 `lib/unify/pack.cjs`（U09 给 lib/pack-model.js 加了 `import packCore from './unify/pack.cjs'` 与 `import identityCore from './unify/identity.cjs'`）。",
+      "evidence": "E:\\Temp\\p12-iso\\evidence\\t26-f01-probe.txt 的 diagnostic.closure（11 件）/ missingFromDeclared（正好这两件）；T26 整卡的 F01 就红在这条（V6 的 reason 里有 11 vs 9 的 diff）。",
+      "affected": [
+        "test/challenge-gate.mjs ⑧②（闭包 == PROBE_SOURCES）",
+        "test/audit/T26.mjs F01 的第一条断言"
+      ],
+      "whyNotFixed": "scope.P1.notAuthorized 明令「不许把 PROBE_SOURCES 的条目增删或重排」；而这两件是**真依赖**，补进去会改变重算值（P1 的字面量要再算一次）。这需要主持人裁决（补条目 + 重算一次 P1，或者给这两条钉子换口径），不是本轮授权面。",
+      "impactOnP1": "本轮 P1 的值严格等于「按**现存 9 条清单**与现存字节」的算法结果（V1），符合 scope.P1 的写法；但若主持人决定补条目，p:45a70ecdc10f03d4 必须立刻重算。"
+    },
+    {
+      "id": "F-t26-u19-gap",
+      "severity": "pre-existing-defect（与本轮无关）",
+      "what": "隔离副本里 T26 的 G02/G03/G04 红：`Cannot find module '../tools/unify/glossary.cjs'`（从 assets/build-glossary.js 里 require）—— U11 已把该脚本改成委托，随包镜像 lib/pack-template/tools/unify/ 归 U19 生成，现在整目录还不存在。",
+      "evidence": "E:\\Temp\\p12-iso\\evidence\\t26-iso.txt；`Test-Path lib/pack-template/tools/unify` = False。",
+      "note": "本轮没有碰 build-glossary.js / 没有生成镜像（生成者是 U19，写集也不含它们）。"
+    },
+    {
+      "id": "F-live-pack-old-literal",
+      "severity": "operational（收口前必须收掉）",
+      "what": "活包 E:\\workplace\\study\\tools\\fingerprint.js 仍是旧的独立实现，字面量 p:e3472ea71c33181c；没有 tools/unify/。",
+      "impact": "升级前包侧判新鲜度会与插件写入的新值不一致 ⇒ 包侧把快照判 stale-snapshot（自愈路会重判一次，但每次都是「口径不同」的判词，不是数据坏了）。",
+      "handling": "只读登记，未写；由活包升级（U17/U20 窗口）收口。"
+    }
+  ],
+  "writeSet": {
+    "changed": [
+      {
+        "path": "lib/unify/fingerprint.cjs",
+        "bytes": 9454,
+        "sha256": "530c7b1d3e2dfee1aae4e3e3f28b9b52bf9d98a55fdce11249fe201b7c0fb9b0",
+        "what": "唯一字面量 + 值的历史注释",
+        "note": "决-4 补闭包后重登记（P1 交付时 7915 B / c760f62c072509b05cf13a388ace99eb253e7884cde28a19f11e9c238f128e97；现值见 deltas[kind=probe-sources-closure-completion]）"
+      },
+      {
+        "path": "test/mirror-parity.mjs",
+        "bytes": 51321,
+        "sha256": "2abea3eb75d545f91fe1654e9ac084b378b5452d3dfd3b6afe1089341dc19ff2",
+        "what": "只动 ③b 那一节（446–456 与其头部注释）",
+        "note": "第 149 行一带（U09 的 §12 A 面）与其它断言一字未动"
+      },
+      {
+        "path": "test/audit/T26.mjs",
+        "bytes": 17093,
+        "sha256": "70ede86eae2c6257bfa6cc35f798fc6b7642effd9958799221f09819ec0f64ed",
+        "what": "只动 F01 内与 PROBE_VERSION 相关的断言对象（第 63 行一整行）",
+        "note": "这是 P2 明示授权面（authorization.json scope.P2 第二条）；T 线其余部分（其它 T 卡、T 证据）未动。与 HEAD 的差异经核对**只有第 63 行**：`git diff --numstat = 1 1`",
+        "byteLevel": "原文件行尾是「全 LF、只有最后一行是 CRLF」（HEAD blob 16595 B = 1 个 CRLF + 78 个 LF）。等价改写一度把最后一行的 CRLF 也写成了 LF（git 可见的额外 1 行差异），已按字节复原 —— 现在唯一差异就是第 63 行。"
+      },
+      {
+        "path": "test/audit/U04.mjs",
+        "bytes": 115251,
+        "sha256": "148eea8dc49fe76047af3c367bbc0988be1d1b6d38086d02fe9686b6c903ed36",
+        "what": "只动 PROBE 字面量口径那一处（C2）"
+      }
+    ],
+    "created": [
+      "docs/unify/receipts/P1-P2.json"
+    ],
+    "tempOnly": [
+      "E:\\Temp\\p12-iso\\（本次唯一临时目录：evidence/、repo/ 隔离副本、三个一次性核对脚本）"
+    ],
+    "untouched": [
+      "lib/fingerprint.js（已从内核取，逐字未改）",
+      "lib/pack-template/tools/fingerprint.js（已是纯委托，逐字未改）",
+      "其它 lib/**、docs/unify/interfaces.md|baseline.json|authorization.json、其它 test/audit/U*.mjs 与 T*.mjs、cards/**、package.json、活包、主树",
+      "audit-evidence/ 第一层（仍只有 U 卡目录 + T23；本轮的原始证据全在 E:\\Temp\\p12-iso\\evidence）"
+    ]
+  },
+  "notClaimed": [
+    "不声称 U04 在最终状态 PASS（它是 FAIL 1 条，红因见 findings[0]）；",
+    "不声称 T26 整卡 PASS（隔离副本里 4 红，红因与本轮改的两处断言对象无关，见 findings[1]/[2]）；",
+    "不声称 challenge-gate / mirror-parity 整卡跑过（都不许跑，见 unverified）；",
+    "不声称活包已更新（它是只读的，且仍持旧字面量）；",
+    "不声称 P1/P2 之外任何判据被验证过。"
+  ],
+  "handoff": {
+    "forLead": [
+      "裁决 findings[0] 的 §6 归属（三选一），否则 U04 在本轮永远是 FAIL 1 条；",
+      "裁决 findings[1] 的 PROBE_SOURCES 闭包漂移（补 2 条目 + 重算 P1，或换钉口径）；若要补条目，p:45a70ecdc10f03d4 必须重算并同步本回执的 sources/totalBytes/digest；",
+      "收口前确认 9 个探针源字节没再动（本回执登记了逐一 sha256 —— 任一不等就要重算）；",
+      "活包升级（U17/U20）时把 tools/fingerprint.js 换成委托并生成 tools/unify/fingerprint.cjs，同时把旧快照的 probeVersion 差异当作设计内的 stale-snapshot 自愈处理。"
+    ]
+  }
+}

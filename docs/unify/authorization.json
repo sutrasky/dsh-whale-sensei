@@ -1,0 +1,125 @@
+{
+  "schema": "whale-unify-authorization/1",
+  "card": "U-SPEC §12 · 人类授权登记（非卡面产物，供 U09/U10/U14/U20 逐字引用）",
+  "date": "2026-10-20",
+  "quoteVerbatim": "选A和授权p1和p2",
+  "quoteSource": "用户在 dsh 会话（U 系列统筹会话）中的直接消息，原文逐字如上；本文件不转述、不改写、不补全。",
+  "decidedBy": "用户",
+  "scope": {
+    "A": {
+      "title": "U-SPEC §12 选项 A：仅 U09/U10/U14 卡内原子迁移旧身份测试契约",
+      "authorized": [
+        "U09 独占 test/mirror-parity.mjs 中课程身份所需的夹具输入、对应旧身份预期行（a.anchor/b.anchor === 'spring-boot/0001'）与说明；保留双写者、同计数器、键序、正文、字节上限与状态码等非身份断言。",
+        "U10 独占 test/intake.mjs 中裸 point 夹具及 latest.vue 等身份预期（78/86/87 行）；保留版本、日期、学生原话、键序及所有非身份语义断言。",
+        "U14 不修改 test/mirror-parity.mjs 那一行（唯一归 U09）；旧形状拒绝、歧义拒绝、迁移断言只写入 test/audit/U14.mjs。",
+        "三卡均须补：旧形状拒绝、歧义拒绝、显式迁移断言；并逐条记录真实 Δ（断言增量/替换/失败差异）。"
+      ],
+      "notAuthorized": [
+        "把既有测试修改范围扩大到 U09/U10/U14 之外（例如 test/pack-template-rules.mjs 仍只读，任何卡不得改其断言）。",
+        "把 §12 A 解释为「可以削弱既有断言」：只许身份语义同卡原子迁移，不许删除/放宽/跳过非身份断言。",
+        "长期双读双写或兼容层。"
+      ]
+    },
+    "P1": {
+      "title": "重算 PROBE_VERSION 并同步三份 fingerprint",
+      "authorized": [
+        "按 lib/fingerprint.js 注释里锁定的算法（PROBE_SOURCES 顺序、文件间 '\\0' 分隔、原始字节、sha256 前 16 位、前缀 p:）重算新值。",
+        "把新值写进权威内核 lib/unify/fingerprint.cjs 的**唯一**字面量；lib/fingerprint.js 与包侧 tools/fingerprint.js 继续从内核取（不新增第二份字面量）。",
+        "同步登记「旧值 p:e3472ea71c33181c → 新值」的转换事实与受影响判据（challenge-gate ⑧①、T26 F01、以及任何固定 probeVersion 的夹具说明）。"
+      ],
+      "notAuthorized": [
+        "改变算法本身（顺序/分隔/字节/取值方式）；",
+        "把 PROBE_SOURCES 的条目增删或重排来凑值。"
+      ]
+    },
+    "P2": {
+      "title": "改写两处「在包装器源码里找 PROBE_VERSION 字面量」的断言对象",
+      "authorized": [
+        "test/mirror-parity.mjs 第 446–456 行一带：把「三份源码里都有字面量且逐字相同」改为「权威内核有且只有一份字面量；宿主与包侧导出值同值且不再各自持有字面量」。同文件其余断言（含 149 行身份锚点——那是 U09 的 A 面）不动。",
+        "test/audit/T26.mjs 第 63 行 F01 用例内与 PROBE_VERSION/闭包相关的断言对象：同样改为「单一源码 + 导出同值」，其余 F01 断言（PROBE_SOURCES 含 jvm、导入闭包一致）不动。"
+      ],
+      "notAuthorized": [
+        "以 P2 为名放宽其它 T 卡断言或改动 T 证据；",
+        "改动除上述两处之外的任何既有测试断言。"
+      ]
+    }
+  },
+  "constraints": [
+    "不含发布、push、升版（version 仍 0.3.3，dsh.distribution.mode 仍 private）。",
+    "唯一提交者仍只有 U20，且只在全部前置真实 PASS 后显式 add + 一次 commit。",
+    "主树 E:\\workplace\\dsh-whale-sensei 与活包 E:\\workplace\\study 保持只读；活包仅 U01/U20 两窗口。",
+    "P1/P2 属于本轮授权的集成修正，不改写卡面判据强度；U09/U10/U14 的 A 面迁移必须逐条记真实 Δ。"
+  ],
+  "howToCite": "U09/U10/U14 的 tracked 回执必须在新字段 authorization 里逐字引用 quoteVerbatim 与 quoteSource，并写明「本卡只按上述授权面执行」；不得把本授权扩写为用户未说过的内容。",
+  "derivedConsequences": {
+    "note": "以下是上述授权在实施上**必然带来**的连带动作，由主持人依授权范围推定，不是用户逐字说过的内容；逐条可核。",
+    "items": [
+      {
+        "id": "C1",
+        "what": "P1 的执行时机必须晚于所有对 PROBE_SOURCES 的改动，否则重算值立刻再失效。",
+        "evidence": "lib/fingerprint.js:64-74 的 PROBE_SOURCES 含 lib/pack-model.js（U09 改）、lib/state.js / lib/state-scan.js / lib/evidence.js / lib/evidence-io.js（U18 改）。",
+        "decision": "P1 排在 U18 之后、U19 之前执行一次；P2 与 P1 同批。"
+      },
+      {
+        "id": "C2",
+        "what": "P1 改值后，test/audit/U04.mjs 里「PROBE_VERSION 必须还是 p:e3472ea71c33181c」这类钉旧值的断言必须同步改成「与内核唯一字面量一致 + p:<16hex> 形状 + 与 PROBE_SOURCES 重算一致」。",
+        "evidence": "U04 回执 A03/A04 明确 `PROBE_LITERAL = 'p:e3472ea71c33181c'` 并在断言里逐字比对。",
+        "decision": "属 P1 的必要实施动作（不改算法、不改 PROBE_SOURCES 条目），判据强度不降。"
+      },
+      {
+        "id": "C3",
+        "what": "依赖锚点判据必须从「等于 U01 接口锁里的 sha256」改为「本卡运行期间未被写入」＋「该文件已由某张卡合法改动时归属到那张卡」。",
+        "evidence": "U09 会合法改 lib/pack-model.js，而 U02 的 A08 目前断言它与 U01 锁的 61085 B / d342cc… 逐字相同；U18 同理会影响锚定 lib/state.js 的卡。",
+        "decision": "这是把「跨卡静止」改成「本进程未写」的口径对齐（与并发 lane 的处理同源），不是放宽：真越界仍红。"
+      },
+      {
+        "id": "C4",
+        "what": "把 `lib/point-ref.js` 追加进 U09 写集（只把 qualified/splitQualified 改走 identity.cjs 严格内核，导出面与返回语义逐字不变）。",
+        "evidence": "U-SPEC §2 与 docs/unify/interfaces.md §2 都写明「U09 是唯一负责把旧导出（pointKey/lessonKey + point-ref.js 的内联构造/拆分）委托到严格内核的卡」，而 cards/U09.md 的 7 项写集漏列 lib/point-ref.js —— 属卡面与 SPEC/interfaces 的不一致。",
+        "decision": "主持人裁决的最小写集扩张（不是用户逐字授权，已在 U09 回执 writeSetExpansion 字段单列）；条件：只改两处内部调用、导出与语义逐字保持、逐条记 Δ、无法保持则回退并登记 BLOCKED。",
+        "reversible": "是（两处 hunk 可单独回退，回退后 U09 只在 A06 声明「课程映射唯一」，身份构造层留第二处实现并登记边界）。"
+      },
+      {
+        "id": "C5",
+        "what": "U09 收敛后，U02 的 A05 中「旧导出 lessonKey 的 padStart 现状值（10000/0/-1/1.5/'0001'）」必须改为双状态断言（未收敛=原样照拼；已收敛=与严格内核对拍并断言拒绝 + reason）。",
+        "evidence": "U02 的 A05 ③ 逐条钉的是旧实现现状值；U09 一旦把 pointKey/lessonKey 委托到内核，这 5 个调用全部抛 IdentityError。与 C3 同类口径错。",
+        "decision": "双状态以函数同一性判定，两种状态都逐条断言且已收敛分支强度更高（比逐字节更强：断言同一函数 + 逐条 reason）；不是放宽。"
+      },
+      {
+        "id": "C6",
+        "what": "`EXPECT.json` 的 `lessons[].id` 保持 2 段 `point/NNNN` 作为**声明形状**解析（圆圈由 `lessons/<circle>/<point>/` 路径唯一归属派生；零/多候选一律 ambiguous 显式拒绝）。",
+        "evidence": "test/_fixture.mjs:379 手写 2 段；progress.json.learned 在夹具里已是 3 段规范；U05 迁移清单不含 EXPECT；任何 U 卡写集都没有它。",
+        "decision": "运行态台账仍只认 3 段规范（A04 强度不变）；EXPECT 作为声明文件单列分支并配歧义拒绝测试；统一到 3 段需要新授权（建议归 U17 活包升级或单独一卡），已在 U09 回执登记为 R。"
+      }
+    ]
+  },
+  "decisions": {
+    "note": "第二批人类授权：主持人列出 14 条待决项（A 组 10 条建议改 / B 组 4 条建议不动）后，用户回复原文如下。下列映射是**主持人依原文范围推定**。",
+    "quoteVerbatim": "全按推荐",
+    "quoteSource": "用户在 dsh 会话（U 系列统筹会话）中的直接消息，原文逐字如上。",
+    "date": "2026-10-20",
+    "approvedChanged": [
+      { "id": "决-1", "what": "lib/mods/author.js 调用点改传规范身份（不再把裸点交给 challengeGate）；同步 test/audit/T03.mjs 那一行源码字面量" },
+      { "id": "决-2", "what": "lib/gate.js 修「候选唯一但错圈」泄漏（按 circle+point 过滤）；同步 T03" },
+      { "id": "决-3", "what": "lib/pack-export.js 收编进 §6（归 U16），U16 写集加一项并重跑" },
+      { "id": "决-4", "what": "PROBE_SOURCES 补 lib/unify/identity.cjs 与 lib/unify/pack.cjs（9→11），**再次重算** PROBE_VERSION，同步 U04 的 lib/fingerprint.js 与内容锁" },
+      { "id": "决-5", "what": "test/audit/T12.mjs 夹具复制清单补 lib/adapters/jvm.js" },
+      { "id": "决-6", "what": "test/audit/T10.mjs:1038-1055 最小同步（只改被委托影响的字面量，判据强度不变）" },
+      { "id": "决-7", "what": "lib/point-ref.js::splitQualified 收敛到严格内核（parseLessonKey→parsePointKey→否则显式拒绝），9/90 例不一致逐条记 Δ" },
+      { "id": "决-8", "what": "assets/questions-data.js 的 lesson 与 notes.js 的 anchor 显示名迁移归 U17" },
+      { "id": "决-9", "what": "预授权 test/pack-template-rules.mjs **只加登记项**（不改判据强度），供 U19 使用" },
+      { "id": "决-10", "what": "U20 按原授权执行唯一一次显式 add + commit（不 push、不升版、不发布）" }
+    ],
+    "approvedUnchanged": [
+      { "id": "决-11", "what": "页面域课次键保持两段 point/NNNN（build-lessons.js / render.cjs 输出）不动" },
+      { "id": "决-12", "what": "EXPECT.json 的 lessons[].id 保持两段声明形状不动" },
+      { "id": "决-13", "what": "真实浏览器/宿主验证（T13/T16/T25 终态 blocked）不补" },
+      { "id": "决-14", "what": "不 push、不升版、不发布" }
+    ],
+    "notAuthorized": [
+      "把 approvedChanged 扩大成「可自由改任何既有测试断言」；",
+      "把 approvedUnchanged 的 4 条解释成「也可以改」；",
+      "改动 U 系列之外的审计/发布材料。"
+    ]
+  }
+}

@@ -46,6 +46,22 @@ export function migratedPack(input) {
     const source=path.join(REPO,'lib/pack-template',rel), target=path.join(root,rel)
     if(fs.existsSync(target))fs.copyFileSync(source,target)
   }
+  /*
+   * 运行内核副本（U19）：模板里的 `assets/build-glossary.js`（U11）与 `tools/fingerprint.js`（U04）
+   * 都已改成**委托** `tools/unify/<模块>.cjs`。本夹具的形态是「活包整棵拷贝 + 覆盖这两个包装器」，
+   * 而**旧活包**没有 `tools/unify/` ⇒ 覆盖后的包装器一跑就 `Cannot find module '../tools/unify/glossary.cjs'`，
+   * 夹具在准备阶段就抛，整个套件连断言都跑不到。
+   * 修法与 decisions 决-5（T12 的负向夹具复制清单补 `lib/adapters/jvm.js`）**同类**：
+   * 「夹具必须带上新的传递依赖」。这里只补**输入准备**，一条断言都没动。
+   */
+  const unifySrc=path.join(REPO,'lib/pack-template','tools','unify')
+  if(fs.existsSync(unifySrc)) {
+    const unifyDst=path.join(root,'tools','unify')
+    fs.mkdirSync(unifyDst,{recursive:true})
+    for(const e of fs.readdirSync(unifySrc,{withFileTypes:true})) {
+      if(e.isFile()&&e.name.endsWith('.cjs')) fs.copyFileSync(path.join(unifySrc,e.name),path.join(unifyDst,e.name))
+    }
+  }
   declareAdapters(root)
   const cli=path.join(root,'assets/build-glossary.js')
   if(fs.existsSync(cli)) {

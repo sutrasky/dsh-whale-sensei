@@ -691,6 +691,13 @@ async function main() {
       for (const f of ['fingerprint.js', 'evidence.js', 'pack-model.js', 'exec.js', 'text.js', 'plan.js']) {
         fs.copyFileSync(path.join(REPO, 'lib', f), path.join(baseDir, f))
       }
+      // 扁平文件不够：当前 `lib/pack-model.js` 还 import `./adapters/jvm.js` 与 `./unify/*.cjs`（U 改造后的
+      // 真实导入闭包）。只拷扁平文件的话夹具在**断言之前**就 ERR_MODULE_NOT_FOUND，负向控制根本跑不到。
+      // 所以把这两个依赖目录整体补进夹具 —— **只补复制，断言一个字不改**。
+      for (const d of ['adapters', 'unify']) {
+        const from = path.join(REPO, 'lib', d)
+        if (fs.existsSync(from)) fs.cpSync(from, path.join(baseDir, d), { recursive: true })
+      }
       for (const f of ['state.js', 'evidence-io.js']) {
         const r = spawnSync('git', ['-C', REPO, 'show', `${BASE_COMMIT}:lib/${f}`], { cwd: REPO, encoding: 'utf8', timeout: 60000 })
         if (r.status !== 0) throw new Error(`git show ${BASE_COMMIT}:lib/${f} 失败（exit=${r.status}）：${String(r.stderr || '').slice(0, 200)}`)
