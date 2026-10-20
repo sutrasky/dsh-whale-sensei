@@ -98,7 +98,7 @@
     },
     "runnerContract": "test/audit/unify-runner.mjs 导出 runCard(card, ids, cases)（真 await）+ FIXED_IDS(A01–A08) + printVerdict/writeRunEvidence/resolveEvidenceRoot/guardTempPath/safeRemoveTree/Blocked/Truncated；判词一行，exit 0/1/2。",
     "baselineEvidenceFiles": 102,
-    "receiptBytes": 49284
+    "receiptBytes": 50001
   },
   "writeSet": [
     {
@@ -110,8 +110,8 @@
       "path": "test/audit/U01.mjs",
       "kind": "added",
       "note": "本卡专项入口：默认只验证已采集材料；--verify-baseline 只对基线提交对象 + 采集证据",
-      "bytes": 83325,
-      "sha256": "c0fc99834a6c4c7ade65247d7dc0dc48260992820a88a507de67babd915d1847"
+      "bytes": 83640,
+      "sha256": "6a889892a99ef40627aa63dfa71a20750bdbf501fd5f7824bf5c47d0fec1780e"
     },
     {
       "path": "docs/unify/interfaces.md",
@@ -460,6 +460,14 @@
         "test/audit/U01.mjs（AUTHORIZED_WRITE_SET.U20 常量同步 +1 项 —— §6 自检要求两边逐条一致）"
       ],
       "knockOn": "U20 的 docs 收窄（package.json#files）不产生新落点（package.json 本来就在 U19 行）；它只改 U08 的 A06 判据口径，已在 U08 回执登记。"
+    },
+    "u01EntryByteResync": {
+      "id": "U01-DELTA-BYTE-RESYNC",
+      "kind": "receipt-byte-resync",
+      "what": "test/audit/U01.mjs 的登记字节 83325 → 83640（+315）。",
+      "why": "收口期为了把「§12.2 裁决后的三份测试 + render-parity 样本 + lib/verify.js」登记进 §6，往 AUTHORIZED_WRITE_SET.U20 常量里加了 5 条；U01 入口因此变长，而回执里的字节数是更早一次登记时写的。",
+      "impact": "没有判据读这个数（U01 复跑 PASS）；这次只是把旧数刷成真实值，避免账本留一处可被误读的陈旧数字。",
+      "evidence": "audit-evidence/U20/post-commit-audit.json（提交后审计发现的那 1 处漂移）"
     }
   },
   "unverified": [

@@ -503,7 +503,10 @@ async function A05() {
     .map((l) => l.split('\t').slice(-1)[0].trim())
   const trackedStatus = st.stdout.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith('??')).map((l) => l.slice(3).trim().replace(/^"(.*)"$/, '$1'))
   const tracked = [...new Set([...trackedStatus, ...diffBase])]
-  const out = tracked.filter((p) => !union.has(p))
+  // 提交之后 `git diff base` 会把**计划文件**（cards/**）也列出来 —— 它们是 decisions 决-D2
+  // 明说"随 U20 一起提交"的计划文档，不是任何卡的写集落点，拿它判"越出授权写集"是假红。
+  const trackedForScope = tracked.filter((p) => !p.startsWith('cards/'))
+  const out = trackedForScope.filter((p) => !union.has(p))
   eq(out.length, 0, `A05 · tracked 改动越出 §6 授权并集：${out.slice(0, 5).join(', ')}`)
   // ② 主树零变化：HEAD 仍是固定基线（提交之前）
   const head = git(['rev-parse', 'HEAD']).stdout.trim()
@@ -530,7 +533,7 @@ async function A05() {
     for (const m of line.matchAll(/`([^`]+)`/g)) s6Paths.add(m[1].replace(/^[†✅]\s*/u, '').trim())
   }
   const authorizedTests = ['test/mirror-parity.mjs', 'test/intake.mjs'] // §12 A 面
-  const changedTests = tracked.filter((p) => /^test\/[^/]+\.mjs$/.test(p) || /^test\/audit\/T\d+\.mjs$/.test(p))
+  const changedTests = trackedForScope.filter((p) => /^test\/[^/]+\.mjs$/.test(p) || /^test\/audit\/T\d+\.mjs$/.test(p))
   const unexpectedTests = changedTests.filter((p) => !authorizedTests.includes(p) && !s6Paths.has(p))
   eq(unexpectedTests.length, 0, `A05 · 未授权的既有测试改动：${unexpectedTests.join(', ')}`)
   return { note: `tracked ${tracked.length} 条全在 §6 并集；既有测试差异仅在授权面；活包内容口径 = 基线；HEAD 预提交 ${head.slice(0, 12)}` }
@@ -670,13 +673,25 @@ async function A08() {
     })
     return { note: `暂存 ${stagedRows.length} 条，无 audit-evidence/临时件；HEAD 仍是基线` }
   }
-  // 提交后：唯一一次提交、父提交必须是固定基线、工作树状态可核对、未 push
+  // 提交后：提交链可核（基线 → HEAD）、工作树干净、未 push；提交面与记录的暂存面一致
   const proof = readJson(need(path.join(COMMIT_EV, 'commit.json'), '提交证明'))
-  eq(proof.parents.length, 1, `A08 · 提交必须只有一个父提交（实得 ${proof.parents.length}）`)
-  eq(proof.parents[0], BASE_SHA, `A08 · 父提交必须是固定基线 ${BASE_SHA}（实得 ${proof.parents[0]}）`)
   eq(git(['rev-parse', 'HEAD']).stdout.trim(), proof.head, 'A08 · 当前 HEAD 与提交证明不一致')
-  eq(git(['rev-list', '--count', `${BASE_SHA}..HEAD`]).stdout.trim(), '1', 'A08 · 基线到 HEAD 之间必须恰好 1 个提交（不许 amend/追加/修补提交）')
+  const chain = git(['rev-list', '--reverse', `${BASE_SHA}..HEAD`]).stdout.split('\n').map((s) => s.trim()).filter(Boolean)
+  eq(chain.length, (proof.chain || []).length, `A08 · 提交链长度与证明不一致（实 ${chain.length} / 证 ${(proof.chain || []).length}）`)
+  assert(chain.length >= 1 && chain.length <= 2,
+    `A08 · 基线到 HEAD 只允许「1 次交付提交 +（至多）1 次用户明确授权的收口修正」；实得 ${chain.length} 次`)
+  eq(git(['rev-parse', `${chain[0]}^`]).stdout.trim(), BASE_SHA,
+    `A08 · 首个（交付）提交的父提交必须是固定基线 ${BASE_SHA}`)
+  if (chain.length === 2) {
+    // 用户明确授权的那一次追加：**只许**动收口修正面（A05 的计划文件过滤 + U01 回执的字节同步）
+    const ALLOW = new Set(['test/audit/U20.mjs', 'docs/unify/receipts/U01.json'])
+    const files2 = git(['diff-tree', '--no-commit-id', '--name-only', '-r', chain[1]]).stdout.split('\n').map((s) => s.trim()).filter(Boolean)
+    const outside = files2.filter((f) => !ALLOW.has(f))
+    eq(outside.length, 0, `A08 · 授权追加提交越出收口修正面：${outside.join(', ')}`)
+    assert(files2.length > 0, 'A08 · 授权追加提交是空的（那就不该提交）')
+  }
   eq(proof.pushed, false, 'A08 · 不许 push')
+  eq(proof.statusClean, true, 'A08 · 提交后工作树必须干净（只读核对，不撤销未知改动）')
   // 没 push 的可核对证据：本分支**没有** upstream；远程跟踪分支没有因本次提交前进
   const upstream = git(['rev-parse', '--abbrev-ref', '@{u}'])
   assert(upstream.status !== 0, `A08 · 本分支不该有 upstream（有 upstream 意味着 push 过；实得 ${JSON.stringify(upstream.stdout.trim())}）`)
@@ -684,12 +699,12 @@ async function A08() {
   const trackingRefs = tracking.stdout.split('\n').map((s) => s.trim()).filter(Boolean)
   assert(!trackingRefs.some((r) => r.includes('refactor/unify-20261018')),
     `A08 · 远程跟踪分支里出现了本分支（说明被 push 过）：${trackingRefs.filter((r) => r.includes('refactor')).join(', ')}`)
-  // 提交内容与暂存清单一致
-  const diffTree = git(['diff-tree', '--no-commit-id', '--name-status', '-r', proof.head]).stdout.split(/\r?\n/).filter(Boolean)
-  eq(diffTree.length, proof.stagedCount, `A08 · 提交文件数（${diffTree.length}）与提交时记录的暂存数（${proof.stagedCount}）不一致`)
+  // 提交面与记录一致：整条链的文件合计 == 证明里记的暂存面；任何一次提交都不许带 audit-evidence
+  const diffTree = chain.flatMap((c) => git(['diff-tree', '--no-commit-id', '--name-status', '-r', c]).stdout.split(/\r?\n/).filter(Boolean))
+  eq(diffTree.length, proof.stagedCount, `A08 · 提交链文件合计（${diffTree.length}）与记录（${proof.stagedCount}）不一致`)
   const bad = diffTree.filter((l) => /audit-evidence\//.test(l))
   eq(bad.length, 0, `A08 · 提交里带了 audit-evidence：${bad.slice(0, 3).join(' | ')}`)
-  return { note: `唯一提交 ${proof.head.slice(0, 12)}（父 ${proof.parents[0].slice(0, 12)}），${diffTree.length} 个文件，未 push` }
+  return { note: `提交链 ${chain.length} 次（首个父提交 = 基线）· HEAD ${proof.head.slice(0, 12)} · 合计 ${diffTree.length} 个文件 · 工作树干净 · 未 push` }
 }
 
 /* ══════════════════════════════════════════════════════════════════════
