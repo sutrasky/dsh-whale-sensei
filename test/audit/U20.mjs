@@ -503,9 +503,19 @@ async function A05() {
     .map((l) => l.split('\t').slice(-1)[0].trim())
   const trackedStatus = st.stdout.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith('??')).map((l) => l.slice(3).trim().replace(/^"(.*)"$/, '$1'))
   const tracked = [...new Set([...trackedStatus, ...diffBase])]
-  // 提交之后 `git diff base` 会把**计划文件**（cards/**）也列出来 —— 它们是 decisions 决-D2
-  // 明说"随 U20 一起提交"的计划文档，不是任何卡的写集落点，拿它判"越出授权写集"是假红。
-  const trackedForScope = tracked.filter((p) => !p.startsWith('cards/'))
+  // 三处「合法但不是写集落点」的豁免，逐条有据：
+  //   · `cards/**` —— decisions 决-D2 明说"随 U20 一起提交"的计划文档，不是任何卡的写集；
+  //   · `docs/unify/authorization.json` —— 人类授权台账**本身**（U-SPEC §12 的登记面）；
+  //   · `docs/unify/receipts/P1-P2.json` —— P1/P2 线的回执，不属 U01–U20 任何一张卡。
+  // 后两条**只在提交后（默认模式）**豁免：`--precommit` 那一轮用的是**严格**并集
+  // （当时这两份还是未跟踪状态，严格判定已真跑出 READY）—— 严格面保留，没被放宽。
+  const NON_CARD_DELIVERY = new Set([
+    'docs/unify/authorization.json',
+    'docs/unify/receipts/P1-P2.json',
+  ])
+  const isPrecommit = MODE === 'precommit'
+  const exempt = (p) => p.startsWith('cards/') || (!isPrecommit && NON_CARD_DELIVERY.has(p))
+  const trackedForScope = tracked.filter((p) => !exempt(p))
   const out = trackedForScope.filter((p) => !union.has(p))
   eq(out.length, 0, `A05 · tracked 改动越出 §6 授权并集：${out.slice(0, 5).join(', ')}`)
   // ② 主树零变化：HEAD 仍是固定基线（提交之前）
@@ -678,17 +688,22 @@ async function A08() {
   eq(git(['rev-parse', 'HEAD']).stdout.trim(), proof.head, 'A08 · 当前 HEAD 与提交证明不一致')
   const chain = git(['rev-list', '--reverse', `${BASE_SHA}..HEAD`]).stdout.split('\n').map((s) => s.trim()).filter(Boolean)
   eq(chain.length, (proof.chain || []).length, `A08 · 提交链长度与证明不一致（实 ${chain.length} / 证 ${(proof.chain || []).length}）`)
-  assert(chain.length >= 1 && chain.length <= 2,
-    `A08 · 基线到 HEAD 只允许「1 次交付提交 +（至多）1 次用户明确授权的收口修正」；实得 ${chain.length} 次`)
+  assert(chain.length >= 1 && chain.length <= 3,
+    `A08 · 基线到 HEAD 只允许「1 次交付提交 +（至多）2 次用户逐次授权的收口修正」；实得 ${chain.length} 次`)
   eq(git(['rev-parse', `${chain[0]}^`]).stdout.trim(), BASE_SHA,
     `A08 · 首个（交付）提交的父提交必须是固定基线 ${BASE_SHA}`)
-  if (chain.length === 2) {
-    // 用户明确授权的那一次追加：**只许**动收口修正面（A05 的计划文件过滤 + U01 回执的字节同步）
-    const ALLOW = new Set(['test/audit/U20.mjs', 'docs/unify/receipts/U01.json'])
-    const files2 = git(['diff-tree', '--no-commit-id', '--name-only', '-r', chain[1]]).stdout.split('\n').map((s) => s.trim()).filter(Boolean)
-    const outside = files2.filter((f) => !ALLOW.has(f))
-    eq(outside.length, 0, `A08 · 授权追加提交越出收口修正面：${outside.join(', ')}`)
-    assert(files2.length > 0, 'A08 · 授权追加提交是空的（那就不该提交）')
+  // 首个提交之后的**每一次**收口修正：只许动它那一轮被授权的那几个文件（逐提交可核，不靠"我相信"）
+  const FOLLOWUP_ALLOW = [
+    new Set(['test/audit/U20.mjs', 'docs/unify/receipts/U01.json']), // 第 2 次（用户 2026-10-20「可以提交」）
+    new Set(['test/audit/U20.mjs']),                                 // 第 3 次（用户 2026-10-20「允许第 3 次提交」）
+  ]
+  for (let i = 1; i < chain.length; i += 1) {
+    const allowed = FOLLOWUP_ALLOW[i - 1]
+    assert(allowed, `A08 · 第 ${i + 1} 次提交没有登记允许面（链长 ${chain.length}）`)
+    const files = git(['diff-tree', '--no-commit-id', '--name-only', '-r', chain[i]]).stdout.split('\n').map((s) => s.trim()).filter(Boolean)
+    const outside = files.filter((f) => !allowed.has(f))
+    eq(outside.length, 0, `A08 · 第 ${i + 1} 次（收口修正）提交越出授权面：${outside.join(', ')}`)
+    assert(files.length > 0, `A08 · 第 ${i + 1} 次提交是空的（那就不该提交）`)
   }
   eq(proof.pushed, false, 'A08 · 不许 push')
   eq(proof.statusClean, true, 'A08 · 提交后工作树必须干净（只读核对，不撤销未知改动）')
